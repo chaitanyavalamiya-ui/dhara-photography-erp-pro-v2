@@ -5,11 +5,11 @@
 | Item | Value |
 |------|-------|
 | Project Name | Dhara Photography ERP Pro V2 |
-| Version | 2.0 |
+| Version | 2.1 |
 | Status | Planning |
 | Owner | Dhara Photography |
 | Technology | React + Vite + Node.js + PostgreSQL |
-| Architecture | Modular ERP |
+| Architecture | Modular Enterprise ERP |
 | Documentation | Markdown |
 
 ---
@@ -19,6 +19,8 @@
 Build a commercial-grade Photography ERP capable of managing the complete business lifecycle of a photography studio.
 
 The ERP must support long-term business operations without requiring code rewrites for business configuration changes.
+
+The platform should be scalable, secure, AI-ready and suitable for commercial white-label deployment.
 
 ---
 
@@ -37,6 +39,9 @@ The ERP must support long-term business operations without requiring code rewrit
 - Anniversary & Birthday Reminder
 - Project Archive
 - Analytics Dashboard
+- Mobile Application
+- AI Assistant
+- White Label Support
 
 ---
 
@@ -46,17 +51,21 @@ The ERP must support long-term business operations without requiring code rewrit
 
 All prices, services, packages, staff roles, equipment types and business settings must come from the database.
 
+Every configurable value must be managed from Master Settings.
+
 ---
 
 ## No Delete Policy
 
 Business data must never be permanently deleted.
 
-Instead use:
+Instead use
 
 - Archive
 - Inactive
 - Closed
+
+The system should maintain complete historical records.
 
 ---
 
@@ -72,6 +81,8 @@ Example
 - Equipment Issued
 - Equipment Returned
 - Project Locked
+- User Login
+- Settings Changed
 
 ---
 
@@ -81,11 +92,13 @@ The ERP must safely store business records for more than 10 years.
 
 Historical projects must always remain searchable.
 
+Archived data should remain accessible to authorized users.
+
 ---
 
 ## Dynamic Business Configuration
 
-Owner should be able to change:
+Owner should be able to change
 
 - Prices
 - Packages
@@ -95,8 +108,28 @@ Owner should be able to change:
 - Payment Modes
 - Taxes
 - Discount Rules
+- AI Configuration
+- Branding
 
-without changing code.
+without changing application code.
+
+---
+
+# White Label Ready
+
+The ERP must support white-label deployment.
+
+Every customer should be able to customize
+
+- Company Name
+- Logo
+- Theme
+- Brand Colors
+- AI Name
+- AI Avatar
+- Mobile App Branding
+
+without modifying source code.
 
 ---
 
@@ -115,6 +148,14 @@ without changing code.
 - Accounts
 - Reports
 - CRM
+- Gallery
+- Calendar
+- Notifications
+- Vendors
+- Expenses
+- Marketing
+- Mobile Application
+- AI Assistant
 - Settings
 
 ---
@@ -125,6 +166,8 @@ The software must always follow business rules defined in documentation.
 
 Business rules have higher priority than implementation.
 
+No module should violate documented business rules.
+
 ---
 
 # Coding Rules
@@ -133,9 +176,89 @@ Business rules have higher priority than implementation.
 - Modular Structure
 - Clean Code
 - Responsive UI
-- Dark Theme
-- Premium Design
+- Premium UI/UX
+- Dark Theme Support
 - No Duplicate Logic
+- Secure APIs
+- Configurable Business Rules
+
+---
+
+# Security Principles
+
+The ERP must protect all business information.
+
+Security Requirements
+
+- Role Based Access Control
+- Secure Authentication
+- Activity Logging
+- Permission Validation
+- Session Management
+- Data Encryption
+
+Security rules apply to every module.
+
+---
+
+# AI Ready Architecture
+
+The ERP architecture must support enterprise AI integration.
+
+The AI Assistant should provide
+
+- Business Insights
+- Smart Search
+- Report Assistance
+- Workflow Suggestions
+- Business Analytics
+- Calendar Assistance
+- Task Assistance
+
+The AI Assistant should provide recommendations only.
+
+Final business decisions should always remain with authorized users.
+
+---
+
+# Module Integration
+
+All ERP modules should remain interconnected.
+
+Changes in one module should automatically synchronize
+with related modules whenever applicable.
+
+Example
+
+Booking
+
+↓
+
+Accounts
+
+↓
+
+Calendar
+
+↓
+
+Tasks
+
+↓
+
+Notifications
+
+↓
+
+Reports
+
+↓
+
+Dashboard
+
+↓
+
+AI Assistant
 
 ---
 
@@ -152,6 +275,9 @@ Examples
 - Online Booking
 - Cloud Backup
 - Multi Branch Support
+- Multi Company Support
+- API Integrations
+- Enterprise Analytics
 
 ---
 

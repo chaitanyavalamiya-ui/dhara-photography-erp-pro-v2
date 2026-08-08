@@ -1,0 +1,28 @@
+{
+  "name": "@dhara/database",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dhara Photography ERP Pro V2 — database package (Prisma)",
+  "scripts": {
+    "db:generate": "dotenv -e ../.env -- prisma generate --schema=./schema/prisma/schema.prisma",
+    "db:migrate": "dotenv -e ../.env -- prisma migrate dev --schema=./schema/prisma/schema.prisma",
+    "db:migrate:deploy": "dotenv -e ../.env -- prisma migrate deploy --schema=./schema/prisma/schema.prisma",
+    "db:seed": "dotenv -e ../.env -- tsx seeds/seed.ts",
+    "db:validate": "dotenv -e ../.env -- prisma validate --schema=./schema/prisma/schema.prisma",
+    "db:studio": "dotenv -e ../.env -- prisma studio --schema=./schema/prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^8.0.0",
+    "prisma": "^6.2.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "prisma": {
+    "seed": "tsx seeds/seed.ts"
+  }
+}

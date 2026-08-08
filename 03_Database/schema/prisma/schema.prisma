@@ -1,0 +1,413 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["master", "transaction", "audit", "system"]
+}
+
+// ─── master schema ───────────────────────────────────────────────────────────
+
+model Company {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  code         String
+  isActive     Boolean   @default(true) @map("is_active")
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById String?   @map("archived_by_id") @db.Uuid
+  archivedReason String? @map("archived_reason")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById  String?   @map("created_by") @db.Uuid
+  updatedById  String?   @map("updated_by") @db.Uuid
+
+  branches    CompanyBranch[]
+  roles       Role[]
+  permissions Permission[]
+  users       User[]
+  masterData  MasterData[]
+  clients     Client[]
+  bookings    Booking[]
+  invoices    Invoice[]
+  payments    Payment[]
+  auditLogs   AuditLog[]
+
+  @@unique([code])
+  @@map("companies")
+  @@schema("master")
+}
+
+model CompanyBranch {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  name         String
+  code         String
+  isActive     Boolean   @default(true) @map("is_active")
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById String?   @map("archived_by_id") @db.Uuid
+  archivedReason String? @map("archived_reason")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById  String?   @map("created_by") @db.Uuid
+  updatedById  String?   @map("updated_by") @db.Uuid
+
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  primaryClients Client[] @relation("primary_client_branch")
+  clientBranches ClientBranch[]
+  bookings       Booking[]
+  invoices       Invoice[]
+  payments       Payment[]
+
+  @@unique([companyId, code])
+  @@index([companyId, isActive])
+  @@map("company_branches")
+  @@schema("master")
+}
+
+model Role {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  code           String
+  name           String
+  description    String?
+  hierarchyRank  Int       @map("hierarchy_rank")
+  isSystem       Boolean   @default(false) @map("is_system")
+  isActive       Boolean   @default(true) @map("is_active")
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById   String?   @map("archived_by_id") @db.Uuid
+  archivedReason String?   @map("archived_reason")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById    String?   @map("created_by") @db.Uuid
+  updatedById    String?   @map("updated_by") @db.Uuid
+
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  permissions RolePermission[]
+  userRoles   UserRole[]
+  defaultUsers User[]          @relation("default_role")
+
+  @@unique([companyId, code])
+  @@map("roles")
+  @@schema("master")
+}
+
+model Permission {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  code           String
+  module         String
+  action         String
+  description    String?
+  isActive       Boolean   @default(true) @map("is_active")
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById   String?   @map("archived_by_id") @db.Uuid
+  archivedReason String?   @map("archived_reason")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById    String?   @map("created_by") @db.Uuid
+  updatedById    String?   @map("updated_by") @db.Uuid
+
+  company Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  roles   RolePermission[]
+
+  @@unique([companyId, code])
+  @@unique([companyId, module, action])
+  @@map("permissions")
+  @@schema("master")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid()) @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  scope        String   @default("ALL")
+  isGranted    Boolean  @default(true) @map("is_granted")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById  String?  @map("created_by") @db.Uuid
+  updatedById  String?  @map("updated_by") @db.Uuid
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+  @@schema("master")
+}
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  defaultRoleId   String?   @map("default_role_id") @db.Uuid
+  fullName        String    @map("full_name")
+  email           String    @map("email")
+  normalizedEmail String    @map("normalized_email")
+  passwordHash    String    @map("password_hash")
+  isActive        Boolean   @default(true) @map("is_active")
+  archivedAt      DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById    String?   @map("archived_by_id") @db.Uuid
+  archivedReason  String?   @map("archived_reason")
+  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById     String?   @map("created_by") @db.Uuid
+  updatedById     String?   @map("updated_by") @db.Uuid
+
+  company      Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  defaultRole  Role?          @relation("default_role", fields: [defaultRoleId], references: [id], onDelete: Restrict)
+  userRoles    UserRole[]
+  refreshTokens RefreshToken[]
+  auditLogs    AuditLog[]
+
+  @@unique([companyId, normalizedEmail])
+  @@index([companyId, isActive])
+  @@map("users")
+  @@schema("master")
+}
+
+model UserRole {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  roleId      String   @map("role_id") @db.Uuid
+  isPrimary   Boolean  @default(false) @map("is_primary")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById String?  @map("created_by") @db.Uuid
+  updatedById String?  @map("updated_by") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+  @@schema("master")
+}
+
+model MasterData {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  category       String
+  code           String
+  label          String
+  sortOrder      Int       @default(0) @map("sort_order")
+  metadata       Json?
+  isActive       Boolean   @default(true) @map("is_active")
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById   String?   @map("archived_by_id") @db.Uuid
+  archivedReason String?   @map("archived_reason")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById    String?   @map("created_by") @db.Uuid
+  updatedById    String?   @map("updated_by") @db.Uuid
+
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  clientStatuses Client[]  @relation("client_status")
+  bookingStatuses Booking[] @relation("booking_status")
+  paymentModes   Payment[] @relation("payment_mode")
+
+  @@unique([companyId, category, code])
+  @@index([companyId, category, isActive])
+  @@map("master_data")
+  @@schema("master")
+}
+
+// ─── transaction schema ──────────────────────────────────────────────────────
+
+model Client {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  primaryBranchId String    @map("primary_branch_id") @db.Uuid
+  clientNumber    String    @map("client_number")
+  fullName        String    @map("full_name")
+  mobile          String
+  normalizedMobile String   @map("normalized_mobile")
+  email           String?
+  normalizedEmail String?   @map("normalized_email")
+  statusId        String?   @map("status_id") @db.Uuid
+  isActive        Boolean   @default(true) @map("is_active")
+  archivedAt      DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById    String?   @map("archived_by_id") @db.Uuid
+  archivedReason  String?   @map("archived_reason")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById     String?   @map("created_by") @db.Uuid
+  updatedById     String?   @map("updated_by") @db.Uuid
+
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  primaryBranch CompanyBranch @relation("primary_client_branch", fields: [primaryBranchId], references: [id], onDelete: Restrict)
+  status        MasterData?   @relation("client_status", fields: [statusId], references: [id], onDelete: Restrict)
+  branches      ClientBranch[]
+  bookings      Booking[]
+  invoices      Invoice[]
+  payments      Payment[]
+
+  @@unique([companyId, clientNumber])
+  @@unique([companyId, normalizedMobile])
+  @@index([companyId, fullName])
+  @@index([companyId, primaryBranchId, isActive])
+  @@map("clients")
+  @@schema("transaction")
+}
+
+model ClientBranch {
+  id          String   @id @default(uuid()) @db.Uuid
+  clientId    String   @map("client_id") @db.Uuid
+  branchId    String   @map("branch_id") @db.Uuid
+  isPrimary   Boolean  @default(false) @map("is_primary")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById String?  @map("created_by") @db.Uuid
+  updatedById String?  @map("updated_by") @db.Uuid
+
+  client Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  branch CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@unique([clientId, branchId])
+  @@index([branchId, clientId])
+  @@map("client_branches")
+  @@schema("transaction")
+}
+
+model Booking {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  branchId       String    @map("branch_id") @db.Uuid
+  clientId       String    @map("client_id") @db.Uuid
+  bookingNumber  String    @map("booking_number")
+  statusId       String    @map("status_id") @db.Uuid
+  eventDate      DateTime? @map("event_date") @db.Timestamptz(6)
+  totalAmount    Decimal   @default(0) @map("total_amount") @db.Decimal(14, 2)
+  isActive       Boolean   @default(true) @map("is_active")
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById   String?   @map("archived_by_id") @db.Uuid
+  archivedReason String?   @map("archived_reason")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById    String?   @map("created_by") @db.Uuid
+  updatedById    String?   @map("updated_by") @db.Uuid
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branch   CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  client   Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  status   MasterData    @relation("booking_status", fields: [statusId], references: [id], onDelete: Restrict)
+  invoices Invoice[]
+  payments Payment[]
+
+  @@unique([companyId, bookingNumber])
+  @@index([branchId, eventDate])
+  @@index([clientId, eventDate])
+  @@map("bookings")
+  @@schema("transaction")
+}
+
+model Invoice {
+  id                String    @id @default(uuid()) @db.Uuid
+  companyId         String    @map("company_id") @db.Uuid
+  branchId          String    @map("branch_id") @db.Uuid
+  clientId          String    @map("client_id") @db.Uuid
+  bookingId         String    @map("booking_id") @db.Uuid
+  invoiceNumber     String    @map("invoice_number")
+  totalAmount       Decimal   @default(0) @map("total_amount") @db.Decimal(14, 2)
+  outstandingAmount Decimal   @default(0) @map("outstanding_amount") @db.Decimal(14, 2)
+  isActive          Boolean   @default(true) @map("is_active")
+  archivedAt        DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById      String?   @map("archived_by_id") @db.Uuid
+  archivedReason    String?   @map("archived_reason")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById       String?   @map("created_by") @db.Uuid
+  updatedById       String?   @map("updated_by") @db.Uuid
+
+  company  Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branch   CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  client   Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  booking  Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  @@unique([companyId, invoiceNumber])
+  @@index([branchId, isActive])
+  @@index([clientId, isActive])
+  @@map("invoices")
+  @@schema("transaction")
+}
+
+model Payment {
+  id                   String    @id @default(uuid()) @db.Uuid
+  companyId            String    @map("company_id") @db.Uuid
+  branchId             String    @map("branch_id") @db.Uuid
+  clientId             String    @map("client_id") @db.Uuid
+  bookingId            String    @map("booking_id") @db.Uuid
+  invoiceId            String    @map("invoice_id") @db.Uuid
+  paymentModeId        String    @map("payment_mode_id") @db.Uuid
+  receiptNumber        String?   @map("receipt_number")
+  amount               Decimal   @db.Decimal(14, 2)
+  paymentDate          DateTime  @map("payment_date") @db.Timestamptz(6)
+  transactionReference String?   @map("transaction_reference")
+  isActive             Boolean   @default(true) @map("is_active")
+  archivedAt           DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById         String?   @map("archived_by_id") @db.Uuid
+  archivedReason       String?   @map("archived_reason")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById          String?   @map("created_by") @db.Uuid
+  updatedById          String?   @map("updated_by") @db.Uuid
+
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branch      CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  paymentMode MasterData    @relation("payment_mode", fields: [paymentModeId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, receiptNumber])
+  @@index([branchId, paymentDate])
+  @@index([invoiceId, paymentDate])
+  @@map("payments")
+  @@schema("transaction")
+}
+
+// ─── audit schema ────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  actorUserId   String?  @map("actor_user_id") @db.Uuid
+  module        String
+  action        String
+  recordType    String   @map("record_type")
+  recordId      String   @map("record_id") @db.Uuid
+  previousValue Json?    @map("previous_value")
+  newValue      Json?    @map("new_value")
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  actorUser User?   @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, recordType, recordId, createdAt])
+  @@index([companyId, actorUserId, createdAt])
+  @@map("audit_logs")
+  @@schema("audit")
+}
+
+// ─── system schema ───────────────────────────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+  @@schema("system")
+}

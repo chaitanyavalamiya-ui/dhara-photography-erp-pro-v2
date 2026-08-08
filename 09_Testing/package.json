@@ -1,0 +1,14 @@
+{
+  "name": "@dhara/testing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dhara Photography ERP Pro V2 — integration test utilities",
+  "scripts": {
+    "test": "echo \"Integration tests will be added in Phase 1\" && exit 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}

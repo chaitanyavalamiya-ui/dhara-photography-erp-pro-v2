@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dhara-erp-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dhara}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_local_env}
+      POSTGRES_DB: ${POSTGRES_DB:-dhara_erp}
+    volumes:
+      - dhara_postgres_data:/var/lib/postgresql/data
+      - ./03_Database/scripts/init-schemas.sql:/docker-entrypoint-initdb.d/01-init-schemas.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dhara} -d ${POSTGRES_DB:-dhara_erp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  dhara_postgres_data:

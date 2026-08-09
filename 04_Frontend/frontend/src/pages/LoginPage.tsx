@@ -9,7 +9,11 @@ import { useAuthStore } from '@/stores/auth-store';
 import { authService } from '@/services/auth-service';
 
 const loginSchema = z.object({
-  email: z.string().email('Enter a valid email address'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'Email is required')
+    .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
@@ -94,7 +98,8 @@ export function LoginPage() {
               </label>
               <input
                 id="email"
-                type="email"
+                type="text"
+                inputMode="email"
                 autoComplete="email"
                 className="input-field"
                 placeholder="admin@dharaphotography.local"

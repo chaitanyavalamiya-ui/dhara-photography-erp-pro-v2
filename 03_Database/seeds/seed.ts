@@ -30,6 +30,10 @@ const PERMISSIONS = [
   { code: 'invoices.update', module: 'invoices', action: 'update' },
   { code: 'payments.read', module: 'payments', action: 'read' },
   { code: 'payments.create', module: 'payments', action: 'create' },
+  { code: 'payments.update', module: 'payments', action: 'update' },
+  { code: 'expenses.read', module: 'expenses', action: 'read' },
+  { code: 'expenses.create', module: 'expenses', action: 'create' },
+  { code: 'expenses.update', module: 'expenses', action: 'update' },
   { code: 'settings.read', module: 'settings', action: 'read' },
   { code: 'settings.update', module: 'settings', action: 'update' },
   { code: 'users.read', module: 'users', action: 'read' },
@@ -46,7 +50,8 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'clients.read', 'clients.create', 'clients.update',
     'bookings.read', 'bookings.create', 'bookings.update',
     'invoices.read', 'invoices.create', 'invoices.update',
-    'payments.read', 'payments.create',
+    'payments.read', 'payments.create', 'payments.update',
+    'expenses.read', 'expenses.create', 'expenses.update',
     'settings.read',
   ],
   staff: [
@@ -55,6 +60,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'bookings.read', 'bookings.create',
     'invoices.read',
     'payments.read', 'payments.create',
+    'expenses.read', 'expenses.create',
   ],
   viewer: [
     'dashboard.read',
@@ -62,6 +68,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'bookings.read',
     'invoices.read',
     'payments.read',
+    'expenses.read',
     'settings.read',
   ],
 };
@@ -145,11 +152,32 @@ async function main(): Promise<void> {
     { category: 'client_status', code: 'active', label: 'Active' },
     { category: 'client_status', code: 'inactive', label: 'Inactive' },
     { category: 'booking_status', code: 'draft', label: 'Draft' },
+    { category: 'booking_status', code: 'enquiry', label: 'Enquiry' },
     { category: 'booking_status', code: 'confirmed', label: 'Confirmed' },
     { category: 'booking_status', code: 'completed', label: 'Completed' },
+    { category: 'booking_status', code: 'cancelled', label: 'Cancelled' },
     { category: 'payment_mode', code: 'cash', label: 'Cash' },
     { category: 'payment_mode', code: 'upi', label: 'UPI' },
     { category: 'payment_mode', code: 'bank_transfer', label: 'Bank Transfer' },
+    { category: 'payment_mode', code: 'card', label: 'Card' },
+    { category: 'payment_mode', code: 'cheque', label: 'Cheque' },
+    { category: 'payment_mode', code: 'other', label: 'Other' },
+    { category: 'expense_category', code: 'staff', label: 'Staff' },
+    { category: 'expense_category', code: 'travel', label: 'Travel' },
+    { category: 'expense_category', code: 'food', label: 'Food' },
+    { category: 'expense_category', code: 'equipment', label: 'Equipment' },
+    { category: 'expense_category', code: 'album_printing', label: 'Album Printing' },
+    { category: 'expense_category', code: 'printing', label: 'Printing' },
+    { category: 'expense_category', code: 'fuel', label: 'Fuel' },
+    { category: 'expense_category', code: 'venue', label: 'Venue' },
+    { category: 'expense_category', code: 'drone', label: 'Drone' },
+    { category: 'expense_category', code: 'camera_rental', label: 'Camera/Equipment Rental' },
+    { category: 'expense_category', code: 'editing', label: 'Editing' },
+    { category: 'expense_category', code: 'electricity', label: 'Electricity' },
+    { category: 'expense_category', code: 'internet', label: 'Internet' },
+    { category: 'expense_category', code: 'marketing', label: 'Marketing' },
+    { category: 'expense_category', code: 'office', label: 'Office' },
+    { category: 'expense_category', code: 'other', label: 'Other' },
   ];
 
   for (const entry of masterDataEntries) {
@@ -167,6 +195,51 @@ async function main(): Promise<void> {
         category: entry.category,
         code: entry.code,
         label: entry.label,
+      },
+    });
+  }
+
+  const serviceRateEntries = [
+    { code: 'photography', name: 'Photography', category: 'service', defaultRate: 5000, unit: 'day', sortOrder: 1 },
+    { code: 'videography', name: 'Videography', category: 'service', defaultRate: 5000, unit: 'day', sortOrder: 2 },
+    { code: 'cinematic_video', name: 'Cinematic Video', category: 'service', defaultRate: 8000, unit: 'piece', sortOrder: 3 },
+    { code: 'drone', name: 'Drone', category: 'service', defaultRate: 9000, unit: 'day', sortOrder: 4 },
+    { code: 'poster', name: 'Poster', category: 'service', defaultRate: 1000, unit: 'piece', sortOrder: 5 },
+    { code: 'led_wall_photo_frame', name: 'LED Wall / Photo Frame', category: 'service', defaultRate: 1000, unit: 'piece', sortOrder: 6 },
+    { code: 'live_streaming', name: 'Live Streaming', category: 'service', defaultRate: 10000, unit: 'piece', sortOrder: 7 },
+    { code: 'reel', name: 'Reel', category: 'service', defaultRate: 3000, unit: 'piece', sortOrder: 8 },
+    { code: 'standard_album', name: 'Standard Album', category: 'album', defaultRate: 20000, unit: 'piece', sortOrder: 9 },
+    { code: 'premium_album', name: 'Premium Album', category: 'album', defaultRate: 30000, unit: 'piece', sortOrder: 10 },
+    { code: 'luxury_album', name: 'Luxury Album', category: 'album', defaultRate: 40000, unit: 'piece', sortOrder: 11 },
+    { code: 'royal_album', name: 'Royal Album', category: 'album', defaultRate: 50000, unit: 'piece', sortOrder: 12 },
+    { code: 'mini_album', name: 'Mini Album', category: 'album', defaultRate: 2500, unit: 'piece', sortOrder: 13 },
+    { code: 'calendar', name: 'Calendar', category: 'service', defaultRate: 500, unit: 'piece', sortOrder: 14 },
+    { code: 'soft_copy', name: 'Soft Copy', category: 'service', defaultRate: 1000, unit: 'piece', sortOrder: 15 },
+  ];
+
+  for (const rate of serviceRateEntries) {
+    await prisma.serviceRate.upsert({
+      where: {
+        companyId_code: {
+          companyId: company.id,
+          code: rate.code,
+        },
+      },
+      update: {
+        name: rate.name,
+        category: rate.category,
+        defaultRate: rate.defaultRate,
+        unit: rate.unit,
+        sortOrder: rate.sortOrder,
+      },
+      create: {
+        companyId: company.id,
+        code: rate.code,
+        name: rate.name,
+        category: rate.category,
+        defaultRate: rate.defaultRate,
+        unit: rate.unit,
+        sortOrder: rate.sortOrder,
       },
     });
   }

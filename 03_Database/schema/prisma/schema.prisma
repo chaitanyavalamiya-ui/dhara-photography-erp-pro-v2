@@ -28,10 +28,12 @@ model Company {
   permissions Permission[]
   users       User[]
   masterData  MasterData[]
+  serviceRates ServiceRate[]
   clients     Client[]
   bookings    Booking[]
   invoices    Invoice[]
   payments    Payment[]
+  expenses    Expense[]
   auditLogs   AuditLog[]
 
   @@unique([code])
@@ -59,6 +61,7 @@ model CompanyBranch {
   bookings       Booking[]
   invoices       Invoice[]
   payments       Payment[]
+  expenses       Expense[]
 
   @@unique([companyId, code])
   @@index([companyId, isActive])
@@ -206,11 +209,35 @@ model MasterData {
   company        Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
   clientStatuses Client[]  @relation("client_status")
   bookingStatuses Booking[] @relation("booking_status")
-  paymentModes   Payment[] @relation("payment_mode")
+  paymentModes        Payment[]  @relation("payment_mode")
+  expenseCategories   Expense[]  @relation("expense_category")
+  expensePaymentModes Expense[]  @relation("expense_payment_mode")
 
   @@unique([companyId, category, code])
   @@index([companyId, category, isActive])
   @@map("master_data")
+  @@schema("master")
+}
+
+model ServiceRate {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  code        String
+  name        String
+  category    String   @default("service")
+  defaultRate Decimal  @map("default_rate") @db.Decimal(14, 2)
+  unit        String   @default("day")
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  bookingItems BookingItem[]
+
+  @@unique([companyId, code])
+  @@index([companyId, category, isActive])
+  @@map("service_rates")
   @@schema("master")
 }
 
@@ -226,6 +253,13 @@ model Client {
   normalizedMobile String   @map("normalized_mobile")
   email           String?
   normalizedEmail String?   @map("normalized_email")
+  whatsapp           String?
+  normalizedWhatsapp String?   @map("normalized_whatsapp")
+  address            String?
+  city               String?
+  dateOfBirth        DateTime? @map("date_of_birth") @db.Date
+  anniversaryDate    DateTime? @map("anniversary_date") @db.Date
+  notes              String?   @db.Text
   statusId        String?   @map("status_id") @db.Uuid
   isActive        Boolean   @default(true) @map("is_active")
   archivedAt      DateTime? @map("archived_at") @db.Timestamptz(6)
@@ -243,11 +277,16 @@ model Client {
   bookings      Booking[]
   invoices      Invoice[]
   payments      Payment[]
+  expenses      Expense[]
 
   @@unique([companyId, clientNumber])
   @@unique([companyId, normalizedMobile])
   @@index([companyId, fullName])
   @@index([companyId, primaryBranchId, isActive])
+  @@index([companyId, city])
+  @@index([companyId, normalizedWhatsapp])
+  @@index([companyId, dateOfBirth])
+  @@index([companyId, anniversaryDate])
   @@map("clients")
   @@schema("transaction")
 }
@@ -277,9 +316,18 @@ model Booking {
   branchId       String    @map("branch_id") @db.Uuid
   clientId       String    @map("client_id") @db.Uuid
   bookingNumber  String    @map("booking_number")
+  eventType      String    @default("Other") @map("event_type")
   statusId       String    @map("status_id") @db.Uuid
   eventDate      DateTime? @map("event_date") @db.Timestamptz(6)
+  eventEndDate   DateTime? @map("event_end_date") @db.Timestamptz(6)
+  venue          String?
+  city           String?
+  notes          String?   @db.Text
+  subtotal       Decimal   @default(0) @db.Decimal(14, 2)
+  discount       Decimal   @default(0) @db.Decimal(14, 2)
   totalAmount    Decimal   @default(0) @map("total_amount") @db.Decimal(14, 2)
+  advanceAmount  Decimal   @default(0) @map("advance_amount") @db.Decimal(14, 2)
+  balanceAmount  Decimal   @default(0) @map("balance_amount") @db.Decimal(14, 2)
   isActive       Boolean   @default(true) @map("is_active")
   archivedAt     DateTime? @map("archived_at") @db.Timestamptz(6)
   archivedById   String?   @map("archived_by_id") @db.Uuid
@@ -293,13 +341,40 @@ model Booking {
   branch   CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
   client   Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
   status   MasterData    @relation("booking_status", fields: [statusId], references: [id], onDelete: Restrict)
+  items    BookingItem[]
   invoices Invoice[]
   payments Payment[]
+  expenses Expense[]
 
   @@unique([companyId, bookingNumber])
   @@index([branchId, eventDate])
   @@index([clientId, eventDate])
+  @@index([companyId, eventType])
+  @@index([companyId, statusId])
   @@map("bookings")
+  @@schema("transaction")
+}
+
+model BookingItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  bookingId     String   @map("booking_id") @db.Uuid
+  serviceRateId String?  @map("service_rate_id") @db.Uuid
+  serviceName   String   @map("service_name")
+  quantity      Decimal  @default(1) @db.Decimal(10, 2)
+  unit          String   @default("day")
+  rate          Decimal  @db.Decimal(14, 2)
+  days          Decimal  @default(1) @db.Decimal(10, 2)
+  amount        Decimal  @db.Decimal(14, 2)
+  notes         String?
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking     Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  serviceRate ServiceRate? @relation(fields: [serviceRateId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, sortOrder])
+  @@map("booking_items")
   @@schema("transaction")
 }
 
@@ -310,8 +385,15 @@ model Invoice {
   clientId          String    @map("client_id") @db.Uuid
   bookingId         String    @map("booking_id") @db.Uuid
   invoiceNumber     String    @map("invoice_number")
+  subtotal          Decimal   @default(0) @db.Decimal(14, 2)
+  discount          Decimal   @default(0) @db.Decimal(14, 2)
   totalAmount       Decimal   @default(0) @map("total_amount") @db.Decimal(14, 2)
+  advanceAmount     Decimal   @default(0) @map("advance_amount") @db.Decimal(14, 2)
   outstandingAmount Decimal   @default(0) @map("outstanding_amount") @db.Decimal(14, 2)
+  status            String    @default("unpaid")
+  invoiceDate       DateTime  @default(now()) @map("invoice_date") @db.Timestamptz(6)
+  dueDate           DateTime? @map("due_date") @db.Timestamptz(6)
+  notes             String?   @db.Text
   isActive          Boolean   @default(true) @map("is_active")
   archivedAt        DateTime? @map("archived_at") @db.Timestamptz(6)
   archivedById      String?   @map("archived_by_id") @db.Uuid
@@ -326,10 +408,13 @@ model Invoice {
   client   Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
   booking  Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   payments Payment[]
+  expenses Expense[]
 
   @@unique([companyId, invoiceNumber])
   @@index([branchId, isActive])
   @@index([clientId, isActive])
+  @@index([companyId, status])
+  @@index([companyId, invoiceDate])
   @@map("invoices")
   @@schema("transaction")
 }
@@ -346,6 +431,7 @@ model Payment {
   amount               Decimal   @db.Decimal(14, 2)
   paymentDate          DateTime  @map("payment_date") @db.Timestamptz(6)
   transactionReference String?   @map("transaction_reference")
+  notes                String?   @db.Text
   isActive             Boolean   @default(true) @map("is_active")
   archivedAt           DateTime? @map("archived_at") @db.Timestamptz(6)
   archivedById         String?   @map("archived_by_id") @db.Uuid
@@ -410,4 +496,45 @@ model RefreshToken {
   @@index([tokenHash])
   @@map("refresh_tokens")
   @@schema("system")
+}
+model Expense {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  branchId        String    @map("branch_id") @db.Uuid
+  categoryId      String    @map("category_id") @db.Uuid
+  clientId        String?   @map("client_id") @db.Uuid
+  bookingId       String?   @map("booking_id") @db.Uuid
+  invoiceId       String?   @map("invoice_id") @db.Uuid
+  description     String?
+  vendorPerson    String?   @map("vendor_person")
+  amount          Decimal   @db.Decimal(14, 2)
+  expenseDate     DateTime  @map("expense_date") @db.Timestamptz(6)
+  paymentModeId   String?   @map("payment_mode_id") @db.Uuid
+  referenceNumber String?   @map("reference_number")
+  notes           String?   @db.Text
+  isActive        Boolean   @default(true) @map("is_active")
+  archivedAt      DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById    String?   @map("archived_by_id") @db.Uuid
+  archivedReason  String?   @map("archived_reason")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById     String?   @map("created_by") @db.Uuid
+  updatedById     String?   @map("updated_by") @db.Uuid
+
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branch      CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  category    MasterData    @relation("expense_category", fields: [categoryId], references: [id], onDelete: Restrict)
+  client      Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  booking     Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  invoice     Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  paymentMode MasterData?   @relation("expense_payment_mode", fields: [paymentModeId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, expenseDate])
+  @@index([branchId, expenseDate])
+  @@index([categoryId, expenseDate])
+  @@index([bookingId, expenseDate])
+  @@index([clientId, expenseDate])
+  @@index([paymentModeId])
+  @@map("expenses")
+  @@schema("transaction")
 }

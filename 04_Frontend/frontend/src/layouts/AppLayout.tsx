@@ -18,20 +18,18 @@ import { cn } from '@/utils/cn';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.read' },
-  { to: '/clients', label: 'Clients', icon: Users, permission: 'clients.read', disabled: true },
+  { to: '/clients', label: 'Clients', icon: Users, permission: 'clients.read' },
   {
     to: '/bookings',
     label: 'Bookings',
     icon: BookOpen,
     permission: 'bookings.read',
-    disabled: true,
   },
   {
     to: '/calendar',
     label: 'Calendar',
     icon: CalendarDays,
     permission: 'bookings.read',
-    disabled: true,
   },
   { to: '/gallery', label: 'Gallery', icon: Image, permission: 'bookings.read', disabled: true },
   {
@@ -39,9 +37,8 @@ const navItems = [
     label: 'Invoices',
     icon: FileText,
     permission: 'invoices.read',
-    disabled: true,
   },
-  { to: '/accounts', label: 'Accounts', icon: Wallet, permission: 'payments.read', disabled: true },
+  { to: '/accounts', label: 'Accounts', icon: Wallet, permission: 'payments.read' },
   {
     to: '/reports',
     label: 'Reports',
@@ -54,7 +51,6 @@ const navItems = [
     label: 'Settings',
     icon: Settings,
     permission: 'settings.read',
-    disabled: true,
   },
 ];
 

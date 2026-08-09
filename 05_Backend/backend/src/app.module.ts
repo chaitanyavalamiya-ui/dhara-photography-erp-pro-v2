@@ -4,6 +4,13 @@ import { resolve } from 'path';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
+import { ClientsModule } from './clients/clients.module';
+import { BookingsModule } from './bookings/bookings.module';
+import { SettingsModule } from './settings/settings.module';
+import { InvoicesModule } from './invoices/invoices.module';
+import { PaymentsModule } from './payments/payments.module';
+import { ExpensesModule } from './expenses/expenses.module';
+import { AccountsModule } from './accounts/accounts.module';
 import { AuditModule } from './audit/audit.module';
 
 @Module({
@@ -20,6 +27,13 @@ import { AuditModule } from './audit/audit.module';
     AuditModule,
     HealthModule,
     AuthModule,
+    ClientsModule,
+    BookingsModule,
+    SettingsModule,
+    InvoicesModule,
+    PaymentsModule,
+    ExpensesModule,
+    AccountsModule,
   ],
 })
 export class AppModule {}

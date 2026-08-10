@@ -130,6 +130,23 @@ export const BOOKING_STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ] as const;
 
+function sanitizeBookingPayload<T extends BookingFormData | Partial<BookingFormData>>(payload: T): T {
+  const sanitized = { ...payload };
+  if (sanitized.eventEndDate === '') {
+    delete sanitized.eventEndDate;
+  }
+  if (sanitized.venue === '') {
+    delete sanitized.venue;
+  }
+  if (sanitized.city === '') {
+    delete sanitized.city;
+  }
+  if (sanitized.notes === '') {
+    delete sanitized.notes;
+  }
+  return sanitized;
+}
+
 export const bookingsService = {
   async list(params: ListBookingsParams = {}): Promise<PaginatedBookings> {
     const { data } = await apiClient.get<ApiResponse<PaginatedBookings>>('/bookings', { params });
@@ -154,12 +171,18 @@ export const bookingsService = {
   },
 
   async create(payload: BookingFormData): Promise<Booking> {
-    const { data } = await apiClient.post<ApiResponse<Booking>>('/bookings', payload);
+    const { data } = await apiClient.post<ApiResponse<Booking>>(
+      '/bookings',
+      sanitizeBookingPayload(payload),
+    );
     return data.data;
   },
 
   async update(id: string, payload: Partial<BookingFormData>): Promise<Booking> {
-    const { data } = await apiClient.patch<ApiResponse<Booking>>(`/bookings/${id}`, payload);
+    const { data } = await apiClient.patch<ApiResponse<Booking>>(
+      `/bookings/${id}`,
+      sanitizeBookingPayload(payload),
+    );
     return data.data;
   },
 

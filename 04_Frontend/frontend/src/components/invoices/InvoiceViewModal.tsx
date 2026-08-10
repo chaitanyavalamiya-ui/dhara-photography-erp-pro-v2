@@ -1,32 +1,53 @@
 import { useState } from 'react';
-import { Download, MessageCircle, Pencil, Printer, Share2, X } from 'lucide-react';
+import { Download, MessageCircle, Pencil, Plus, Printer, Share2, X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Invoice } from '@/services/invoices-service';
+import { paymentsService } from '@/services/payments-service';
 import { InvoiceDocument } from '@/components/invoices/InvoiceDocument';
+import { InvoicePaymentHistory } from '@/components/invoices/InvoicePaymentHistory';
 import { buildWhatsAppShareUrl, printInvoice } from '@/utils/invoice';
 import { downloadInvoicePdf } from '@/utils/invoice-pdf';
 
 interface InvoiceViewModalProps {
   open: boolean;
   invoice: Invoice | null;
+  loading?: boolean;
+  error?: boolean;
   canUpdate?: boolean;
+  canCreatePayment?: boolean;
   onClose: () => void;
   onEdit: (invoice: Invoice) => void;
+  onAddPayment?: (invoice: Invoice) => void;
 }
 
 export function InvoiceViewModal({
   open,
   invoice,
+  loading,
+  error,
   canUpdate,
+  canCreatePayment,
   onClose,
   onEdit,
+  onAddPayment,
 }: InvoiceViewModalProps) {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  if (!open || !invoice) return null;
+  const paymentsQuery = useQuery({
+    queryKey: ['payments', 'invoice', invoice?.id],
+    queryFn: () => paymentsService.list({ invoiceId: invoice!.id, limit: 100 }),
+    enabled: open && Boolean(invoice?.id),
+  });
 
-  const handlePrint = () => printInvoice('invoice-document-print');
+  if (!open) return null;
+
+  const handlePrint = () => {
+    if (!invoice) return;
+    printInvoice('invoice-document-print');
+  };
 
   const handleDownloadPdf = async () => {
+    if (!invoice) return;
     setIsDownloadingPdf(true);
     try {
       await downloadInvoicePdf('invoice-document-print', invoice.invoiceNumber);
@@ -34,7 +55,9 @@ export function InvoiceViewModal({
       setIsDownloadingPdf(false);
     }
   };
+
   const handleShare = async () => {
+    if (!invoice) return;
     const shareData = {
       title: `Invoice ${invoice.invoiceNumber}`,
       text: `Invoice ${invoice.invoiceNumber} — ${invoice.client.fullName}`,
@@ -56,6 +79,7 @@ export function InvoiceViewModal({
   };
 
   const handleWhatsApp = () => {
+    if (!invoice) return;
     window.open(buildWhatsAppShareUrl(invoice), '_blank', 'noopener,noreferrer');
   };
 
@@ -65,10 +89,22 @@ export function InvoiceViewModal({
         <div className="flex items-center justify-between gap-4 border-b border-surface-border px-6 py-4">
           <div>
             <p className="text-xs uppercase tracking-wider text-gray-500">Invoice Preview</p>
-            <h2 className="font-display text-xl font-semibold text-gold">{invoice.invoiceNumber}</h2>
+            <h2 className="font-display text-xl font-semibold text-gold">
+              {invoice?.invoiceNumber ?? 'Loading…'}
+            </h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {canUpdate && (
+            {invoice && canCreatePayment && invoice.balanceAmount > 0 && onAddPayment && (
+              <button
+                type="button"
+                className="btn-primary px-3 py-1.5 text-xs"
+                onClick={() => onAddPayment(invoice)}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Add Payment
+              </button>
+            )}
+            {invoice && canUpdate && (
               <button
                 type="button"
                 className="btn-secondary px-3 py-1.5 text-xs"
@@ -78,24 +114,39 @@ export function InvoiceViewModal({
                 Edit
               </button>
             )}
-            <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={handlePrint}>
+            <button
+              type="button"
+              className="btn-secondary px-3 py-1.5 text-xs"
+              disabled={!invoice}
+              onClick={handlePrint}
+            >
               <Printer className="mr-1.5 h-3.5 w-3.5" />
               Print
             </button>
             <button
               type="button"
               className="btn-secondary px-3 py-1.5 text-xs"
-              disabled={isDownloadingPdf}
+              disabled={!invoice || isDownloadingPdf}
               onClick={() => void handleDownloadPdf()}
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
               {isDownloadingPdf ? 'PDF…' : 'PDF'}
             </button>
-            <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={handleShare}>
+            <button
+              type="button"
+              className="btn-secondary px-3 py-1.5 text-xs"
+              disabled={!invoice}
+              onClick={() => void handleShare()}
+            >
               <Share2 className="mr-1.5 h-3.5 w-3.5" />
               Share
             </button>
-            <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={handleWhatsApp}>
+            <button
+              type="button"
+              className="btn-secondary px-3 py-1.5 text-xs"
+              disabled={!invoice}
+              onClick={handleWhatsApp}
+            >
               <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
               WhatsApp
             </button>
@@ -111,7 +162,26 @@ export function InvoiceViewModal({
         </div>
 
         <div className="flex-1 overflow-y-auto bg-gray-200/10 p-6">
-          <InvoiceDocument invoice={invoice} id="invoice-document-print" />
+          {loading && (
+            <div className="flex min-h-48 items-center justify-center text-gray-500">
+              Loading invoice...
+            </div>
+          )}
+          {error && !loading && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-8 text-center text-red-400">
+              Failed to load invoice details.
+            </div>
+          )}
+          {invoice && (
+            <div className="space-y-6">
+              <InvoiceDocument invoice={invoice} id="invoice-document-print" />
+              <InvoicePaymentHistory
+                payments={paymentsQuery.data?.items ?? []}
+                isLoading={paymentsQuery.isLoading}
+                isError={paymentsQuery.isError}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

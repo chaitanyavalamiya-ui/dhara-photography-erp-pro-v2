@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X } from 'lucide-react';
 import { bookingsService } from '@/services/bookings-service';
+import { invoicesService } from '@/services/invoices-service';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
 
 interface GenerateInvoiceModalProps {
   open: boolean;
   isSubmitting?: boolean;
-  existingBookingIds?: string[];
   onClose: () => void;
   onGenerate: (bookingId: string) => void;
 }
@@ -15,7 +15,6 @@ interface GenerateInvoiceModalProps {
 export function GenerateInvoiceModal({
   open,
   isSubmitting,
-  existingBookingIds = [],
   onClose,
   onGenerate,
 }: GenerateInvoiceModalProps) {
@@ -32,11 +31,32 @@ export function GenerateInvoiceModal({
     enabled: open,
   });
 
+  const invoicedBookingsQuery = useQuery({
+    queryKey: ['invoices', 'invoiced-booking-ids'],
+    queryFn: async () => {
+      const bookingIds: string[] = [];
+      let page = 1;
+      let totalPages = 1;
+
+      while (page <= totalPages) {
+        const result = await invoicesService.list({ limit: 100, status: 'all', page });
+        bookingIds.push(...result.items.map((invoice) => invoice.bookingId));
+        totalPages = result.totalPages;
+        page += 1;
+      }
+
+      return bookingIds;
+    },
+    enabled: open,
+  });
+
   if (!open) return null;
+
+  const existingBookingIds = new Set(invoicedBookingsQuery.data ?? []);
 
   const term = search.trim().toLowerCase();
   const bookings = (bookingsQuery.data?.items ?? []).filter((booking) => {
-    const alreadyInvoiced = existingBookingIds.includes(booking.id);
+    const alreadyInvoiced = existingBookingIds.has(booking.id);
     if (alreadyInvoiced) return false;
 
     if (!term) return true;
@@ -48,6 +68,9 @@ export function GenerateInvoiceModal({
       booking.eventType.toLowerCase().includes(term)
     );
   });
+
+  const isLoading = bookingsQuery.isLoading || invoicedBookingsQuery.isLoading;
+  const isError = bookingsQuery.isError || invoicedBookingsQuery.isError;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -80,8 +103,12 @@ export function GenerateInvoiceModal({
         </div>
 
         <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-surface-border">
-          {bookingsQuery.isLoading ? (
+          {isLoading ? (
             <div className="px-6 py-10 text-center text-sm text-gray-500">Loading bookings...</div>
+          ) : isError ? (
+            <div className="px-6 py-10 text-center text-sm text-red-400">
+              Failed to load bookings. Please try again.
+            </div>
           ) : bookings.length === 0 ? (
             <div className="px-6 py-10 text-center text-sm text-gray-500">
               No eligible bookings found. Bookings with existing invoices are hidden.
@@ -99,7 +126,10 @@ export function GenerateInvoiceModal({
               </thead>
               <tbody>
                 {bookings.map((booking) => (
-                  <tr key={booking.id} className="border-t border-surface-border hover:bg-white/[0.02]">
+                  <tr
+                    key={booking.id}
+                    className="border-t border-surface-border hover:bg-white/[0.02]"
+                  >
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-100">{booking.bookingNumber}</p>
                       <p className="text-xs text-gray-500">{formatDate(booking.eventDate)}</p>

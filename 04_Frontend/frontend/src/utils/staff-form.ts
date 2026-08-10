@@ -4,6 +4,7 @@ export const STAFF_ROLES = [
   { code: 'cinematographer', label: 'Cinematographer' },
   { code: 'editor', label: 'Editor' },
   { code: 'drone_operator', label: 'Drone Operator' },
+  { code: 'helper', label: 'Helper' },
   { code: 'album_designer', label: 'Album Designer' },
   { code: 'assistant', label: 'Assistant' },
   { code: 'driver', label: 'Driver' },

@@ -7,9 +7,6 @@ import { Invoice } from '@/services/invoices-service';
 import { formatCurrency } from '@/utils/booking-form';
 
 const editInvoiceSchema = z.object({
-  advanceAmount: z
-    .number({ invalid_type_error: 'Enter a valid amount' })
-    .min(0, 'Amount cannot be negative'),
   dueDate: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -43,7 +40,6 @@ export function EditInvoiceModal({
   useEffect(() => {
     if (open && invoice) {
       reset({
-        advanceAmount: invoice.advanceAmount,
         dueDate: invoice.dueDate ?? '',
         notes: invoice.notes ?? '',
       });
@@ -76,36 +72,29 @@ export function EditInvoiceModal({
             <p className="text-right font-medium text-gray-200">
               {formatCurrency(invoice.totalAmount)}
             </p>
-            <p>Current Balance</p>
+            <p>Paid</p>
+            <p className="text-right font-medium text-green-400">
+              {formatCurrency(invoice.advanceAmount)}
+            </p>
+            <p>Balance</p>
             <p className="text-right font-medium text-gold">
               {formatCurrency(invoice.balanceAmount)}
             </p>
           </div>
+          <p className="mt-3 text-xs text-gray-500">
+            Paid amounts are updated automatically when payments are recorded.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label htmlFor="advanceAmount" className="mb-1.5 block text-sm font-medium text-gray-300">
-              Advance Paid (₹)
-            </label>
-            <input
-              id="advanceAmount"
-              type="number"
-              min="0"
-              step="1"
-              className="input-field"
-              {...register('advanceAmount', { valueAsNumber: true })}
-            />
-            {errors.advanceAmount && (
-              <p className="mt-1 text-xs text-red-400">{errors.advanceAmount.message}</p>
-            )}
-          </div>
-
           <div>
             <label htmlFor="dueDate" className="mb-1.5 block text-sm font-medium text-gray-300">
               Due Date
             </label>
             <input id="dueDate" type="date" className="input-field" {...register('dueDate')} />
+            {errors.dueDate && (
+              <p className="mt-1 text-xs text-red-400">{errors.dueDate.message}</p>
+            )}
           </div>
 
           <div>

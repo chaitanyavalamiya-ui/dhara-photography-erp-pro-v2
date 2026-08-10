@@ -69,11 +69,34 @@ export function getMonthRange(year: number, month: number): { start: Date; end: 
   return { start, end };
 }
 
+/** Active bookings only — archived excluded, isActive required. */
+export const ACTIVE_BOOKING_FILTER = {
+  archivedAt: null,
+  isActive: true,
+} as const;
+
+/**
+ * Booking report period filter: event date must fall within the range (inclusive).
+ * Bookings with null eventDate are excluded from event-date-based reports.
+ */
+export function buildBookingEventDateWhere(period: {
+  start: Date;
+  end: Date;
+}): { eventDate: { gte: Date; lte: Date } } {
+  return {
+    eventDate: {
+      gte: period.start,
+      lte: period.end,
+    },
+  };
+}
+
 export type ReportDatePreset =
   | 'today'
   | 'this_week'
   | 'this_month'
   | 'last_month'
+  | 'this_year'
   | 'custom';
 
 export interface ReportDateRange {
@@ -148,6 +171,19 @@ export function resolveReportDateRange(
     return {
       preset,
       label: 'Last Month',
+      start,
+      end,
+      dateFrom: toDateLabel(start),
+      dateTo: toDateLabel(end),
+    };
+  }
+
+  if (preset === 'this_year') {
+    const start = new Date(Date.UTC(utcYear, 0, 1, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(utcYear, utcMonth, utcDate, 23, 59, 59, 999));
+    return {
+      preset,
+      label: 'This Year',
       start,
       end,
       dateFrom: toDateLabel(start),

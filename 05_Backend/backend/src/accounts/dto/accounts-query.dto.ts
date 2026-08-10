@@ -5,11 +5,11 @@ import { ReportDatePreset } from '../../common/utils/financial.utils';
 
 export class AccountsDateQueryDto {
   @ApiPropertyOptional({
-    enum: ['today', 'this_week', 'this_month', 'last_month', 'custom'],
+    enum: ['today', 'this_week', 'this_month', 'last_month', 'this_year', 'custom'],
     default: 'this_month',
   })
   @IsOptional()
-  @IsIn(['today', 'this_week', 'this_month', 'last_month', 'custom'])
+  @IsIn(['today', 'this_week', 'this_month', 'last_month', 'this_year', 'custom'])
   preset?: ReportDatePreset;
 
   @ApiPropertyOptional()

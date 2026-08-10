@@ -38,6 +38,9 @@ model Company {
   albums      Album[]
   staff       Staff[]
   auditLogs   AuditLog[]
+  reminders   Reminder[]
+  bookingStaffPayments BookingStaffPayment[]
+  bookingActivities    BookingActivity[]
 
   @@unique([code])
   @@map("companies")
@@ -286,6 +289,7 @@ model Client {
   expenses      Expense[]
   galleries     Gallery[]
   albums        Album[]
+  reminders     Reminder[]
 
   @@unique([companyId, clientNumber])
   @@unique([companyId, normalizedMobile])
@@ -373,6 +377,7 @@ model Booking {
   totalAmount    Decimal   @default(0) @map("total_amount") @db.Decimal(14, 2)
   advanceAmount  Decimal   @default(0) @map("advance_amount") @db.Decimal(14, 2)
   balanceAmount  Decimal   @default(0) @map("balance_amount") @db.Decimal(14, 2)
+  eventProgressStage String @default("booking_confirmed") @map("event_progress_stage")
   isActive       Boolean   @default(true) @map("is_active")
   archivedAt     DateTime? @map("archived_at") @db.Timestamptz(6)
   archivedById   String?   @map("archived_by_id") @db.Uuid
@@ -393,6 +398,10 @@ model Booking {
   galleries Gallery[]
   albums    Album[]
   staffAssignments BookingStaff[]
+  equipmentItems   BookingEquipment[]
+  activities       BookingActivity[]
+  staffPayments    BookingStaffPayment[]
+  reminders        Reminder[]
 
   @@unique([companyId, bookingNumber])
   @@index([branchId, eventDate])
@@ -423,6 +432,7 @@ model BookingStaff {
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Restrict)
   expense Expense? @relation("booking_staff_expense", fields: [expenseId], references: [id], onDelete: SetNull)
+  payments BookingStaffPayment[]
 
   @@unique([bookingId, staffId, role])
   @@index([staffId, assignmentDate])
@@ -451,6 +461,113 @@ model BookingItem {
 
   @@index([bookingId, sortOrder])
   @@map("booking_items")
+  @@schema("transaction")
+}
+
+model BookingStaffPayment {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  bookingId      String    @map("booking_id") @db.Uuid
+  bookingStaffId String    @map("booking_staff_id") @db.Uuid
+  amount         Decimal   @db.Decimal(14, 2)
+  status         String    @default("pending")
+  paymentDate    DateTime? @map("payment_date") @db.Timestamptz(6)
+  paymentMode    String?   @map("payment_mode")
+  notes          String?   @db.Text
+  expenseId      String?   @unique @map("expense_id") @db.Uuid
+  recordedById   String?   @map("recorded_by") @db.Uuid
+  isActive       Boolean   @default(true) @map("is_active")
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById    String?   @map("created_by") @db.Uuid
+  updatedById    String?   @map("updated_by") @db.Uuid
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  booking      Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  bookingStaff BookingStaff  @relation(fields: [bookingStaffId], references: [id], onDelete: Cascade)
+  expense      Expense?      @relation("booking_staff_payment_expense", fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId, paymentDate])
+  @@index([bookingStaffId, status])
+  @@map("booking_staff_payments")
+  @@schema("transaction")
+}
+
+model BookingEquipment {
+  id                String    @id @default(uuid()) @db.Uuid
+  bookingId         String    @map("booking_id") @db.Uuid
+  equipmentName     String    @map("equipment_name")
+  quantityIssued    Decimal   @default(0) @map("quantity_issued") @db.Decimal(10, 2)
+  quantityReturned  Decimal   @default(0) @map("quantity_returned") @db.Decimal(10, 2)
+  status            String    @default("not_issued")
+  issuedByName      String?   @map("issued_by_name")
+  issuedAt          DateTime? @map("issued_at") @db.Timestamptz(6)
+  returnedAt        DateTime? @map("returned_at") @db.Timestamptz(6)
+  conditionCheckout String?   @map("condition_checkout")
+  conditionReturn   String?   @map("condition_return")
+  missingQuantity   Decimal   @default(0) @map("missing_quantity") @db.Decimal(10, 2)
+  damagedQuantity   Decimal   @default(0) @map("damaged_quantity") @db.Decimal(10, 2)
+  checkoutNotes     String?   @map("checkout_notes") @db.Text
+  returnNotes       String?   @map("return_notes") @db.Text
+  isActive          Boolean   @default(true) @map("is_active")
+  archivedAt        DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById       String?   @map("created_by") @db.Uuid
+  updatedById       String?   @map("updated_by") @db.Uuid
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, status])
+  @@map("booking_equipment")
+  @@schema("transaction")
+}
+
+model BookingActivity {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  bookingId    String   @map("booking_id") @db.Uuid
+  activityType String   @map("activity_type")
+  message      String   @db.Text
+  metadata     Json?
+  occurredAt   DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  createdById  String?  @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, occurredAt])
+  @@map("booking_activities")
+  @@schema("transaction")
+}
+
+model Reminder {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  clientId     String?   @map("client_id") @db.Uuid
+  bookingId    String?   @map("booking_id") @db.Uuid
+  reminderType String    @map("reminder_type")
+  reminderDate DateTime  @map("reminder_date") @db.Date
+  note         String?   @db.Text
+  status       String    @default("active")
+  completedAt  DateTime? @map("completed_at") @db.Timestamptz(6)
+  isActive     Boolean   @default(true) @map("is_active")
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById  String?   @map("created_by") @db.Uuid
+  updatedById  String?   @map("updated_by") @db.Uuid
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  client  Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, reminderDate, status])
+  @@index([bookingId, status])
+  @@index([clientId, reminderDate])
+  @@map("reminders")
   @@schema("transaction")
 }
 
@@ -608,6 +725,7 @@ model Expense {
   paymentMode MasterData?   @relation("expense_payment_mode", fields: [paymentModeId], references: [id], onDelete: Restrict)
   albumVendorFor Album?      @relation("album_vendor_expense")
   bookingStaffAssignment BookingStaff? @relation("booking_staff_expense")
+  staffPayment             BookingStaffPayment? @relation("booking_staff_payment_expense")
 
   @@index([companyId, expenseDate])
   @@index([branchId, expenseDate])

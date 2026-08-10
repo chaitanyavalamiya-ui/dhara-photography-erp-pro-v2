@@ -14,6 +14,38 @@ export class ReportDateRangeDto {
   dateTo!: string;
 }
 
+export class ReportsDashboardDto {
+  @ApiProperty({ type: ReportDateRangeDto })
+  period!: ReportDateRangeDto;
+
+  @ApiProperty()
+  totalInvoiceValue!: number;
+
+  @ApiProperty()
+  totalPaymentsReceived!: number;
+
+  @ApiProperty()
+  totalOutstanding!: number;
+
+  @ApiProperty()
+  totalExpenses!: number;
+
+  @ApiProperty()
+  netProfit!: number;
+
+  @ApiProperty()
+  bookingsCount!: number;
+
+  @ApiProperty()
+  paidInvoicesCount!: number;
+
+  @ApiProperty()
+  unpaidInvoicesCount!: number;
+
+  @ApiProperty()
+  averageBookingValue!: number;
+}
+
 export class ReportsOverviewDto {
   @ApiProperty({ type: ReportDateRangeDto })
   period!: ReportDateRangeDto;
@@ -88,6 +120,9 @@ export class PaymentReportRowDto {
   @ApiPropertyOptional()
   invoiceNumber?: string | null;
 
+  @ApiPropertyOptional()
+  bookingNumber?: string | null;
+
   @ApiProperty()
   clientName!: string;
 
@@ -122,6 +157,9 @@ export class ExpenseReportRowDto {
 
   @ApiPropertyOptional()
   albumName?: string | null;
+
+  @ApiPropertyOptional()
+  staffName?: string | null;
 }
 
 export class ProfitReportDto {
@@ -129,19 +167,19 @@ export class ProfitReportDto {
   period!: ReportDateRangeDto;
 
   @ApiProperty()
-  revenue!: number;
+  cashReceived!: number;
 
   @ApiProperty()
-  received!: number;
+  totalExpenses!: number;
 
   @ApiProperty()
-  expenses!: number;
+  netProfit!: number;
 
   @ApiProperty()
-  profit!: number;
+  profitMarginPercent!: number;
 
   @ApiProperty()
-  profitPercent!: number;
+  invoiceRevenue!: number;
 }
 
 export class MonthlySummaryRowDto {
@@ -168,6 +206,68 @@ export class MonthlySummaryRowDto {
 
   @ApiProperty()
   bookingsCount!: number;
+
+  @ApiProperty()
+  outstanding!: number;
+}
+
+export class StaffReportRowDto {
+  @ApiProperty()
+  staffId!: string;
+
+  @ApiProperty()
+  staffName!: string;
+
+  @ApiProperty()
+  staffCode!: string;
+
+  @ApiProperty()
+  assignmentsCount!: number;
+
+  @ApiProperty()
+  totalPayments!: number;
+
+  @ApiProperty()
+  monthlyCost!: number;
+}
+
+export class ChartDataPointDto {
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  value!: number;
+}
+
+export class MonthlyChartRowDto {
+  @ApiProperty()
+  label!: string;
+
+  @ApiProperty()
+  income!: number;
+
+  @ApiProperty()
+  expenses!: number;
+
+  @ApiProperty()
+  profit!: number;
+}
+
+export class ReportsChartsDto {
+  @ApiProperty({ type: ReportDateRangeDto })
+  period!: ReportDateRangeDto;
+
+  @ApiProperty({ type: [MonthlyChartRowDto] })
+  monthlyIncomeExpense!: MonthlyChartRowDto[];
+
+  @ApiProperty({ type: [ChartDataPointDto] })
+  incomeByPaymentMethod!: ChartDataPointDto[];
+
+  @ApiProperty({ type: [ChartDataPointDto] })
+  expensesByCategory!: ChartDataPointDto[];
+
+  @ApiProperty({ type: [ChartDataPointDto] })
+  bookingRevenueByType!: ChartDataPointDto[];
 }
 
 export class PaginatedReportDto<T> {

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
   IsNotEmpty,
@@ -72,6 +72,7 @@ export class CreateBookingDto {
 
   @ApiPropertyOptional({ example: '2026-12-17' })
   @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
   @IsDateString()
   eventEndDate?: string;
 

@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, FileText, Pencil, Plus, Search } from 'lucide-react';
-import {
-  INVOICE_STATUS_OPTIONS,
-  Invoice,
-  invoicesService,
-} from '@/services/invoices-service';
+import { INVOICE_STATUS_OPTIONS, Invoice, invoicesService } from '@/services/invoices-service';
+import { Payment, paymentsService } from '@/services/payments-service';
 import { useAuthStore } from '@/stores/auth-store';
+import { AddPaymentModal } from '@/components/accounts/AddPaymentModal';
+import { PaymentReceiptModal } from '@/components/accounts/PaymentReceiptModal';
 import { GenerateInvoiceModal } from '@/components/invoices/GenerateInvoiceModal';
 import { InvoiceViewModal } from '@/components/invoices/InvoiceViewModal';
 import { EditInvoiceModal } from '@/components/invoices/EditInvoiceModal';
@@ -29,12 +28,15 @@ export function InvoicesPage() {
   const [generateOpen, setGenerateOpen] = useState(false);
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
+  const [paymentInvoice, setPaymentInvoice] = useState<Invoice | null>(null);
+  const [receiptPayment, setReceiptPayment] = useState<Payment | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
   );
 
   const canCreate = hasPermission('invoices.create');
   const canUpdate = hasPermission('invoices.update');
+  const canCreatePayment = hasPermission('payments.create');
 
   const listQuery = useQuery({
     queryKey: ['invoices', page, search, statusFilter, dateFrom, dateTo],
@@ -77,19 +79,8 @@ export function InvoicesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      advanceAmount,
-      dueDate,
-      notes,
-    }: {
-      id: string;
-      advanceAmount: number;
-      dueDate?: string;
-      notes?: string;
-    }) =>
+    mutationFn: ({ id, dueDate, notes }: { id: string; dueDate?: string; notes?: string }) =>
       invoicesService.update(id, {
-        advanceAmount,
         dueDate: dueDate || null,
         notes: notes || null,
       }),
@@ -108,13 +99,33 @@ export function InvoicesPage() {
     },
   });
 
+  const paymentMutation = useMutation({
+    mutationFn: paymentsService.create,
+    onSuccess: (payment) => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+      queryClient.invalidateQueries({ queryKey: ['bookings'] });
+      setPaymentInvoice(null);
+      setViewInvoiceId(payment.invoiceId);
+      setReceiptPayment(payment);
+      setFeedback({ type: 'success', message: 'Payment recorded successfully.' });
+    },
+    onError: (error: unknown) => {
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(error, 'Failed to record payment.'),
+      });
+    },
+  });
+
   const handleSearch = (event: React.FormEvent) => {
     event.preventDefault();
     setSearch(searchInput);
     setPage(1);
   };
 
-  const existingBookingIds = (listQuery.data?.items ?? []).map((item) => item.bookingId);
   const displayedInvoice = viewQuery.data ?? null;
 
   return (
@@ -236,12 +247,11 @@ export function InvoicesPage() {
                 <thead>
                   <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
                     <th className="px-3 py-3 font-medium">Invoice #</th>
+                    <th className="px-3 py-3 font-medium">Invoice Date</th>
                     <th className="px-3 py-3 font-medium">Booking #</th>
                     <th className="px-3 py-3 font-medium">Client</th>
-                    <th className="px-3 py-3 font-medium">Event</th>
-                    <th className="px-3 py-3 font-medium">Event Date</th>
                     <th className="px-3 py-3 font-medium">Total</th>
-                    <th className="px-3 py-3 font-medium">Advance</th>
+                    <th className="px-3 py-3 font-medium">Paid</th>
                     <th className="px-3 py-3 font-medium">Balance</th>
                     <th className="px-3 py-3 font-medium">Status</th>
                     <th className="px-3 py-3 font-medium">Actions</th>
@@ -254,13 +264,12 @@ export function InvoicesPage() {
                       className="border-b border-surface-border/70 transition hover:bg-white/[0.02]"
                     >
                       <td className="px-3 py-4 font-medium text-gold">{invoice.invoiceNumber}</td>
+                      <td className="px-3 py-4 text-gray-400">{formatDate(invoice.invoiceDate)}</td>
                       <td className="px-3 py-4 text-gray-300">{invoice.bookingNumber}</td>
                       <td className="px-3 py-4">
                         <p className="text-gray-100">{invoice.clientName}</p>
                         <p className="text-xs text-gray-500">{invoice.clientMobile}</p>
                       </td>
-                      <td className="px-3 py-4 text-gray-300">{invoice.eventType}</td>
-                      <td className="px-3 py-4 text-gray-400">{formatDate(invoice.eventDate)}</td>
                       <td className="px-3 py-4 font-medium text-gray-100">
                         {formatCurrency(invoice.totalAmount)}
                       </td>
@@ -343,7 +352,6 @@ export function InvoicesPage() {
       <GenerateInvoiceModal
         open={generateOpen}
         isSubmitting={createMutation.isPending}
-        existingBookingIds={existingBookingIds}
         onClose={() => setGenerateOpen(false)}
         onGenerate={(bookingId) => createMutation.mutate(bookingId)}
       />
@@ -351,12 +359,16 @@ export function InvoicesPage() {
       <InvoiceViewModal
         open={Boolean(viewInvoiceId)}
         invoice={displayedInvoice}
+        loading={viewQuery.isLoading}
+        error={viewQuery.isError}
         canUpdate={canUpdate}
+        canCreatePayment={canCreatePayment}
         onClose={() => setViewInvoiceId(null)}
         onEdit={(invoice) => {
           setViewInvoiceId(null);
           setEditInvoice(invoice);
         }}
+        onAddPayment={(invoice) => setPaymentInvoice(invoice)}
       />
 
       <EditInvoiceModal
@@ -369,6 +381,20 @@ export function InvoicesPage() {
             updateMutation.mutate({ id: editInvoice.id, ...values });
           }
         }}
+      />
+
+      <AddPaymentModal
+        open={Boolean(paymentInvoice)}
+        isSubmitting={paymentMutation.isPending}
+        prefillInvoiceId={paymentInvoice?.id}
+        onClose={() => setPaymentInvoice(null)}
+        onSubmit={(values) => paymentMutation.mutate(values)}
+      />
+
+      <PaymentReceiptModal
+        open={Boolean(receiptPayment)}
+        payment={receiptPayment}
+        onClose={() => setReceiptPayment(null)}
       />
     </div>
   );

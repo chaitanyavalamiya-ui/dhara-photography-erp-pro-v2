@@ -47,9 +47,7 @@ export function InvoiceDocument({ invoice, id = 'invoice-document' }: InvoiceDoc
 
       <div className="grid grid-cols-2 gap-6 px-8 py-6">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-[#b8860b]">
-            Bill To
-          </p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#b8860b]">Bill To</p>
           <p className="mt-2 text-base font-semibold text-[#1a1a1a]">{invoice.client.fullName}</p>
           <p className="text-sm text-gray-600">{invoice.client.mobile}</p>
           {invoice.client.email && <p className="text-sm text-gray-600">{invoice.client.email}</p>}

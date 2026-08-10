@@ -186,6 +186,7 @@ export const ACCOUNTS_DATE_PRESETS: { value: AccountsDatePreset; label: string }
   { value: 'this_week', label: 'This Week' },
   { value: 'this_month', label: 'This Month' },
   { value: 'last_month', label: 'Last Month' },
+  { value: 'this_year', label: 'This Year' },
   { value: 'custom', label: 'Custom Range' },
 ];
 

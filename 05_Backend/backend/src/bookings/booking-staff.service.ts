@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { BookingStaffExpenseService } from './booking-staff-expense.service';
+import { BookingActivityService } from './booking-activity.service';
 import {
   BookingStaffMemberDto,
   CreateBookingStaffDto,
@@ -21,6 +22,7 @@ export class BookingStaffService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly expenseSync: BookingStaffExpenseService,
+    private readonly activityService: BookingActivityService,
   ) {}
 
   async listForBooking(companyId: string, bookingId: string): Promise<BookingStaffMemberDto[]> {
@@ -128,6 +130,16 @@ export class BookingStaffService {
       ipAddress,
       userAgent,
     });
+
+    await this.activityService.log(
+      companyId,
+      bookingId,
+      'team_assigned',
+      `${getStaffRoleLabel(role)} ${staffMember.fullName} assigned`,
+      userId,
+      { assignmentId: assignment.id, staffId: dto.staffId, role },
+      assignmentDate ?? new Date(),
+    );
 
     return this.mapAssignment(assignment);
   }
@@ -323,6 +335,15 @@ export class BookingStaffService {
       ipAddress,
       userAgent,
     });
+
+    await this.activityService.log(
+      companyId,
+      bookingId,
+      'team_removed',
+      `${getStaffRoleLabel(assignment.role)} ${assignment.staff.fullName} removed from team`,
+      userId,
+      { assignmentId },
+    );
 
     return { message: 'Staff assignment removed successfully.' };
   }

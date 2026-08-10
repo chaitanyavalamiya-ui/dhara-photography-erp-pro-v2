@@ -4,6 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { roundMoney } from '../bookings/utils/booking.utils';
 import {
+  buildBookingEventDateWhere,
+  ACTIVE_BOOKING_FILTER,
   getMonthRange,
   ReportDateRange,
   ReportDatePreset,
@@ -180,8 +182,8 @@ export class AccountsService {
       this.prisma.booking.count({
         where: {
           companyId,
-          archivedAt: null,
-          eventDate: { gte: period.start, lte: period.end },
+          ...ACTIVE_BOOKING_FILTER,
+          ...buildBookingEventDateWhere(period),
         },
       }),
     ]);
@@ -464,8 +466,8 @@ export class AccountsService {
           this.prisma.booking.count({
             where: {
               companyId,
-              archivedAt: null,
-              eventDate: { gte: start, lte: end },
+              ...ACTIVE_BOOKING_FILTER,
+              ...buildBookingEventDateWhere({ start, end }),
             },
           }),
         ]);
@@ -531,8 +533,8 @@ export class AccountsService {
         this.prisma.booking.count({
           where: {
             companyId,
-            archivedAt: null,
-            eventDate: { gte: start, lte: end },
+            ...ACTIVE_BOOKING_FILTER,
+            ...buildBookingEventDateWhere({ start, end }),
           },
         }),
         this.prisma.invoice.groupBy({

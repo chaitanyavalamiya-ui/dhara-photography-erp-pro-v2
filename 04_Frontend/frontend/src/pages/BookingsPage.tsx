@@ -266,7 +266,7 @@ export function BookingsPage() {
           </div>
         ) : listQuery.isError ? (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-8 text-center text-red-400">
-            Failed to load bookings. Please try again.
+            {getApiErrorMessage(listQuery.error, 'Failed to load bookings. Please try again.')}
           </div>
         ) : bookings.length === 0 ? (
           <div className="flex min-h-48 flex-col items-center justify-center rounded-lg border border-dashed border-surface-border px-6 py-10 text-center">
@@ -351,7 +351,10 @@ export function BookingsPage() {
                         <button
                           type="button"
                           className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-                          onClick={() => setViewBooking(booking)}
+                          onClick={async () => {
+                            const full = await bookingsService.getById(booking.id);
+                            setViewBooking(full);
+                          }}
                           aria-label="View booking"
                         >
                           <Eye className="h-4 w-4" />

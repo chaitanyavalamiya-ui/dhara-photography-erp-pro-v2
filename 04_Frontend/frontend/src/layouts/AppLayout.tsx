@@ -31,7 +31,7 @@ const navItems = [
     icon: CalendarDays,
     permission: 'bookings.read',
   },
-  { to: '/gallery', label: 'Gallery', icon: Image, permission: 'bookings.read', disabled: true },
+  { to: '/gallery', label: 'Gallery', icon: Image, permission: 'gallery.read' },
   {
     to: '/invoices',
     label: 'Invoices',

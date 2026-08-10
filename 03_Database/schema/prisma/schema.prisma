@@ -34,6 +34,7 @@ model Company {
   invoices    Invoice[]
   payments    Payment[]
   expenses    Expense[]
+  galleries   Gallery[]
   auditLogs   AuditLog[]
 
   @@unique([code])
@@ -62,6 +63,7 @@ model CompanyBranch {
   invoices       Invoice[]
   payments       Payment[]
   expenses       Expense[]
+  galleries      Gallery[]
 
   @@unique([companyId, code])
   @@index([companyId, isActive])
@@ -278,6 +280,7 @@ model Client {
   invoices      Invoice[]
   payments      Payment[]
   expenses      Expense[]
+  galleries     Gallery[]
 
   @@unique([companyId, clientNumber])
   @@unique([companyId, normalizedMobile])
@@ -345,6 +348,7 @@ model Booking {
   invoices Invoice[]
   payments Payment[]
   expenses Expense[]
+  galleries Gallery[]
 
   @@unique([companyId, bookingNumber])
   @@index([branchId, eventDate])
@@ -536,5 +540,69 @@ model Expense {
   @@index([clientId, expenseDate])
   @@index([paymentModeId])
   @@map("expenses")
+  @@schema("transaction")
+}
+
+model Gallery {
+  id                  String    @id @default(uuid()) @db.Uuid
+  companyId           String    @map("company_id") @db.Uuid
+  branchId            String    @map("branch_id") @db.Uuid
+  clientId            String    @map("client_id") @db.Uuid
+  bookingId           String    @map("booking_id") @db.Uuid
+  name                String
+  eventType           String?   @map("event_type")
+  eventDate           DateTime? @map("event_date") @db.Timestamptz(6)
+  description         String?   @db.Text
+  status              String    @default("draft")
+  allowClientDownload Boolean   @default(false) @map("allow_client_download")
+  isActive            Boolean   @default(true) @map("is_active")
+  archivedAt          DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById        String?   @map("archived_by_id") @db.Uuid
+  archivedReason      String?   @map("archived_reason")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById         String?   @map("created_by") @db.Uuid
+  updatedById         String?   @map("updated_by") @db.Uuid
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branch  CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  photos  GalleryPhoto[]
+
+  @@index([companyId, status])
+  @@index([clientId, isActive])
+  @@index([bookingId, isActive])
+  @@index([companyId, eventDate])
+  @@map("galleries")
+  @@schema("transaction")
+}
+
+model GalleryPhoto {
+  id                   String    @id @default(uuid()) @db.Uuid
+  galleryId            String    @map("gallery_id") @db.Uuid
+  fileName             String    @map("file_name")
+  originalName         String    @map("original_name")
+  mimeType             String    @map("mime_type")
+  fileSize             Int       @map("file_size")
+  storageKey           String    @map("storage_key")
+  thumbnailKey         String?   @map("thumbnail_key")
+  width                Int?
+  height               Int?
+  sortOrder            Int       @default(0) @map("sort_order")
+  clientSelected       Boolean   @default(false) @map("client_selected")
+  clientSelectionNotes String?   @map("client_selection_notes") @db.Text
+  isActive             Boolean   @default(true) @map("is_active")
+  archivedAt           DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById          String?   @map("created_by") @db.Uuid
+  updatedById          String?   @map("updated_by") @db.Uuid
+
+  gallery Gallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+
+  @@index([galleryId, sortOrder])
+  @@index([galleryId, clientSelected])
+  @@map("gallery_photos")
   @@schema("transaction")
 }

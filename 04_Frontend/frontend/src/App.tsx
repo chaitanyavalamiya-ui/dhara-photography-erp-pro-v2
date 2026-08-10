@@ -9,6 +9,7 @@ import { CalendarPage } from './pages/CalendarPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { AccountsPage } from './pages/AccountsPage';
+import { GalleryPage } from './pages/GalleryPage';
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="accounts" element={<AccountsPage />} />
+        <Route path="gallery" element={<GalleryPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

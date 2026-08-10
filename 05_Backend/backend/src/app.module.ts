@@ -11,6 +11,8 @@ import { InvoicesModule } from './invoices/invoices.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { AccountsModule } from './accounts/accounts.module';
+import { GalleriesModule } from './galleries/galleries.module';
+import { StorageModule } from './storage/storage.module';
 import { AuditModule } from './audit/audit.module';
 
 @Module({
@@ -24,6 +26,7 @@ import { AuditModule } from './audit/audit.module';
       ],
     }),
     PrismaModule,
+    StorageModule,
     AuditModule,
     HealthModule,
     AuthModule,
@@ -34,6 +37,7 @@ import { AuditModule } from './audit/audit.module';
     PaymentsModule,
     ExpensesModule,
     AccountsModule,
+    GalleriesModule,
   ],
 })
 export class AppModule {}

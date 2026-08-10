@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { Booking } from '@/services/bookings-service';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
+import { BookingTeamSection } from './BookingTeamSection';
 
 interface BookingViewModalProps {
   open: boolean;
@@ -98,6 +99,8 @@ export function BookingViewModal({ open, booking, onClose, onEdit }: BookingView
             <p className="mt-1 whitespace-pre-wrap text-sm text-gray-300">{booking.notes}</p>
           </div>
         )}
+
+        <BookingTeamSection booking={booking} />
 
         <div className="mt-6 flex justify-end gap-3 border-t border-surface-border pt-5">
           <button type="button" className="btn-secondary" onClick={onClose}>

@@ -53,6 +53,11 @@ export class UpdateExpenseDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
+  staffId?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
   invoiceId?: string | null;
 
   @ApiPropertyOptional()

@@ -40,6 +40,11 @@ export class ListExpensesQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsUUID()
+  staffId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   dateFrom?: string;
 

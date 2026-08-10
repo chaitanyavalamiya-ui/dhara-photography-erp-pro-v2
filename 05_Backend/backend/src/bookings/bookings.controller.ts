@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { BookingsService } from './bookings.service';
+import { BookingStaffService } from './booking-staff.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingDto } from './dto/update-booking.dto';
 import {
@@ -27,12 +28,20 @@ import {
 import { RequirePermissions } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import {
+  BookingStaffMemberDto,
+  CreateBookingStaffDto,
+  UpdateBookingStaffDto,
+} from './dto/booking-staff.dto';
 
 @ApiTags('Bookings')
 @ApiBearerAuth()
 @Controller('bookings')
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) {}
+  constructor(
+    private readonly bookingsService: BookingsService,
+    private readonly bookingStaffService: BookingStaffService,
+  ) {}
 
   @Get()
   @RequirePermissions('bookings.read')
@@ -61,6 +70,75 @@ export class BookingsController {
     @CurrentUser() user: JwtPayload,
   ): Promise<ServiceRateResponseDto[]> {
     return this.bookingsService.getServiceRates(user.companyId);
+  }
+
+  @Get(':id/staff')
+  @RequirePermissions('bookings.read')
+  @ApiOperation({ summary: 'List staff assigned to a booking' })
+  async listStaff(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<BookingStaffMemberDto[]> {
+    return this.bookingStaffService.listForBooking(user.companyId, id);
+  }
+
+  @Post(':id/staff')
+  @RequirePermissions('staff.assign')
+  @ApiOperation({ summary: 'Assign staff to a booking' })
+  async assignStaff(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: CreateBookingStaffDto,
+    @Req() req: Request,
+  ): Promise<BookingStaffMemberDto> {
+    return this.bookingStaffService.assign(
+      user.companyId,
+      user.sub,
+      id,
+      dto,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  @Patch(':id/staff/:assignmentId')
+  @RequirePermissions('staff.assign')
+  @ApiOperation({ summary: 'Update a booking staff assignment' })
+  async updateStaffAssignment(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Param('assignmentId') assignmentId: string,
+    @Body() dto: UpdateBookingStaffDto,
+    @Req() req: Request,
+  ): Promise<BookingStaffMemberDto> {
+    return this.bookingStaffService.updateAssignment(
+      user.companyId,
+      user.sub,
+      id,
+      assignmentId,
+      dto,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  @Delete(':id/staff/:assignmentId')
+  @RequirePermissions('staff.assign')
+  @ApiOperation({ summary: 'Remove staff from a booking' })
+  async removeStaffAssignment(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Param('assignmentId') assignmentId: string,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    return this.bookingStaffService.removeAssignment(
+      user.companyId,
+      user.sub,
+      id,
+      assignmentId,
+      req.ip,
+      req.headers['user-agent'],
+    );
   }
 
   @Get(':id')

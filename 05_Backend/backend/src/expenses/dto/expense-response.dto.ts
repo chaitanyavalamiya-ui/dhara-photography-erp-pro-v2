@@ -44,6 +44,12 @@ export class ExpenseResponseDto {
   bookingNumber?: string | null;
 
   @ApiPropertyOptional()
+  staffId?: string | null;
+
+  @ApiPropertyOptional()
+  staffName?: string | null;
+
+  @ApiPropertyOptional()
   invoiceId?: string | null;
 
   @ApiPropertyOptional()

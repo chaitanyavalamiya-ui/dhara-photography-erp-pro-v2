@@ -27,12 +27,25 @@ import {
   toDecimal,
   toIsoDateString,
 } from './utils/booking.utils';
+import { getStaffRoleLabel } from '../staff/utils/staff.utils';
+import { toDateOnlyString } from '../clients/utils/client.utils';
 
 type BookingWithRelations = Prisma.BookingGetPayload<{
   include: {
     client: { select: { id: true; fullName: true; mobile: true; email: true } };
     status: true;
     items: { orderBy: { sortOrder: 'asc' } };
+  };
+}>;
+
+type BookingDetailWithRelations = Prisma.BookingGetPayload<{
+  include: {
+    client: { select: { id: true; fullName: true; mobile: true; email: true } };
+    status: true;
+    items: { orderBy: { sortOrder: 'asc' } };
+    staffAssignments: {
+      include: { staff: { select: { id: true; staffCode: true; fullName: true } } };
+    };
   };
 }>;
 
@@ -111,7 +124,15 @@ export class BookingsService {
   }
 
   async findOne(companyId: string, id: string): Promise<BookingResponseDto> {
-    const booking = await this.getBookingOrThrow(companyId, id);
+    const booking = await this.prisma.booking.findFirst({
+      where: { id, companyId, archivedAt: null },
+      include: this.bookingDetailInclude(),
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found.');
+    }
+
     return this.mapBooking(booking);
   }
 
@@ -419,6 +440,19 @@ export class BookingsService {
     };
   }
 
+  private bookingDetailInclude() {
+    return {
+      ...this.bookingInclude(),
+      staffAssignments: {
+        where: { archivedAt: null },
+        include: {
+          staff: { select: { id: true, staffCode: true, fullName: true } },
+        },
+        orderBy: [{ role: 'asc' as const }, { createdAt: 'asc' as const }],
+      },
+    };
+  }
+
   private async getBookingOrThrow(companyId: string, id: string): Promise<BookingWithRelations> {
     const booking = await this.prisma.booking.findFirst({
       where: { id, companyId, archivedAt: null },
@@ -432,7 +466,7 @@ export class BookingsService {
     return booking;
   }
 
-  private mapBooking(booking: BookingWithRelations): BookingResponseDto {
+  private mapBooking(booking: BookingWithRelations | BookingDetailWithRelations): BookingResponseDto {
     return {
       id: booking.id,
       bookingNumber: booking.bookingNumber,
@@ -471,6 +505,23 @@ export class BookingsService {
       isActive: booking.isActive,
       createdAt: booking.createdAt.toISOString(),
       updatedAt: booking.updatedAt.toISOString(),
+      ...( 'staffAssignments' in booking && booking.staffAssignments
+        ? {
+            team: booking.staffAssignments.map((assignment) => ({
+              id: assignment.id,
+              staffId: assignment.staffId,
+              staffCode: assignment.staff.staffCode,
+              staffName: assignment.staff.fullName,
+              role: assignment.role,
+              roleLabel: getStaffRoleLabel(assignment.role),
+              assignmentDate: toDateOnlyString(assignment.assignmentDate),
+              agreedRate:
+                assignment.agreedRate !== null ? Number(assignment.agreedRate) : null,
+              notes: assignment.notes,
+              expenseId: assignment.expenseId,
+            })),
+          }
+        : {}),
     };
   }
 

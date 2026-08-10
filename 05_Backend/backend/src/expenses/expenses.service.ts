@@ -22,6 +22,7 @@ type ExpenseWithRelations = Prisma.ExpenseGetPayload<{
     paymentMode: { select: { code: true; label: true } };
     client: { select: { fullName: true } };
     booking: { select: { bookingNumber: true } };
+    staff: { select: { fullName: true } };
     invoice: { select: { invoiceNumber: true } };
   };
 }>;
@@ -79,7 +80,7 @@ export class ExpensesService {
       ? await this.resolvePaymentMode(companyId, dto.paymentModeCode)
       : null;
 
-    await this.validateLinks(companyId, dto.clientId, dto.bookingId, dto.invoiceId);
+    await this.validateLinks(companyId, dto.clientId, dto.bookingId, dto.invoiceId, dto.staffId);
 
     const expense = await this.prisma.expense.create({
       data: {
@@ -88,6 +89,7 @@ export class ExpensesService {
         categoryId: category.id,
         clientId: dto.clientId ?? null,
         bookingId: dto.bookingId ?? null,
+        staffId: dto.staffId ?? null,
         invoiceId: dto.invoiceId ?? null,
         description: dto.description?.trim() || null,
         vendorPerson: dto.vendorPerson?.trim() || null,
@@ -137,12 +139,13 @@ export class ExpensesService {
           : null
         : undefined;
 
-    if (dto.clientId !== undefined || dto.bookingId !== undefined || dto.invoiceId !== undefined) {
+    if (dto.clientId !== undefined || dto.bookingId !== undefined || dto.invoiceId !== undefined || dto.staffId !== undefined) {
       await this.validateLinks(
         companyId,
         dto.clientId ?? existing.clientId ?? undefined,
         dto.bookingId ?? existing.bookingId ?? undefined,
         dto.invoiceId ?? existing.invoiceId ?? undefined,
+        dto.staffId ?? existing.staffId ?? undefined,
       );
     }
 
@@ -164,6 +167,7 @@ export class ExpensesService {
           : {}),
         ...(dto.clientId !== undefined ? { clientId: dto.clientId } : {}),
         ...(dto.bookingId !== undefined ? { bookingId: dto.bookingId } : {}),
+        ...(dto.staffId !== undefined ? { staffId: dto.staffId } : {}),
         ...(dto.invoiceId !== undefined ? { invoiceId: dto.invoiceId } : {}),
         ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
         updatedById: userId,
@@ -228,6 +232,7 @@ export class ExpensesService {
       paymentMode: { select: { code: true, label: true } },
       client: { select: { fullName: true } },
       booking: { select: { bookingNumber: true } },
+      staff: { select: { fullName: true } },
       invoice: { select: { invoiceNumber: true } },
     };
   }
@@ -264,6 +269,8 @@ export class ExpensesService {
       clientName: expense.client?.fullName ?? null,
       bookingId: expense.bookingId,
       bookingNumber: expense.booking?.bookingNumber ?? null,
+      staffId: expense.staffId,
+      staffName: expense.staff?.fullName ?? null,
       invoiceId: expense.invoiceId,
       invoiceNumber: expense.invoice?.invoiceNumber ?? null,
       notes: expense.notes,
@@ -287,6 +294,10 @@ export class ExpensesService {
 
     if (query.clientId) {
       where.clientId = query.clientId;
+    }
+
+    if (query.staffId) {
+      where.staffId = query.staffId;
     }
 
     if (query.categoryCode) {
@@ -397,6 +408,7 @@ export class ExpensesService {
     clientId?: string,
     bookingId?: string,
     invoiceId?: string,
+    staffId?: string,
   ) {
     if (clientId) {
       const client = await this.prisma.client.findFirst({
@@ -417,6 +429,13 @@ export class ExpensesService {
         where: { id: invoiceId, companyId, archivedAt: null },
       });
       if (!invoice) throw new NotFoundException('Invoice not found.');
+    }
+
+    if (staffId) {
+      const staffMember = await this.prisma.staff.findFirst({
+        where: { id: staffId, companyId, archivedAt: null },
+      });
+      if (!staffMember) throw new NotFoundException('Staff member not found.');
     }
   }
 }

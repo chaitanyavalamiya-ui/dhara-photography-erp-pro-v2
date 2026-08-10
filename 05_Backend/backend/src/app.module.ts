@@ -14,6 +14,7 @@ import { AccountsModule } from './accounts/accounts.module';
 import { GalleriesModule } from './galleries/galleries.module';
 import { AlbumsModule } from './albums/albums.module';
 import { ReportsModule } from './reports/reports.module';
+import { StaffModule } from './staff/staff.module';
 import { StorageModule } from './storage/storage.module';
 import { AuditModule } from './audit/audit.module';
 
@@ -42,6 +43,7 @@ import { AuditModule } from './audit/audit.module';
     GalleriesModule,
     AlbumsModule,
     ReportsModule,
+    StaffModule,
   ],
 })
 export class AppModule {}

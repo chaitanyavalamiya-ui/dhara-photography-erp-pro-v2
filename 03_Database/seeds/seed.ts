@@ -43,6 +43,11 @@ const PERMISSIONS = [
   { code: 'album.update', module: 'album', action: 'update' },
   { code: 'album.archive', module: 'album', action: 'archive' },
   { code: 'reports.read', module: 'reports', action: 'read' },
+  { code: 'staff.read', module: 'staff', action: 'read' },
+  { code: 'staff.create', module: 'staff', action: 'create' },
+  { code: 'staff.update', module: 'staff', action: 'update' },
+  { code: 'staff.archive', module: 'staff', action: 'archive' },
+  { code: 'staff.assign', module: 'staff', action: 'assign' },
   { code: 'settings.read', module: 'settings', action: 'read' },
   { code: 'settings.update', module: 'settings', action: 'update' },
   { code: 'users.read', module: 'users', action: 'read' },
@@ -64,6 +69,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'gallery.read', 'gallery.create', 'gallery.update', 'gallery.archive',
     'album.read', 'album.create', 'album.update', 'album.archive',
     'reports.read',
+    'staff.read', 'staff.create', 'staff.update', 'staff.archive', 'staff.assign',
     'settings.read',
   ],
   staff: [
@@ -76,6 +82,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'gallery.read', 'gallery.create',
     'album.read', 'album.create',
     'reports.read',
+    'staff.read', 'staff.create', 'staff.assign',
   ],
   viewer: [
     'dashboard.read',
@@ -87,6 +94,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'gallery.read',
     'album.read',
     'reports.read',
+    'staff.read',
     'settings.read',
   ],
 };

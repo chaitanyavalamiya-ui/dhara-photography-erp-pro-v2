@@ -52,6 +52,11 @@ export class CreateExpenseDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()
+  staffId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
   invoiceId?: string;
 
   @ApiPropertyOptional()

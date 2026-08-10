@@ -12,6 +12,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  UserCog,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
@@ -35,6 +36,7 @@ const navItems = [
   },
   { to: '/gallery', label: 'Gallery', icon: Image, permission: 'gallery.read' },
   { to: '/albums', label: 'Albums', icon: BookImage, permission: 'album.read' },
+  { to: '/staff', label: 'Staff', icon: UserCog, permission: 'staff.read' },
   {
     to: '/invoices',
     label: 'Invoices',

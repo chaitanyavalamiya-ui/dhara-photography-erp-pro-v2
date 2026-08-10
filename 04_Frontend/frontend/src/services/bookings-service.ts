@@ -1,4 +1,5 @@
 import { apiClient, ApiResponse } from './api-client';
+import type { BookingTeamMember } from './staff-service';
 
 export interface ServiceRate {
   id: string;
@@ -52,6 +53,7 @@ export interface Booking {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  team?: BookingTeamMember[];
 }
 
 export interface BookingFormData {

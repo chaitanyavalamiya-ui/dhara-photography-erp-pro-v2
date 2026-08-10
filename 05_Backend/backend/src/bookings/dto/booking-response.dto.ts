@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { BookingStaffMemberDto } from './booking-staff.dto';
 
 export class BookingItemResponseDto {
   @ApiProperty()
@@ -109,6 +110,9 @@ export class BookingResponseDto {
 
   @ApiProperty()
   updatedAt!: string;
+
+  @ApiPropertyOptional({ type: [BookingStaffMemberDto] })
+  team?: BookingStaffMemberDto[];
 }
 
 export class PaginatedBookingsResponseDto {

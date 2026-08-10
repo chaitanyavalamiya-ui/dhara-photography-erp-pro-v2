@@ -36,6 +36,7 @@ model Company {
   expenses    Expense[]
   galleries   Gallery[]
   albums      Album[]
+  staff       Staff[]
   auditLogs   AuditLog[]
 
   @@unique([code])
@@ -66,6 +67,7 @@ model CompanyBranch {
   expenses       Expense[]
   galleries      Gallery[]
   albums         Album[]
+  staff          Staff[]
 
   @@unique([companyId, code])
   @@index([companyId, isActive])
@@ -316,6 +318,43 @@ model ClientBranch {
   @@schema("transaction")
 }
 
+model Staff {
+  id               String    @id @default(uuid()) @db.Uuid
+  companyId        String    @map("company_id") @db.Uuid
+  branchId         String    @map("branch_id") @db.Uuid
+  staffCode        String    @map("staff_code")
+  fullName         String    @map("full_name")
+  mobile           String?
+  normalizedMobile String?   @map("normalized_mobile")
+  email            String?
+  normalizedEmail  String?   @map("normalized_email")
+  address          String?   @db.Text
+  role             String
+  joiningDate      DateTime? @map("joining_date") @db.Timestamptz(6)
+  paymentType      String    @default("per_event") @map("payment_type")
+  defaultRate      Decimal   @default(0) @map("default_rate") @db.Decimal(14, 2)
+  notes            String?   @db.Text
+  isActive         Boolean   @default(true) @map("is_active")
+  archivedAt       DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById     String?   @map("archived_by_id") @db.Uuid
+  archivedReason   String?   @map("archived_reason")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById      String?   @map("created_by") @db.Uuid
+  updatedById      String?   @map("updated_by") @db.Uuid
+
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branch      CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  assignments BookingStaff[]
+  expenses    Expense[]
+
+  @@unique([companyId, staffCode])
+  @@index([companyId, role])
+  @@index([companyId, isActive])
+  @@map("staff")
+  @@schema("transaction")
+}
+
 model Booking {
   id             String    @id @default(uuid()) @db.Uuid
   companyId      String    @map("company_id") @db.Uuid
@@ -353,6 +392,7 @@ model Booking {
   expenses Expense[]
   galleries Gallery[]
   albums    Album[]
+  staffAssignments BookingStaff[]
 
   @@unique([companyId, bookingNumber])
   @@index([branchId, eventDate])
@@ -360,6 +400,34 @@ model Booking {
   @@index([companyId, eventType])
   @@index([companyId, statusId])
   @@map("bookings")
+  @@schema("transaction")
+}
+
+model BookingStaff {
+  id             String    @id @default(uuid()) @db.Uuid
+  bookingId      String    @map("booking_id") @db.Uuid
+  staffId        String    @map("staff_id") @db.Uuid
+  role           String
+  assignmentDate DateTime? @map("assignment_date") @db.Timestamptz(6)
+  agreedRate     Decimal?  @map("agreed_rate") @db.Decimal(14, 2)
+  notes          String?   @db.Text
+  expenseId      String?   @unique @map("expense_id") @db.Uuid
+  isActive       Boolean   @default(true) @map("is_active")
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById   String?   @map("archived_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById    String?   @map("created_by") @db.Uuid
+  updatedById    String?   @map("updated_by") @db.Uuid
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  expense Expense? @relation("booking_staff_expense", fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@unique([bookingId, staffId, role])
+  @@index([staffId, assignmentDate])
+  @@index([bookingId])
+  @@map("booking_staff")
   @@schema("transaction")
 }
 
@@ -512,6 +580,7 @@ model Expense {
   categoryId      String    @map("category_id") @db.Uuid
   clientId        String?   @map("client_id") @db.Uuid
   bookingId       String?   @map("booking_id") @db.Uuid
+  staffId         String?   @map("staff_id") @db.Uuid
   invoiceId       String?   @map("invoice_id") @db.Uuid
   description     String?
   vendorPerson    String?   @map("vendor_person")
@@ -534,15 +603,18 @@ model Expense {
   category    MasterData    @relation("expense_category", fields: [categoryId], references: [id], onDelete: Restrict)
   client      Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
   booking     Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  staff       Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
   invoice     Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   paymentMode MasterData?   @relation("expense_payment_mode", fields: [paymentModeId], references: [id], onDelete: Restrict)
   albumVendorFor Album?      @relation("album_vendor_expense")
+  bookingStaffAssignment BookingStaff? @relation("booking_staff_expense")
 
   @@index([companyId, expenseDate])
   @@index([branchId, expenseDate])
   @@index([categoryId, expenseDate])
   @@index([bookingId, expenseDate])
   @@index([clientId, expenseDate])
+  @@index([staffId, expenseDate])
   @@index([paymentModeId])
   @@map("expenses")
   @@schema("transaction")

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Download, MessageCircle, Printer, X } from 'lucide-react';
 import { Payment } from '@/services/payments-service';
 import {
@@ -5,6 +6,7 @@ import {
   PaymentReceiptDocument,
   printPaymentReceipt,
 } from '@/components/accounts/PaymentReceiptDocument';
+import { downloadPaymentReceiptPdf } from '@/utils/payment-receipt-pdf';
 
 interface PaymentReceiptModalProps {
   open: boolean;
@@ -13,7 +15,18 @@ interface PaymentReceiptModalProps {
 }
 
 export function PaymentReceiptModal({ open, payment, onClose }: PaymentReceiptModalProps) {
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
   if (!open || !payment) return null;
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      await downloadPaymentReceiptPdf('payment-receipt-document', payment.receiptNumber);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -24,8 +37,14 @@ export function PaymentReceiptModal({ open, payment, onClose }: PaymentReceiptMo
             <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={() => printPaymentReceipt('payment-receipt-document')}>
               <Printer className="mr-1 inline h-3.5 w-3.5" />Print
             </button>
-            <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={() => printPaymentReceipt('payment-receipt-document')}>
-              <Download className="mr-1 inline h-3.5 w-3.5" />PDF
+            <button
+              type="button"
+              className="btn-secondary px-3 py-1.5 text-xs"
+              disabled={isDownloadingPdf}
+              onClick={() => void handleDownloadPdf()}
+            >
+              <Download className="mr-1 inline h-3.5 w-3.5" />
+              {isDownloadingPdf ? 'PDF…' : 'PDF'}
             </button>
             <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={() => window.open(buildPaymentWhatsAppUrl(payment), '_blank')}>
               <MessageCircle className="mr-1 inline h-3.5 w-3.5" />WhatsApp

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Download, MessageCircle, Pencil, Printer, Share2, X } from 'lucide-react';
 import { Invoice } from '@/services/invoices-service';
 import { InvoiceDocument } from '@/components/invoices/InvoiceDocument';
 import { buildWhatsAppShareUrl, printInvoice } from '@/utils/invoice';
+import { downloadInvoicePdf } from '@/utils/invoice-pdf';
 
 interface InvoiceViewModalProps {
   open: boolean;
@@ -18,10 +20,20 @@ export function InvoiceViewModal({
   onClose,
   onEdit,
 }: InvoiceViewModalProps) {
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
   if (!open || !invoice) return null;
 
   const handlePrint = () => printInvoice('invoice-document-print');
-  const handleDownloadPdf = () => printInvoice('invoice-document-print');
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      await downloadInvoicePdf('invoice-document-print', invoice.invoiceNumber);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
   const handleShare = async () => {
     const shareData = {
       title: `Invoice ${invoice.invoiceNumber}`,
@@ -73,10 +85,11 @@ export function InvoiceViewModal({
             <button
               type="button"
               className="btn-secondary px-3 py-1.5 text-xs"
-              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf}
+              onClick={() => void handleDownloadPdf()}
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
-              PDF
+              {isDownloadingPdf ? 'PDF…' : 'PDF'}
             </button>
             <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={handleShare}>
               <Share2 className="mr-1.5 h-3.5 w-3.5" />

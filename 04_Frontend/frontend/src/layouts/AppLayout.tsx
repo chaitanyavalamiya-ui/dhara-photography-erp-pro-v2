@@ -16,6 +16,7 @@ import {
 import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { cn } from '@/utils/cn';
+import { useAuthStore } from '@/stores/auth-store';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.read' },
@@ -45,8 +46,7 @@ const navItems = [
     to: '/reports',
     label: 'Reports',
     icon: BarChart3,
-    permission: 'dashboard.read',
-    disabled: true,
+    permission: 'reports.read',
   },
   {
     to: '/settings',
@@ -58,6 +58,11 @@ const navItems = [
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const hasPermission = useAuthStore((s) => s.hasPermission);
+
+  const visibleNavItems = navItems.filter(
+    (item) => !item.permission || hasPermission(item.permission),
+  );
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -82,29 +87,21 @@ export function AppLayout() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
-              to={item.disabled ? '#' : item.to}
-              onClick={(e) => item.disabled && e.preventDefault()}
+              to={item.to}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition',
-                  item.disabled
-                    ? 'cursor-not-allowed text-gray-600'
-                    : isActive
-                      ? 'bg-gold/15 text-gold'
-                      : 'text-gray-400 hover:bg-white/5 hover:text-gray-200',
+                  isActive
+                    ? 'bg-gold/15 text-gold'
+                    : 'text-gray-400 hover:bg-white/5 hover:text-gray-200',
                 )
               }
             >
               <item.icon className="h-5 w-5 shrink-0" />
               {!collapsed && <span>{item.label}</span>}
-              {!collapsed && item.disabled && (
-                <span className="ml-auto rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-500">
-                  Soon
-                </span>
-              )}
             </NavLink>
           ))}
         </nav>

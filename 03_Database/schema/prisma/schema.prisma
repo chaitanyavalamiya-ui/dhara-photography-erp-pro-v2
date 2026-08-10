@@ -35,6 +35,7 @@ model Company {
   payments    Payment[]
   expenses    Expense[]
   galleries   Gallery[]
+  albums      Album[]
   auditLogs   AuditLog[]
 
   @@unique([code])
@@ -64,6 +65,7 @@ model CompanyBranch {
   payments       Payment[]
   expenses       Expense[]
   galleries      Gallery[]
+  albums         Album[]
 
   @@unique([companyId, code])
   @@index([companyId, isActive])
@@ -281,6 +283,7 @@ model Client {
   payments      Payment[]
   expenses      Expense[]
   galleries     Gallery[]
+  albums        Album[]
 
   @@unique([companyId, clientNumber])
   @@unique([companyId, normalizedMobile])
@@ -349,6 +352,7 @@ model Booking {
   payments Payment[]
   expenses Expense[]
   galleries Gallery[]
+  albums    Album[]
 
   @@unique([companyId, bookingNumber])
   @@index([branchId, eventDate])
@@ -532,6 +536,7 @@ model Expense {
   booking     Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
   invoice     Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
   paymentMode MasterData?   @relation("expense_payment_mode", fields: [paymentModeId], references: [id], onDelete: Restrict)
+  albumVendorFor Album?      @relation("album_vendor_expense")
 
   @@index([companyId, expenseDate])
   @@index([branchId, expenseDate])
@@ -569,6 +574,7 @@ model Gallery {
   client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
   booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
   photos  GalleryPhoto[]
+  albums  Album[]
 
   @@index([companyId, status])
   @@index([clientId, isActive])
@@ -600,9 +606,76 @@ model GalleryPhoto {
   updatedById          String?   @map("updated_by") @db.Uuid
 
   gallery Gallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  albumPhotos AlbumPhoto[]
 
   @@index([galleryId, sortOrder])
   @@index([galleryId, clientSelected])
   @@map("gallery_photos")
+  @@schema("transaction")
+}
+
+model Album {
+  id                   String    @id @default(uuid()) @db.Uuid
+  companyId            String    @map("company_id") @db.Uuid
+  branchId             String    @map("branch_id") @db.Uuid
+  clientId             String    @map("client_id") @db.Uuid
+  bookingId            String    @map("booking_id") @db.Uuid
+  galleryId            String?   @map("gallery_id") @db.Uuid
+  name                 String
+  albumType            String    @default("standard") @map("album_type")
+  albumPrice           Decimal   @default(0) @map("album_price") @db.Decimal(14, 2)
+  pageCount            Int       @default(0) @map("page_count")
+  status               String    @default("pending")
+  orderDate            DateTime? @map("order_date") @db.Timestamptz(6)
+  expectedDeliveryDate DateTime? @map("expected_delivery_date") @db.Timestamptz(6)
+  actualDeliveryDate   DateTime? @map("actual_delivery_date") @db.Timestamptz(6)
+  vendorName           String?   @map("vendor_name")
+  vendorExpense        Decimal   @default(0) @map("vendor_expense") @db.Decimal(14, 2)
+  vendorExpenseId      String?   @unique @map("vendor_expense_id") @db.Uuid
+  notes                String?   @db.Text
+  isActive             Boolean   @default(true) @map("is_active")
+  archivedAt           DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById         String?   @map("archived_by_id") @db.Uuid
+  archivedReason       String?   @map("archived_reason")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById          String?   @map("created_by") @db.Uuid
+  updatedById          String?   @map("updated_by") @db.Uuid
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branch  CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  gallery Gallery?      @relation(fields: [galleryId], references: [id], onDelete: SetNull)
+  vendorExpenseRecord Expense?      @relation("album_vendor_expense", fields: [vendorExpenseId], references: [id], onDelete: SetNull)
+  photos  AlbumPhoto[]
+
+  @@index([companyId, status])
+  @@index([clientId, isActive])
+  @@index([bookingId, isActive])
+  @@index([galleryId])
+  @@index([companyId, albumType])
+  @@index([companyId, orderDate])
+  @@map("albums")
+  @@schema("transaction")
+}
+
+model AlbumPhoto {
+  id             String   @id @default(uuid()) @db.Uuid
+  albumId        String   @map("album_id") @db.Uuid
+  galleryPhotoId String   @map("gallery_photo_id") @db.Uuid
+  sortOrder      Int      @default(0) @map("sort_order")
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById    String?  @map("created_by") @db.Uuid
+  updatedById    String?  @map("updated_by") @db.Uuid
+
+  album        Album        @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  galleryPhoto GalleryPhoto @relation(fields: [galleryPhotoId], references: [id], onDelete: Cascade)
+
+  @@unique([albumId, galleryPhotoId])
+  @@index([albumId, sortOrder])
+  @@map("album_photos")
   @@schema("transaction")
 }

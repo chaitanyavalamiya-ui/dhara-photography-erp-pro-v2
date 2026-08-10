@@ -38,6 +38,10 @@ const PERMISSIONS = [
   { code: 'gallery.create', module: 'gallery', action: 'create' },
   { code: 'gallery.update', module: 'gallery', action: 'update' },
   { code: 'gallery.archive', module: 'gallery', action: 'archive' },
+  { code: 'album.read', module: 'album', action: 'read' },
+  { code: 'album.create', module: 'album', action: 'create' },
+  { code: 'album.update', module: 'album', action: 'update' },
+  { code: 'album.archive', module: 'album', action: 'archive' },
   { code: 'settings.read', module: 'settings', action: 'read' },
   { code: 'settings.update', module: 'settings', action: 'update' },
   { code: 'users.read', module: 'users', action: 'read' },
@@ -57,6 +61,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'payments.read', 'payments.create', 'payments.update',
     'expenses.read', 'expenses.create', 'expenses.update',
     'gallery.read', 'gallery.create', 'gallery.update', 'gallery.archive',
+    'album.read', 'album.create', 'album.update', 'album.archive',
     'settings.read',
   ],
   staff: [
@@ -67,6 +72,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'payments.read', 'payments.create',
     'expenses.read', 'expenses.create',
     'gallery.read', 'gallery.create',
+    'album.read', 'album.create',
   ],
   viewer: [
     'dashboard.read',
@@ -76,6 +82,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'payments.read',
     'expenses.read',
     'gallery.read',
+    'album.read',
     'settings.read',
   ],
 };

@@ -27,7 +27,7 @@ export class AccountsService {
       now.getUTCMonth() + 1,
     );
 
-    const [invoiceAgg, paymentAgg, expenseAgg, monthPaymentAgg, monthExpenseAgg] =
+    const [invoiceAgg, paymentAgg, expenseAgg, monthPaymentAgg, monthExpenseAgg, albumAgg] =
       await Promise.all([
         this.prisma.invoice.aggregate({
           where: { companyId, archivedAt: null, isActive: true },
@@ -59,6 +59,10 @@ export class AccountsService {
           },
           _sum: { amount: true },
         }),
+        this.prisma.album.aggregate({
+          where: { companyId, archivedAt: null, isActive: true },
+          _sum: { albumPrice: true, vendorExpense: true },
+        }),
       ]);
 
     const totalRevenue = roundMoney(Number(invoiceAgg._sum.totalAmount ?? 0));
@@ -67,6 +71,9 @@ export class AccountsService {
     const totalExpenses = roundMoney(Number(expenseAgg._sum.amount ?? 0));
     const thisMonthRevenue = roundMoney(Number(monthPaymentAgg._sum.amount ?? 0));
     const thisMonthExpenses = roundMoney(Number(monthExpenseAgg._sum.amount ?? 0));
+    const totalAlbumOrderValue = roundMoney(Number(albumAgg._sum.albumPrice ?? 0));
+    const totalAlbumVendorExpense = roundMoney(Number(albumAgg._sum.vendorExpense ?? 0));
+    const totalAlbumProfit = roundMoney(totalAlbumOrderValue - totalAlbumVendorExpense);
 
     return {
       totalRevenue,
@@ -77,6 +84,9 @@ export class AccountsService {
       thisMonthRevenue,
       thisMonthExpenses,
       thisMonthProfit: roundMoney(thisMonthRevenue - thisMonthExpenses),
+      totalAlbumOrderValue,
+      totalAlbumVendorExpense,
+      totalAlbumProfit,
     };
   }
 

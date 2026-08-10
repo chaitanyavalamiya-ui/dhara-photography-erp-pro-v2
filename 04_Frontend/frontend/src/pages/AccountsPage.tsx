@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  BookImage,
   Eye,
   Plus,
   TrendingDown,
@@ -111,6 +112,9 @@ export function AccountsPage() {
         { label: 'This Month Revenue', value: dash.thisMonthRevenue, icon: TrendingUp, color: 'text-green-400' },
         { label: 'This Month Expenses', value: dash.thisMonthExpenses, icon: TrendingDown, color: 'text-red-400' },
         { label: 'This Month Profit', value: dash.thisMonthProfit, icon: TrendingUp, color: 'text-gold' },
+        { label: 'Album Order Value', value: dash.totalAlbumOrderValue, icon: BookImage, color: 'text-gold' },
+        { label: 'Album Vendor Expense', value: dash.totalAlbumVendorExpense, icon: ArrowUpRight, color: 'text-red-400' },
+        { label: 'Album Profit', value: dash.totalAlbumProfit, icon: TrendingUp, color: 'text-green-400' },
       ]
     : [];
 

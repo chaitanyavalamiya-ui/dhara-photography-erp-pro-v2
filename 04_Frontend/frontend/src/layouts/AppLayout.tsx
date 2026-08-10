@@ -5,6 +5,7 @@ import {
   CalendarDays,
   BookOpen,
   Image,
+  BookImage,
   FileText,
   Wallet,
   BarChart3,
@@ -32,6 +33,7 @@ const navItems = [
     permission: 'bookings.read',
   },
   { to: '/gallery', label: 'Gallery', icon: Image, permission: 'gallery.read' },
+  { to: '/albums', label: 'Albums', icon: BookImage, permission: 'album.read' },
   {
     to: '/invoices',
     label: 'Invoices',

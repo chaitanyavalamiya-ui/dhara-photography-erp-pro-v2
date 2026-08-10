@@ -9,6 +9,9 @@ export interface AccountsDashboard {
   thisMonthRevenue: number;
   thisMonthExpenses: number;
   thisMonthProfit: number;
+  totalAlbumOrderValue: number;
+  totalAlbumVendorExpense: number;
+  totalAlbumProfit: number;
 }
 
 export interface MonthlyReport {

@@ -12,6 +12,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { GalleriesModule } from './galleries/galleries.module';
+import { AlbumsModule } from './albums/albums.module';
 import { StorageModule } from './storage/storage.module';
 import { AuditModule } from './audit/audit.module';
 
@@ -38,6 +39,7 @@ import { AuditModule } from './audit/audit.module';
     ExpensesModule,
     AccountsModule,
     GalleriesModule,
+    AlbumsModule,
   ],
 })
 export class AppModule {}

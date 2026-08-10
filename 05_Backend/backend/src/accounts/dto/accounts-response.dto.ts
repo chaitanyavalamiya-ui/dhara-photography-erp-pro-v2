@@ -43,6 +43,15 @@ export class AccountsDashboardDto {
 
   @ApiProperty()
   thisMonthProfit!: number;
+
+  @ApiProperty({ description: 'Sum of active album selling prices (not added to invoice revenue)' })
+  totalAlbumOrderValue!: number;
+
+  @ApiProperty({ description: 'Sum of active album vendor expenses (also included in totalExpenses when synced)' })
+  totalAlbumVendorExpense!: number;
+
+  @ApiProperty({ description: 'Album order value minus vendor expense (informational)' })
+  totalAlbumProfit!: number;
 }
 
 export class MonthlyReportDto {

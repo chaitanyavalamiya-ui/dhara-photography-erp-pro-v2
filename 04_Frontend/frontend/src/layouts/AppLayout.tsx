@@ -43,7 +43,7 @@ const navItems = [
     icon: FileText,
     permission: 'invoices.read',
   },
-  { to: '/accounts', label: 'Accounts', icon: Wallet, permission: 'payments.read' },
+  { to: '/accounts', label: 'Accounts', icon: Wallet, permission: 'accounts.read' },
   {
     to: '/reports',
     label: 'Reports',

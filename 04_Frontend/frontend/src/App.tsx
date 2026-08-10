@@ -33,7 +33,14 @@ export default function App() {
         <Route path="bookings" element={<BookingsPage />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
-        <Route path="accounts" element={<AccountsPage />} />
+        <Route
+          path="accounts"
+          element={
+            <PermissionRoute permission="accounts.read">
+              <AccountsPage />
+            </PermissionRoute>
+          }
+        />
         <Route path="gallery" element={<GalleryPage />} />
         <Route path="albums" element={<AlbumsPage />} />
         <Route

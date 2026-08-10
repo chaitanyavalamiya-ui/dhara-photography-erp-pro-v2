@@ -17,6 +17,8 @@ export interface Expense {
   bookingNumber?: string | null;
   invoiceId?: string | null;
   invoiceNumber?: string | null;
+  staffId?: string | null;
+  staffName?: string | null;
   notes?: string | null;
   createdAt: string;
 }

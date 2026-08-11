@@ -12,6 +12,7 @@ import { AccountsPage } from './pages/AccountsPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { AlbumsPage } from './pages/AlbumsPage';
 import { StaffPage } from './pages/StaffPage';
+import { DeliveriesPage } from './pages/DeliveriesPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { PermissionRoute } from './routes/PermissionRoute';
 
@@ -43,6 +44,14 @@ export default function App() {
         />
         <Route path="gallery" element={<GalleryPage />} />
         <Route path="albums" element={<AlbumsPage />} />
+        <Route
+          path="deliveries"
+          element={
+            <PermissionRoute permission="delivery.read">
+              <DeliveriesPage />
+            </PermissionRoute>
+          }
+        />
         <Route
           path="staff"
           element={

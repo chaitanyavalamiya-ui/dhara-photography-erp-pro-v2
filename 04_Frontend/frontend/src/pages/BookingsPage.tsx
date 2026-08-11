@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpDown, BookOpen, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowUpDown, BookOpen, Eye, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import {
   Booking,
   BookingFormData,
@@ -9,10 +9,12 @@ import {
   bookingsService,
 } from '@/services/bookings-service';
 import { clientsService } from '@/services/clients-service';
+import { deliveriesService } from '@/services/deliveries-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { BookingFormModal } from '@/components/bookings/BookingFormModal';
 import { BookingViewModal } from '@/components/bookings/BookingViewModal';
 import { DeleteBookingDialog } from '@/components/bookings/DeleteBookingDialog';
+import { DeliveryFormModal } from '@/components/deliveries/DeliveryFormModal';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
@@ -36,6 +38,8 @@ export function BookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
   const [deleteBooking, setDeleteBooking] = useState<Booking | null>(null);
+  const [deliveryFormOpen, setDeliveryFormOpen] = useState(false);
+  const [deliveryPrefillBookingId, setDeliveryPrefillBookingId] = useState<string | undefined>();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
   );
@@ -43,6 +47,7 @@ export function BookingsPage() {
   const canCreate = hasPermission('bookings.create');
   const canUpdate = hasPermission('bookings.update');
   const canArchive = hasPermission('bookings.archive');
+  const canCreateDelivery = hasPermission('delivery.create');
 
   const serviceRatesQuery = useQuery({
     queryKey: ['bookings', 'service-rates'],
@@ -119,6 +124,22 @@ export function BookingsPage() {
       setFeedback({
         type: 'error',
         message: getApiErrorMessage(error, 'Failed to delete booking.'),
+      });
+    },
+  });
+
+  const createDeliveryMutation = useMutation({
+    mutationFn: deliveriesService.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] });
+      setDeliveryFormOpen(false);
+      setDeliveryPrefillBookingId(undefined);
+      setFeedback({ type: 'success', message: 'Delivery item added.' });
+    },
+    onError: (error: unknown) => {
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(error, 'Failed to add delivery item.'),
       });
     },
   });
@@ -352,8 +373,15 @@ export function BookingsPage() {
                           type="button"
                           className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
                           onClick={async () => {
-                            const full = await bookingsService.getById(booking.id);
-                            setViewBooking(full);
+                            try {
+                              const full = await bookingsService.getById(booking.id);
+                              setViewBooking(full);
+                            } catch {
+                              setFeedback({
+                                type: 'error',
+                                message: 'Failed to load booking details.',
+                              });
+                            }
                           }}
                           aria-label="View booking"
                         >
@@ -367,6 +395,20 @@ export function BookingsPage() {
                             aria-label="Edit booking"
                           >
                             <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canCreateDelivery && (
+                          <button
+                            type="button"
+                            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
+                            onClick={() => {
+                              setDeliveryPrefillBookingId(booking.id);
+                              setDeliveryFormOpen(true);
+                            }}
+                            aria-label="Add delivery"
+                            title="Add Delivery"
+                          >
+                            <Package className="h-4 w-4" />
                           </button>
                         )}
                         {canArchive && (
@@ -447,6 +489,29 @@ export function BookingsPage() {
           if (deleteBooking) {
             deleteMutation.mutate(deleteBooking.id);
           }
+        }}
+      />
+
+      <DeliveryFormModal
+        open={deliveryFormOpen}
+        mode="create"
+        prefillBookingId={deliveryPrefillBookingId}
+        isSubmitting={createDeliveryMutation.isPending}
+        onClose={() => {
+          setDeliveryFormOpen(false);
+          setDeliveryPrefillBookingId(undefined);
+        }}
+        onSubmit={(values) => {
+          createDeliveryMutation.mutate({
+            bookingId: values.bookingId,
+            albumId: values.albumId,
+            deliverableType: values.deliverableType,
+            title: values.title,
+            status: values.status,
+            expectedDate: values.expectedDate || undefined,
+            deliveredDate: values.deliveredDate || undefined,
+            notes: values.notes || undefined,
+          });
         }}
       />
     </div>

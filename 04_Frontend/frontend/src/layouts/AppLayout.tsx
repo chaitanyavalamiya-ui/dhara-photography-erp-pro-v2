@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCog,
+  Package,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
@@ -36,6 +37,12 @@ const navItems = [
   },
   { to: '/gallery', label: 'Gallery', icon: Image, permission: 'gallery.read' },
   { to: '/albums', label: 'Albums', icon: BookImage, permission: 'album.read' },
+  {
+    to: '/deliveries',
+    label: 'Delivery',
+    icon: Package,
+    permission: 'delivery.read',
+  },
   { to: '/staff', label: 'Staff', icon: UserCog, permission: 'staff.read' },
   {
     to: '/invoices',

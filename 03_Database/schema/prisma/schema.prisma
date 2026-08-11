@@ -41,6 +41,7 @@ model Company {
   reminders   Reminder[]
   bookingStaffPayments BookingStaffPayment[]
   bookingActivities    BookingActivity[]
+  deliveries           Delivery[]
 
   @@unique([code])
   @@map("companies")
@@ -71,6 +72,7 @@ model CompanyBranch {
   galleries      Gallery[]
   albums         Album[]
   staff          Staff[]
+  deliveries     Delivery[]
 
   @@unique([companyId, code])
   @@index([companyId, isActive])
@@ -290,6 +292,7 @@ model Client {
   galleries     Gallery[]
   albums        Album[]
   reminders     Reminder[]
+  deliveries    Delivery[]
 
   @@unique([companyId, clientNumber])
   @@unique([companyId, normalizedMobile])
@@ -402,6 +405,7 @@ model Booking {
   activities       BookingActivity[]
   staffPayments    BookingStaffPayment[]
   reminders        Reminder[]
+  deliveries       Delivery[]
 
   @@unique([companyId, bookingNumber])
   @@index([branchId, eventDate])
@@ -839,6 +843,7 @@ model Album {
   gallery Gallery?      @relation(fields: [galleryId], references: [id], onDelete: SetNull)
   vendorExpenseRecord Expense?      @relation("album_vendor_expense", fields: [vendorExpenseId], references: [id], onDelete: SetNull)
   photos  AlbumPhoto[]
+  deliveries Delivery[]
 
   @@index([companyId, status])
   @@index([clientId, isActive])
@@ -867,5 +872,42 @@ model AlbumPhoto {
   @@unique([albumId, galleryPhotoId])
   @@index([albumId, sortOrder])
   @@map("album_photos")
+  @@schema("transaction")
+}
+
+model Delivery {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  branchId        String    @map("branch_id") @db.Uuid
+  clientId        String    @map("client_id") @db.Uuid
+  bookingId       String    @map("booking_id") @db.Uuid
+  albumId         String?   @map("album_id") @db.Uuid
+  deliverableType String    @map("deliverable_type")
+  title           String
+  status          String    @default("pending")
+  expectedDate    DateTime? @map("expected_date") @db.Timestamptz(6)
+  deliveredDate   DateTime? @map("delivered_date") @db.Timestamptz(6)
+  notes           String?   @db.Text
+  isActive        Boolean   @default(true) @map("is_active")
+  archivedAt      DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById    String?   @map("archived_by_id") @db.Uuid
+  archivedReason  String?   @map("archived_reason")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById     String?   @map("created_by") @db.Uuid
+  updatedById     String?   @map("updated_by") @db.Uuid
+
+  company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branch  CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  album   Album?        @relation(fields: [albumId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status])
+  @@index([companyId, deliverableType])
+  @@index([bookingId, status])
+  @@index([clientId, isActive])
+  @@index([companyId, expectedDate])
+  @@map("deliveries")
   @@schema("transaction")
 }

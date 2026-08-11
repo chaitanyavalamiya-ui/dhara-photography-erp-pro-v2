@@ -1,14 +1,19 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { invoicesService } from '@/services/invoices-service';
-import { PAYMENT_METHOD_OPTIONS } from '@/services/payments-service';
+import { useMasterDataOptions } from '@/hooks/use-master-data-options';
 import { formatCurrency } from '@/utils/booking-form';
+import { getApiErrorMessage } from '@/utils/api-error';
 
-const schema = z.object({
+function getInvoiceBalance(invoice: { balanceAmount: number }) {
+  return Number(invoice.balanceAmount) || 0;
+}
+
+const baseSchema = z.object({
   invoiceId: z.string().min(1, 'Select an invoice'),
   amount: z.number({ invalid_type_error: 'Enter amount' }).positive('Amount must be positive'),
   paymentModeCode: z.string().min(1, 'Select payment method'),
@@ -17,7 +22,7 @@ const schema = z.object({
   notes: z.string().optional(),
 });
 
-type FormValues = z.infer<typeof schema>;
+type FormValues = z.infer<typeof baseSchema>;
 
 interface AddPaymentModalProps {
   open: boolean;
@@ -34,20 +39,28 @@ export function AddPaymentModal({
   onClose,
   onSubmit,
 }: AddPaymentModalProps) {
+  const paymentModeOptions = useMasterDataOptions('payment_mode');
+
   const invoicesQuery = useQuery({
     queryKey: ['invoices', 'payment-select'],
-    queryFn: () => invoicesService.list({ limit: 50, status: 'all' }),
+    queryFn: () => invoicesService.list({ limit: 100, status: 'all' }),
     enabled: open,
   });
+
+  const payableInvoices = useMemo(
+    () => (invoicesQuery.data?.items ?? []).filter((inv) => getInvoiceBalance(inv) > 0),
+    [invoicesQuery.data?.items],
+  );
 
   const {
     register,
     handleSubmit,
     reset,
     watch,
+    setError,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(baseSchema),
     defaultValues: {
       paymentDate: new Date().toISOString().slice(0, 10),
       paymentModeCode: 'upi',
@@ -56,7 +69,8 @@ export function AddPaymentModal({
   });
 
   const selectedInvoiceId = watch('invoiceId');
-  const selectedInvoice = invoicesQuery.data?.items.find((inv) => inv.id === selectedInvoiceId);
+  const selectedInvoice = payableInvoices.find((inv) => inv.id === selectedInvoiceId);
+  const selectedBalance = selectedInvoice ? getInvoiceBalance(selectedInvoice) : undefined;
 
   useEffect(() => {
     if (open) {
@@ -71,7 +85,19 @@ export function AddPaymentModal({
     }
   }, [open, prefillInvoiceId, reset]);
 
+  const submitPayment = (values: FormValues) => {
+    if (selectedBalance !== undefined && values.amount > selectedBalance) {
+      setError('amount', {
+        message: `Amount cannot exceed ${formatCurrency(selectedBalance)}`,
+      });
+      return;
+    }
+    onSubmit(values);
+  };
+
   if (!open) return null;
+
+  const invoiceSelectDisabled = invoicesQuery.isLoading && !invoicesQuery.data;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -86,39 +112,61 @@ export function AddPaymentModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(submitPayment)} className="space-y-4">
           <div>
             <label className="mb-1.5 block text-sm text-gray-300">Invoice</label>
-            <select className="input-field" {...register('invoiceId')}>
-              <option value="">Select invoice...</option>
-              {(invoicesQuery.data?.items ?? [])
-                .filter((inv) => inv.balanceAmount > 0)
-                .map((inv) => (
-                  <option key={inv.id} value={inv.id}>
-                    {inv.invoiceNumber} — {inv.clientName} (Bal: {formatCurrency(inv.balanceAmount)})
-                  </option>
-                ))}
+            <select className="input-field" disabled={invoiceSelectDisabled} {...register('invoiceId')}>
+              <option value="">
+                {invoiceSelectDisabled
+                  ? 'Loading invoices...'
+                  : payableInvoices.length === 0
+                    ? 'No invoices with outstanding balance'
+                    : 'Select invoice...'}
+              </option>
+              {payableInvoices.map((inv) => (
+                <option key={inv.id} value={inv.id}>
+                  {inv.invoiceNumber} — {inv.clientName} (Bal: {formatCurrency(getInvoiceBalance(inv))})
+                </option>
+              ))}
             </select>
+            {invoicesQuery.isError && (
+              <p className="mt-1 text-xs text-red-400">
+                {getApiErrorMessage(invoicesQuery.error, 'Failed to load invoices.')}
+              </p>
+            )}
             {errors.invoiceId && <p className="mt-1 text-xs text-red-400">{errors.invoiceId.message}</p>}
           </div>
 
           {selectedInvoice && (
             <div className="rounded-lg border border-surface-border bg-surface-elevated p-3 text-sm text-gray-400">
-              Balance due: <span className="font-semibold text-gold">{formatCurrency(selectedInvoice.balanceAmount)}</span>
+              Balance due:{' '}
+              <span className="font-semibold text-gold">{formatCurrency(selectedBalance ?? 0)}</span>
             </div>
           )}
 
           <div>
             <label className="mb-1.5 block text-sm text-gray-300">Amount (₹)</label>
-            <input type="number" min="1" step="1" className="input-field" {...register('amount', { valueAsNumber: true })} />
+            <input
+              type="number"
+              min="1"
+              max={selectedBalance}
+              step="1"
+              className="input-field"
+              {...register('amount', { valueAsNumber: true })}
+            />
+            {selectedBalance !== undefined && (
+              <p className="mt-1 text-xs text-gray-500">Maximum: {formatCurrency(selectedBalance)}</p>
+            )}
             {errors.amount && <p className="mt-1 text-xs text-red-400">{errors.amount.message}</p>}
           </div>
 
           <div>
             <label className="mb-1.5 block text-sm text-gray-300">Payment Method</label>
             <select className="input-field" {...register('paymentModeCode')}>
-              {PAYMENT_METHOD_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              {paymentModeOptions.options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </select>
           </div>
@@ -139,8 +187,14 @@ export function AddPaymentModal({
           </div>
 
           <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button type="button" className="btn-secondary" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={isSubmitting || invoiceSelectDisabled || payableInvoices.length === 0}
+            >
               {isSubmitting ? 'Saving...' : 'Record Payment'}
             </button>
           </div>

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ImagePlus, Trash2, Upload, X, ZoomIn } from 'lucide-react';
 import { Gallery, galleriesService } from '@/services/galleries-service';
 import { GalleryPhotoImage } from '@/components/gallery/GalleryPhotoImage';
+import { GalleryLightbox } from '@/components/gallery/GalleryLightbox';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
 
@@ -17,7 +18,7 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [previewPhotoId, setPreviewPhotoId] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const uploadMutation = useMutation({
@@ -44,7 +45,7 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
       if (gallery) {
         queryClient.invalidateQueries({ queryKey: ['galleries', gallery.id] });
       }
-      setPreviewPhotoId(null);
+      setLightboxIndex(null);
     },
     onError: (error: unknown) => {
       setFeedback({ type: 'error', message: getApiErrorMessage(error, 'Delete failed.') });
@@ -145,14 +146,14 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {photos.map((photo) => (
+              {photos.map((photo, index) => (
                 <div key={photo.id} className="group relative overflow-hidden rounded-lg border border-surface-border bg-surface-elevated">
                   <GalleryPhotoImage
                     galleryId={gallery.id}
                     photoId={photo.id}
                     alt={photo.originalName}
                     className="aspect-square w-full cursor-pointer"
-                    onClick={() => setPreviewPhotoId(photo.id)}
+                    onClick={() => setLightboxIndex(index)}
                   />
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 transition group-hover:opacity-100">
                     <p className="truncate text-xs text-gray-200">{photo.originalName}</p>
@@ -160,7 +161,7 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
                       <button
                         type="button"
                         className="rounded bg-black/40 p-1 text-gray-200 hover:text-gold"
-                        onClick={() => setPreviewPhotoId(photo.id)}
+                        onClick={() => setLightboxIndex(index)}
                       >
                         <ZoomIn className="h-3.5 w-3.5" />
                       </button>
@@ -187,28 +188,14 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
         </div>
       </div>
 
-      {previewPhotoId && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setPreviewPhotoId(null)}
-        >
-          <div className="relative max-h-[90vh] max-w-5xl" onClick={(e) => e.stopPropagation()}>
-            <GalleryPhotoImage
-              galleryId={gallery.id}
-              photoId={previewPhotoId}
-              alt="Preview"
-              variant="original"
-              className="max-h-[85vh] max-w-full rounded-lg"
-            />
-            <button
-              type="button"
-              className="absolute right-2 top-2 rounded-full bg-black/60 p-2 text-white"
-              onClick={() => setPreviewPhotoId(null)}
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
+      {lightboxIndex !== null && lightboxIndex >= 0 && (
+        <GalleryLightbox
+          open
+          galleryId={gallery.id}
+          photos={photos}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
       )}
     </div>
   );

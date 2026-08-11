@@ -19,7 +19,7 @@ import {
   InvoiceResponseDto,
   PaginatedInvoicesResponseDto,
 } from './dto/invoice-response.dto';
-import { RequirePermissions } from '../common/decorators/auth.decorators';
+import { RequireAnyPermissions, RequirePermissions } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
@@ -30,7 +30,7 @@ export class InvoicesController {
   constructor(private readonly invoicesService: InvoicesService) {}
 
   @Get()
-  @RequirePermissions('invoices.read')
+  @RequireAnyPermissions('invoices.read', 'payments.create')
   @ApiOperation({ summary: 'List invoices with search, filter, and pagination' })
   async findAll(
     @CurrentUser() user: JwtPayload,

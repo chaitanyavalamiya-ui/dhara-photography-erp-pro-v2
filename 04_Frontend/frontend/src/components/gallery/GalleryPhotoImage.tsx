@@ -9,6 +9,8 @@ interface GalleryPhotoImageProps {
   alt: string;
   className?: string;
   variant?: 'thumbnail' | 'original';
+  objectFit?: 'cover' | 'contain';
+  errorMessage?: string;
   onClick?: () => void;
 }
 
@@ -18,6 +20,8 @@ export function GalleryPhotoImage({
   alt,
   className,
   variant = 'thumbnail',
+  objectFit = 'cover',
+  errorMessage = 'Failed',
   onClick,
 }: GalleryPhotoImageProps) {
   const [src, setSrc] = useState<string | null>(null);
@@ -59,8 +63,13 @@ export function GalleryPhotoImage({
 
   if (error) {
     return (
-      <div className={cn('flex items-center justify-center bg-surface-elevated text-xs text-gray-500', className)}>
-        Failed
+      <div
+        className={cn(
+          'flex items-center justify-center bg-surface-elevated px-3 text-center text-xs text-gray-500',
+          className,
+        )}
+      >
+        {errorMessage}
       </div>
     );
   }
@@ -73,7 +82,7 @@ export function GalleryPhotoImage({
     <img
       src={src}
       alt={alt}
-      className={cn('object-cover', className)}
+      className={cn(objectFit === 'contain' ? 'object-contain' : 'object-cover', className)}
       onClick={onClick}
       loading="lazy"
     />

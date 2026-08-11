@@ -209,6 +209,9 @@ export class MonthlySummaryRowDto {
 
   @ApiProperty()
   outstanding!: number;
+
+  @ApiProperty()
+  staffPayments!: number;
 }
 
 export class StaffReportRowDto {

@@ -596,7 +596,7 @@ export class ReportsService {
   ): Promise<MonthlySummaryRowDto> {
     const { start, end } = getMonthRange(year, month);
 
-    const [invoiceAgg, paymentAgg, expenseAgg, bookingsCount] = await Promise.all([
+    const [invoiceAgg, paymentAgg, expenseAgg, bookingsCount, staffPaymentsAgg] = await Promise.all([
       this.prisma.invoice.aggregate({
         where: {
           companyId,
@@ -628,6 +628,16 @@ export class ReportsService {
           ...buildBookingEventDateWhere({ start, end }),
         },
       }),
+      this.prisma.bookingStaffPayment.aggregate({
+        where: {
+          companyId,
+          isActive: true,
+          archivedAt: null,
+          status: 'paid',
+          paymentDate: { gte: start, lte: end },
+        },
+        _sum: { amount: true },
+      }),
     ]);
 
     const revenue = roundMoney(Number(invoiceAgg._sum.totalAmount ?? 0));
@@ -648,6 +658,7 @@ export class ReportsService {
       profit: roundMoney(received - expenses),
       bookingsCount,
       outstanding: roundMoney(Number(invoiceAgg._sum.outstandingAmount ?? 0)),
+      staffPayments: roundMoney(Number(staffPaymentsAgg._sum.amount ?? 0)),
     };
   }
 

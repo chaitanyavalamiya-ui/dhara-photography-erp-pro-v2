@@ -101,6 +101,7 @@ export interface MonthlySummaryRow {
   profit: number;
   bookingsCount: number;
   outstanding: number;
+  staffPayments: number;
 }
 
 export interface StaffReportRow {

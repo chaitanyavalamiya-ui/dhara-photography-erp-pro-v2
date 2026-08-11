@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type TouchEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type TouchEvent,
+} from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,10 +20,16 @@ import { GalleryPhoto } from '@/services/galleries-service';
 import { GalleryPhotoImage } from '@/components/gallery/GalleryPhotoImage';
 import { cn } from '@/utils/cn';
 
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 4;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 8;
 const ZOOM_STEP = 0.25;
+const WHEEL_ZOOM_STEP = 0.12;
 const SWIPE_THRESHOLD_PX = 50;
+
+interface PanOffset {
+  x: number;
+  y: number;
+}
 
 interface GalleryLightboxProps {
   open: boolean;
@@ -24,6 +37,33 @@ interface GalleryLightboxProps {
   photos: GalleryPhoto[];
   initialIndex: number;
   onClose: () => void;
+}
+
+function clampZoom(value: number) {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Number(value.toFixed(2))));
+}
+
+function computePanForZoom(
+  currentZoom: number,
+  nextZoom: number,
+  pointerX: number,
+  pointerY: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  currentPan: PanOffset,
+): PanOffset {
+  if (nextZoom === 1) {
+    return { x: 0, y: 0 };
+  }
+
+  const ratio = nextZoom / currentZoom;
+  const centerX = viewportWidth / 2 + currentPan.x;
+  const centerY = viewportHeight / 2 + currentPan.y;
+
+  return {
+    x: pointerX - (pointerX - centerX) * ratio - viewportWidth / 2,
+    y: pointerY - (pointerY - centerY) * ratio - viewportHeight / 2,
+  };
 }
 
 export function GalleryLightbox({
@@ -34,27 +74,60 @@ export function GalleryLightbox({
   onClose,
 }: GalleryLightboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
+  const dragState = useRef<{
+    active: boolean;
+    startX: number;
+    startY: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState<PanOffset>({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const photoCount = photos.length;
   const currentPhoto = photos[currentIndex];
   const canGoPrev = currentIndex > 0;
   const canGoNext = currentIndex < photoCount - 1;
 
+  const resetView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
   useEffect(() => {
     if (open) {
       setCurrentIndex(initialIndex);
-      setZoom(1);
+      resetView();
     }
-  }, [open, initialIndex]);
+  }, [open, initialIndex, resetView]);
 
   useEffect(() => {
-    setZoom(1);
-  }, [currentIndex]);
+    resetView();
+  }, [currentIndex, resetView]);
+
+  const adjustZoomTowardPoint = useCallback((delta: number, pointerX: number, pointerY: number) => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const { width, height } = viewport.getBoundingClientRect();
+
+    setZoom((currentZoom) => {
+      const nextZoom = clampZoom(currentZoom + delta);
+      if (nextZoom === currentZoom) return currentZoom;
+
+      setPan((currentPan) =>
+        computePanForZoom(currentZoom, nextZoom, pointerX, pointerY, width, height, currentPan),
+      );
+
+      return nextZoom;
+    });
+  }, []);
 
   const goPrev = useCallback(() => {
     setCurrentIndex((index) => Math.max(0, index - 1));
@@ -65,16 +138,22 @@ export function GalleryLightbox({
   }, [photoCount]);
 
   const zoomIn = useCallback(() => {
-    setZoom((value) => Math.min(MAX_ZOOM, Number((value + ZOOM_STEP).toFixed(2))));
-  }, []);
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const { width, height } = viewport.getBoundingClientRect();
+    adjustZoomTowardPoint(ZOOM_STEP, width / 2, height / 2);
+  }, [adjustZoomTowardPoint]);
 
   const zoomOut = useCallback(() => {
-    setZoom((value) => Math.max(MIN_ZOOM, Number((value - ZOOM_STEP).toFixed(2))));
-  }, []);
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const { width, height } = viewport.getBoundingClientRect();
+    adjustZoomTowardPoint(-ZOOM_STEP, width / 2, height / 2);
+  }, [adjustZoomTowardPoint]);
 
   const resetZoom = useCallback(() => {
-    setZoom(1);
-  }, []);
+    resetView();
+  }, [resetView]);
 
   const toggleFullscreen = useCallback(async () => {
     const element = containerRef.current;
@@ -90,6 +169,47 @@ export function GalleryLightbox({
       // Fullscreen API may be unavailable or blocked; lightbox still works.
     }
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+
+      const rect = viewport.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+      const direction = event.deltaY < 0 ? 1 : -1;
+
+      setZoom((currentZoom) => {
+        const nextZoom = clampZoom(currentZoom + direction * WHEEL_ZOOM_STEP);
+        if (nextZoom === currentZoom) return currentZoom;
+
+        setPan((currentPan) =>
+          computePanForZoom(
+            currentZoom,
+            nextZoom,
+            pointerX,
+            pointerY,
+            rect.width,
+            rect.height,
+            currentPan,
+          ),
+        );
+
+        return nextZoom;
+      });
+    };
+
+    viewport.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+      viewport.removeEventListener('wheel', onWheel);
+    };
+  }, [open, currentIndex]);
 
   useEffect(() => {
     if (!open) return;
@@ -126,16 +246,57 @@ export function GalleryLightbox({
     };
   }, [open, onClose, goPrev, goNext, canGoPrev, canGoNext]);
 
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const onMouseMove = (event: MouseEvent) => {
+      if (!dragState.current?.active) return;
+      setPan({
+        x: dragState.current.panX + (event.clientX - dragState.current.startX),
+        y: dragState.current.panY + (event.clientY - dragState.current.startY),
+      });
+    };
+
+    const endDrag = () => {
+      dragState.current = null;
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', endDrag);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', endDrag);
+    };
+  }, [isDragging]);
+
   const handleOverlayClick = () => {
     onClose();
   };
 
+  const handleMouseDown = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || zoom <= 1) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    dragState.current = {
+      active: true,
+      startX: event.clientX,
+      startY: event.clientY,
+      panX: pan.x,
+      panY: pan.y,
+    };
+    setIsDragging(true);
+  };
+
   const handleTouchStart = (event: TouchEvent) => {
+    if (zoom > 1) return;
     touchStartX.current = event.touches[0]?.clientX ?? null;
   };
 
   const handleTouchEnd = (event: TouchEvent) => {
-    if (touchStartX.current === null) return;
+    if (zoom > 1 || touchStartX.current === null) return;
 
     const touchEndX = event.changedTouches[0]?.clientX;
     if (touchEndX === undefined) return;
@@ -172,6 +333,7 @@ export function GalleryLightbox({
           <span className="rounded-full border border-gold/30 bg-black/40 px-2.5 py-1 text-xs font-medium text-gray-200">
             {currentIndex + 1} / {photoCount}
           </span>
+          <span className="hidden text-xs text-gray-400 sm:inline">{Math.round(zoom * 100)}%</span>
           <button
             type="button"
             className="rounded-lg p-2 text-gray-300 transition hover:bg-gold/10 hover:text-gold"
@@ -243,14 +405,22 @@ export function GalleryLightbox({
         </button>
 
         <div
-          className="flex h-full w-full max-w-6xl items-center justify-center"
+          ref={viewportRef}
+          className={cn(
+            'relative h-full w-full max-w-6xl touch-none',
+            zoom > 1 && (isDragging ? 'cursor-grabbing' : 'cursor-grab'),
+          )}
           onClick={(event) => event.stopPropagation()}
+          onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
           <div
-            className="flex max-h-full max-w-full items-center justify-center transition-transform duration-200 ease-out"
-            style={{ transform: `scale(${zoom})` }}
+            className="absolute left-1/2 top-1/2 flex max-h-full max-w-full items-center justify-center"
+            style={{
+              transform: `translate(calc(-50% + ${pan.x}px), calc(-50% + ${pan.y}px)) scale(${zoom})`,
+              transition: isDragging ? 'none' : undefined,
+            }}
           >
             <GalleryPhotoImage
               key={currentPhoto.id}

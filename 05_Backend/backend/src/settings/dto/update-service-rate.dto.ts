@@ -6,7 +6,7 @@ export class UpdateServiceRateDto {
   @ApiProperty({ example: 5000 })
   @Type(() => Number)
   @IsNumber()
-  @Min(0.01, { message: 'Rate must be a positive number.' })
+  @Min(1, { message: 'Rate must be at least ₹1.' })
   defaultRate!: number;
 
   @ApiPropertyOptional()

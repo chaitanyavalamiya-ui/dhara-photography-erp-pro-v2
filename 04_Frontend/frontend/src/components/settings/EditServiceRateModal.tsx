@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +8,8 @@ import { formatCurrency } from '@/utils/booking-form';
 const editRateSchema = z.object({
   defaultRate: z
     .number({ invalid_type_error: 'Enter a valid rate' })
-    .positive('Rate must be a positive number'),
+    .finite('Enter a valid rate')
+    .min(1, 'Rate must be at least ₹1'),
 });
 
 type EditRateForm = z.infer<typeof editRateSchema>;
@@ -32,18 +32,11 @@ export function EditServiceRateModal({
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors },
   } = useForm<EditRateForm>({
     resolver: zodResolver(editRateSchema),
-    defaultValues: { defaultRate: rate?.defaultRate ?? 0 },
+    values: rate ? { defaultRate: rate.defaultRate } : undefined,
   });
-
-  useEffect(() => {
-    if (open && rate) {
-      reset({ defaultRate: rate.defaultRate });
-    }
-  }, [open, rate, reset]);
 
   if (!open || !rate) return null;
 
@@ -77,6 +70,7 @@ export function EditServiceRateModal({
         </div>
 
         <form
+          key={rate.id}
           onSubmit={handleSubmit((values) => onSubmit(values.defaultRate))}
           className="space-y-5"
         >

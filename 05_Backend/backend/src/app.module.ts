@@ -15,7 +15,9 @@ import { GalleriesModule } from './galleries/galleries.module';
 import { AlbumsModule } from './albums/albums.module';
 import { ReportsModule } from './reports/reports.module';
 import { StaffModule } from './staff/staff.module';
+import { UsersModule } from './users/users.module';
 import { DeliveriesModule } from './deliveries/deliveries.module';
+import { RolesModule } from './roles/roles.module';
 import { StorageModule } from './storage/storage.module';
 import { AuditModule } from './audit/audit.module';
 
@@ -45,7 +47,9 @@ import { AuditModule } from './audit/audit.module';
     AlbumsModule,
     ReportsModule,
     StaffModule,
+    UsersModule,
     DeliveriesModule,
+    RolesModule,
   ],
 })
 export class AppModule {}

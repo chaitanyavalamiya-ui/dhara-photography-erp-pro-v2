@@ -12,6 +12,7 @@ import { AccountsPage } from './pages/AccountsPage';
 import { GalleryPage } from './pages/GalleryPage';
 import { AlbumsPage } from './pages/AlbumsPage';
 import { StaffPage } from './pages/StaffPage';
+import { UsersPage } from './pages/UsersPage';
 import { DeliveriesPage } from './pages/DeliveriesPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { PermissionRoute } from './routes/PermissionRoute';
@@ -29,11 +30,46 @@ export default function App() {
         }
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="clients" element={<ClientsPage />} />
-        <Route path="bookings" element={<BookingsPage />} />
-        <Route path="calendar" element={<CalendarPage />} />
-        <Route path="invoices" element={<InvoicesPage />} />
+        <Route
+          path="dashboard"
+          element={
+            <PermissionRoute permission="dashboard.read">
+              <DashboardPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="clients"
+          element={
+            <PermissionRoute permission="clients.read">
+              <ClientsPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="bookings"
+          element={
+            <PermissionRoute permission="bookings.read">
+              <BookingsPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="calendar"
+          element={
+            <PermissionRoute permission="bookings.read">
+              <CalendarPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="invoices"
+          element={
+            <PermissionRoute permission="invoices.read">
+              <InvoicesPage />
+            </PermissionRoute>
+          }
+        />
         <Route
           path="accounts"
           element={
@@ -42,8 +78,22 @@ export default function App() {
             </PermissionRoute>
           }
         />
-        <Route path="gallery" element={<GalleryPage />} />
-        <Route path="albums" element={<AlbumsPage />} />
+        <Route
+          path="gallery"
+          element={
+            <PermissionRoute permission="gallery.read">
+              <GalleryPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
+          path="albums"
+          element={
+            <PermissionRoute permission="album.read">
+              <AlbumsPage />
+            </PermissionRoute>
+          }
+        />
         <Route
           path="deliveries"
           element={
@@ -61,6 +111,14 @@ export default function App() {
           }
         />
         <Route
+          path="users"
+          element={
+            <PermissionRoute permission="users.read">
+              <UsersPage />
+            </PermissionRoute>
+          }
+        />
+        <Route
           path="reports"
           element={
             <PermissionRoute permission="reports.read">
@@ -68,7 +126,14 @@ export default function App() {
             </PermissionRoute>
           }
         />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route
+          path="settings"
+          element={
+            <PermissionRoute permission="settings.read">
+              <SettingsPage />
+            </PermissionRoute>
+          }
+        />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

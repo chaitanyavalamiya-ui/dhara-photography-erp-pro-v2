@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCog,
+  Shield,
   Package,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -44,6 +45,12 @@ const navItems = [
     permission: 'delivery.read',
   },
   { to: '/staff', label: 'Staff', icon: UserCog, permission: 'staff.read' },
+  {
+    to: '/users',
+    label: 'Users',
+    icon: Shield,
+    permission: 'users.read',
+  },
   {
     to: '/invoices',
     label: 'Invoices',

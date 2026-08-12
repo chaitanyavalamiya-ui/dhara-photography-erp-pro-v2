@@ -280,6 +280,83 @@ async function main(): Promise<void> {
     });
   }
 
+  const rateByCode: Record<string, string> = {};
+  const seededRates = await prisma.serviceRate.findMany({
+    where: { companyId: company.id },
+    select: { id: true, code: true },
+  });
+  for (const rate of seededRates) {
+    rateByCode[rate.code] = rate.id;
+  }
+
+  const packageEntries = [
+    {
+      code: 'wedding_basic',
+      label: 'Basic Wedding Package',
+      description: 'Photography + standard album for one-day wedding coverage.',
+      defaultPrice: 45000,
+      offerPrice: 42000,
+      sortOrder: 1,
+      items: [
+        { serviceRateId: rateByCode.photography, quantity: 1, days: 1 },
+        { serviceRateId: rateByCode.standard_album, quantity: 1, days: 1 },
+      ],
+    },
+    {
+      code: 'wedding_premium',
+      label: 'Premium Wedding Package',
+      description: 'Photography, videography, drone, and premium album.',
+      defaultPrice: 95000,
+      offerPrice: 89000,
+      sortOrder: 2,
+      items: [
+        { serviceRateId: rateByCode.photography, quantity: 1, days: 1 },
+        { serviceRateId: rateByCode.videography, quantity: 1, days: 1 },
+        { serviceRateId: rateByCode.drone, quantity: 1, days: 1 },
+        { serviceRateId: rateByCode.premium_album, quantity: 1, days: 1 },
+      ],
+    },
+  ];
+
+  for (const pkg of packageEntries) {
+    if (pkg.items.some((item) => !item.serviceRateId)) {
+      continue;
+    }
+
+    await prisma.masterData.upsert({
+      where: {
+        companyId_category_code: {
+          companyId: company.id,
+          category: 'package',
+          code: pkg.code,
+        },
+      },
+      update: {
+        label: pkg.label,
+        sortOrder: pkg.sortOrder,
+        metadata: {
+          description: pkg.description,
+          defaultPrice: pkg.defaultPrice,
+          offerPrice: pkg.offerPrice,
+          items: pkg.items,
+        },
+      },
+      create: {
+        companyId: company.id,
+        category: 'package',
+        code: pkg.code,
+        label: pkg.label,
+        sortOrder: pkg.sortOrder,
+        metadata: {
+          description: pkg.description,
+          defaultPrice: pkg.defaultPrice,
+          offerPrice: pkg.offerPrice,
+          items: pkg.items,
+        },
+      },
+    });
+  }
+
   const passwordHash = await bcrypt.hash(adminPassword, 12);
   const normalizedEmail = adminEmail.toLowerCase().trim();
 

@@ -23,6 +23,7 @@ import {
   roundMoney,
   toDateOnlyLabel,
 } from './utils/invoice.utils';
+import { getPaymentTotalForInvoice } from '../common/utils/financial.utils';
 import { toDecimal } from '../bookings/utils/booking.utils';
 
 type InvoiceWithRelations = Prisma.InvoiceGetPayload<{
@@ -201,6 +202,13 @@ export class InvoicesService {
     let dueDate = existing.dueDate;
 
     if (dto.advanceAmount !== undefined) {
+      const paymentTotal = await getPaymentTotalForInvoice(this.prisma, id);
+      if (paymentTotal > 0) {
+        throw new BadRequestException(
+          'Advance amount is managed by recorded payments. Add or update payments instead.',
+        );
+      }
+
       advanceAmount = roundMoney(dto.advanceAmount);
 
       if (advanceAmount > totalAmount) {

@@ -270,6 +270,12 @@ export function StaffPage() {
                     Loading staff...
                   </td>
                 </tr>
+              ) : listQuery.isError ? (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-center text-red-400">
+                    Failed to load staff members.
+                  </td>
+                </tr>
               ) : staffMembers.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-center text-gray-500">

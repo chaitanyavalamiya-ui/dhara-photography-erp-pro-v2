@@ -4,6 +4,7 @@ import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto, RefreshTokenDto } from './dto/auth-response.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -47,5 +48,16 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user profile' })
   async me(@CurrentUser() user: JwtPayload): Promise<LoginResponseDto['user']> {
     return this.authService.getProfile(user.sub);
+  }
+
+  @ApiBearerAuth()
+  @Post('change-password')
+  @ApiOperation({ summary: 'Change password for the authenticated user' })
+  async changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+  ): Promise<{ message: string }> {
+    return this.authService.changePassword(user.sub, user.companyId, dto, req.ip, req.headers['user-agent']);
   }
 }

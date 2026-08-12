@@ -1,12 +1,15 @@
-import { LogOut, User } from 'lucide-react';
+import { LogOut, KeyRound, User } from 'lucide-react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth-store';
 import { authService } from '@/services/auth-service';
+import { ChangePasswordModal } from '@/components/auth/ChangePasswordModal';
 
 export function Header() {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const navigate = useNavigate();
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -39,6 +42,15 @@ export function Header() {
 
         <button
           type="button"
+          onClick={() => setChangePasswordOpen(true)}
+          className="flex items-center gap-2 rounded-lg border border-surface-border px-3 py-2 text-sm text-gray-400 transition hover:border-gold/40 hover:text-gold"
+        >
+          <KeyRound className="h-4 w-4" />
+          <span className="hidden sm:inline">Change Password</span>
+        </button>
+
+        <button
+          type="button"
           onClick={handleLogout}
           className="flex items-center gap-2 rounded-lg border border-surface-border px-3 py-2 text-sm text-gray-400 transition hover:border-red-500/40 hover:text-red-400"
         >
@@ -46,6 +58,11 @@ export function Header() {
           <span className="hidden sm:inline">Logout</span>
         </button>
       </div>
+
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+      />
     </header>
   );
 }

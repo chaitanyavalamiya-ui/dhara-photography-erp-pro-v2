@@ -37,6 +37,17 @@ export const authService = {
     const { data } = await apiClient.get<ApiResponse<AuthUser>>('/auth/me');
     return data.data;
   },
+
+  async changePassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+  }): Promise<{ message: string }> {
+    const { data } = await apiClient.post<ApiResponse<{ message: string }>>(
+      '/auth/change-password',
+      payload,
+    );
+    return data.data;
+  },
 };
 
 export const healthService = {

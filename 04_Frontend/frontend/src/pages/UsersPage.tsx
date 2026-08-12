@@ -5,6 +5,7 @@ import { AppUser, usersService } from '@/services/users-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { UserFormModal } from '@/components/users/UserFormModal';
 import { ArchiveUserDialog } from '@/components/users/ArchiveUserDialog';
+import { ConfirmPasswordResetDialog } from '@/components/users/ConfirmPasswordResetDialog';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
 
@@ -23,6 +24,11 @@ export function UsersPage() {
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [archiveUser, setArchiveUser] = useState<AppUser | null>(null);
+  const [passwordResetUser, setPasswordResetUser] = useState<AppUser | null>(null);
+  const [pendingUpdatePayload, setPendingUpdatePayload] = useState<{
+    id: string;
+    payload: Parameters<typeof usersService.update>[1];
+  } | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
   );
@@ -64,6 +70,8 @@ export function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setFormOpen(false);
       setSelectedUser(null);
+      setPasswordResetUser(null);
+      setPendingUpdatePayload(null);
       setFeedback({ type: 'success', message: 'User updated successfully.' });
     },
     onError: (error: unknown) => {
@@ -278,16 +286,42 @@ export function UsersPage() {
               isActive: boolean;
               roleIds: string[];
             };
+            const updatePayload = {
+              fullName: payload.fullName,
+              email: payload.email,
+              isActive: payload.isActive,
+              roleIds: payload.roleIds,
+              ...(payload.password ? { password: payload.password } : {}),
+            };
+
+            if (payload.password) {
+              setPendingUpdatePayload({
+                id: selectedUser.id,
+                payload: updatePayload,
+              });
+              setPasswordResetUser(selectedUser);
+              return;
+            }
+
             updateMutation.mutate({
               id: selectedUser.id,
-              payload: {
-                fullName: payload.fullName,
-                email: payload.email,
-                isActive: payload.isActive,
-                roleIds: payload.roleIds,
-                ...(payload.password ? { password: payload.password } : {}),
-              },
+              payload: updatePayload,
             });
+          }
+        }}
+      />
+
+      <ConfirmPasswordResetDialog
+        open={Boolean(passwordResetUser)}
+        user={passwordResetUser}
+        isSubmitting={updateMutation.isPending}
+        onClose={() => {
+          setPasswordResetUser(null);
+          setPendingUpdatePayload(null);
+        }}
+        onConfirm={() => {
+          if (pendingUpdatePayload) {
+            updateMutation.mutate(pendingUpdatePayload);
           }
         }}
       />

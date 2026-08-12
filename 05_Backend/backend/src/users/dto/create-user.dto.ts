@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMinSize, IsArray, IsEmail, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { ArrayMinSize, IsArray, IsEmail, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from 'class-validator';
+import { IsStrongPassword } from '../../common/validators/is-strong-password.decorator';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'Studio Manager' })
@@ -15,7 +16,7 @@ export class CreateUserDto {
 
   @ApiProperty({ example: 'SecurePass123!' })
   @IsString()
-  @MinLength(8)
+  @IsStrongPassword()
   @MaxLength(100)
   password!: string;
 
@@ -41,9 +42,9 @@ export class UpdateUserDto {
   email?: string;
 
   @ApiPropertyOptional({ example: 'SecurePass123!' })
-  @IsOptional()
+  @ValidateIf((dto: UpdateUserDto) => Boolean(dto.password))
   @IsString()
-  @MinLength(8)
+  @IsStrongPassword()
   @MaxLength(100)
   password?: string;
 

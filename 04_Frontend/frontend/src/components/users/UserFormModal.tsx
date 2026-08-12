@@ -5,18 +5,38 @@ import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { AppUser, usersService } from '@/services/users-service';
+import { validatePasswordPolicy } from '@/utils/password-policy';
+
+const passwordFieldSchema = z.string().superRefine((value, ctx) => {
+  const message = validatePasswordPolicy(value);
+  if (message) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+  }
+});
 
 const createSchema = z.object({
   fullName: z.string().trim().min(1, 'Name is required'),
   email: z.string().trim().email('Enter a valid email'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: passwordFieldSchema,
   roleIds: z.array(z.string()).min(1, 'Select at least one role'),
 });
 
 const editSchema = z.object({
   fullName: z.string().trim().min(1, 'Name is required'),
   email: z.string().trim().email('Enter a valid email'),
-  password: z.string().optional(),
+  password: z
+    .string()
+    .optional()
+    .superRefine((value, ctx) => {
+      if (!value) {
+        return;
+      }
+
+      const message = validatePasswordPolicy(value);
+      if (message) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+      }
+    }),
   isActive: z.boolean(),
   roleIds: z.array(z.string()).min(1, 'Select at least one role'),
 });
@@ -128,6 +148,9 @@ export function UserFormModal({
             <div>
               <label className="mb-1.5 block text-sm text-gray-300">New Password</label>
               <input type="password" className="input-field" placeholder="Leave blank to keep current" {...editForm.register('password')} />
+              {editForm.formState.errors.password && (
+                <p className="mt-1 text-xs text-red-400">{editForm.formState.errors.password.message}</p>
+              )}
             </div>
             <label className="flex items-center gap-2 text-sm text-gray-300">
               <input type="checkbox" className="rounded border-surface-border" {...editForm.register('isActive')} />
@@ -172,6 +195,9 @@ export function UserFormModal({
             <div>
               <label className="mb-1.5 block text-sm text-gray-300">Password</label>
               <input type="password" className="input-field" {...createForm.register('password')} />
+              {createForm.formState.errors.password && (
+                <p className="mt-1 text-xs text-red-400">{createForm.formState.errors.password.message}</p>
+              )}
             </div>
             <div>
               <label className="mb-2 block text-sm text-gray-300">Roles</label>

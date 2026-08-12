@@ -8,6 +8,7 @@ import * as bcrypt from 'bcrypt';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { assertPasswordPolicy } from '../common/utils/password-policy.util';
 import { CreateUserDto, UpdateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import {
@@ -105,6 +106,7 @@ export class UsersService {
     }
 
     await this.validateRoleIds(companyId, dto.roleIds);
+    assertPasswordPolicy(dto.password);
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
     const primaryRoleId = dto.roleIds[0];
@@ -190,6 +192,10 @@ export class UsersService {
       await this.validateRoleIds(companyId, dto.roleIds);
     }
 
+    if (dto.password) {
+      assertPasswordPolicy(dto.password);
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.update({
         where: { id },
@@ -223,6 +229,25 @@ export class UsersService {
         include: { userRoles: { include: { role: true } } },
       });
     });
+
+    if (dto.password) {
+      await this.prisma.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+
+      await this.auditService.log({
+        companyId,
+        actorUserId,
+        module: 'users',
+        action: 'password_reset',
+        recordType: 'user',
+        recordId: id,
+        newValue: { email: updated.email, fullName: updated.fullName },
+        ipAddress,
+        userAgent,
+      });
+    }
 
     await this.auditService.log({
       companyId,

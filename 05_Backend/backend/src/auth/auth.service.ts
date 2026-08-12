@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -7,7 +7,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/auth-response.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { assertPasswordPolicy } from '../common/utils/password-policy.util';
 
 @Injectable()
 export class AuthService {
@@ -206,6 +208,64 @@ export class AuthService {
       companyId: user.companyId,
       permissions: this.extractPermissions(user.userRoles),
     };
+  }
+
+  async changePassword(
+    userId: string,
+    companyId: string,
+    dto: ChangePasswordDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ message: string }> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        id: userId,
+        companyId,
+        isActive: true,
+        archivedAt: null,
+      },
+    });
+
+    if (!user) {
+      throw new ForbiddenException('User account is not active.');
+    }
+
+    const currentPasswordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!currentPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect.');
+    }
+
+    assertPasswordPolicy(dto.newPassword);
+
+    const sameAsCurrent = await bcrypt.compare(dto.newPassword, user.passwordHash);
+    if (sameAsCurrent) {
+      throw new BadRequestException('New password must be different from the current password.');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 12);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, updatedById: userId },
+    });
+
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    await this.auditService.log({
+      companyId,
+      actorUserId: userId,
+      module: 'auth',
+      action: 'password_change',
+      recordType: 'user',
+      recordId: userId,
+      ipAddress,
+      userAgent,
+    });
+
+    return { message: 'Password changed successfully.' };
   }
 
   private async createRefreshToken(userId: string): Promise<string> {

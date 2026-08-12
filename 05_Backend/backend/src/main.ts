@@ -13,9 +13,16 @@ async function bootstrap(): Promise<void> {
   const port = configService.get<number>('BACKEND_PORT', 3000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
   const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:5173');
+  const allowedOrigins = corsOrigin
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
   app.setGlobalPrefix(apiPrefix);
-  app.enableCors({ origin: corsOrigin, credentials: true });
+  app.enableCors({
+    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
+    credentials: true,
+  });
 
   app.useGlobalPipes(
     new ValidationPipe({

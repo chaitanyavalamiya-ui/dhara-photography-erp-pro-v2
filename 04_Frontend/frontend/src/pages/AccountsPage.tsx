@@ -5,8 +5,11 @@ import {
   ArrowUpRight,
   BookImage,
   CalendarRange,
+  Eye,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   TrendingUp,
   UserCog,
   Wallet,
@@ -17,11 +20,14 @@ import {
   accountsService,
 } from '@/services/accounts-service';
 import { paymentsService, Payment } from '@/services/payments-service';
-import { expensesService } from '@/services/expenses-service';
+import { invoicesService } from '@/services/invoices-service';
+import { expensesService, Expense, isSystemLinkedExpense, getExpenseSourceLabel, getExpenseSource } from '@/services/expenses-service';
 import { bookingsService } from '@/services/bookings-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { AddPaymentModal } from '@/components/accounts/AddPaymentModal';
 import { AddExpenseModal } from '@/components/accounts/AddExpenseModal';
+import { ExpenseViewModal } from '@/components/accounts/ExpenseViewModal';
+import { ArchiveExpenseDialog } from '@/components/accounts/ArchiveExpenseDialog';
 import { PaymentReceiptModal } from '@/components/accounts/PaymentReceiptModal';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
@@ -77,6 +83,13 @@ export function AccountsPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canCreatePayment = hasPermission('payments.create');
   const canCreateExpense = hasPermission('expenses.create');
+  const canUpdateExpense = hasPermission('expenses.update');
+
+  useQuery({
+    queryKey: ['invoices', 'payment-select'],
+    queryFn: () => invoicesService.list({ limit: 100, status: 'all' }),
+    enabled: canCreatePayment,
+  });
 
   const [tab, setTab] = useState<Tab>('overview');
   const [preset, setPreset] = useState<AccountsDatePreset>('this_month');
@@ -94,6 +107,10 @@ export function AccountsPage() {
 
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
+  const [expenseModalMode, setExpenseModalMode] = useState<'create' | 'edit'>('create');
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
+  const [viewExpense, setViewExpense] = useState<Expense | null>(null);
+  const [archiveExpense, setArchiveExpense] = useState<Expense | null>(null);
   const [receiptPayment, setReceiptPayment] = useState<Payment | null>(null);
   const [profitBookingId, setProfitBookingId] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
@@ -229,6 +246,7 @@ export function AccountsPage() {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', 'payment-select'] });
       setPaymentOpen(false);
       setReceiptPayment(payment);
       setFeedback({ type: 'success', message: 'Payment recorded successfully.' });
@@ -243,10 +261,88 @@ export function AccountsPage() {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       setExpenseOpen(false);
+      setSelectedExpense(null);
       setFeedback({ type: 'success', message: 'Expense recorded successfully.' });
     },
     onError: (e: unknown) =>
       setFeedback({ type: 'error', message: getApiErrorMessage(e, 'Failed to record expense.') }),
+  });
+
+  const updateExpenseMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof expensesService.update>[1] }) =>
+      expensesService.update(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      setExpenseOpen(false);
+      setSelectedExpense(null);
+      setViewExpense(null);
+      setFeedback({ type: 'success', message: 'Expense updated successfully.' });
+    },
+    onError: (e: unknown) =>
+      setFeedback({ type: 'error', message: getApiErrorMessage(e, 'Failed to update expense.') }),
+  });
+
+  const archiveExpenseMutation = useMutation({
+    mutationFn: expensesService.archive,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      setArchiveExpense(null);
+      setViewExpense(null);
+      setFeedback({ type: 'success', message: 'Expense archived successfully.' });
+    },
+    onError: (e: unknown) =>
+      setFeedback({ type: 'error', message: getApiErrorMessage(e, 'Failed to archive expense.') }),
+  });
+
+  const openCreateExpense = () => {
+    setExpenseModalMode('create');
+    setSelectedExpense(null);
+    setExpenseOpen(true);
+  };
+
+  const openEditExpense = (expense: Expense) => {
+    if (isSystemLinkedExpense(expense)) {
+      setViewExpense(expense);
+      return;
+    }
+    setExpenseModalMode('edit');
+    setSelectedExpense(expense);
+    setExpenseOpen(true);
+  };
+
+  const openArchiveExpense = (expense: Expense) => {
+    if (isSystemLinkedExpense(expense)) {
+      setFeedback({
+        type: 'error',
+        message: 'System-linked expenses cannot be archived here. Update or remove them from the booking or album record.',
+      });
+      return;
+    }
+    setArchiveExpense(expense);
+  };
+
+  const buildExpensePayload = (values: {
+    categoryCode: string;
+    amount: number;
+    expenseDate: string;
+    description?: string;
+    vendorPerson?: string;
+    paymentModeCode?: string;
+    referenceNumber?: string;
+    bookingId?: string;
+    notes?: string;
+  }) => ({
+    categoryCode: values.categoryCode,
+    amount: values.amount,
+    expenseDate: values.expenseDate,
+    description: values.description || undefined,
+    vendorPerson: values.vendorPerson || undefined,
+    paymentModeCode: values.paymentModeCode || undefined,
+    referenceNumber: values.referenceNumber || undefined,
+    bookingId: values.bookingId || undefined,
+    notes: values.notes || undefined,
   });
 
   const dash = dashboardQuery.data;
@@ -309,7 +405,7 @@ export function AccountsPage() {
             </button>
           )}
           {canCreateExpense && (
-            <button type="button" className="btn-secondary" onClick={() => setExpenseOpen(true)}>
+            <button type="button" className="btn-secondary" onClick={openCreateExpense}>
               <Plus className="mr-2 h-4 w-4" />
               Add Expense
             </button>
@@ -448,12 +544,12 @@ export function AccountsPage() {
         ))}
       </div>
 
-      {(tab === 'income' || tab === 'staff' || tab === 'transactions') && (
+      {(tab === 'income' || tab === 'staff' || tab === 'transactions' || tab === 'expenses') && (
         <form onSubmit={handleSearch} className="relative max-w-md">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
           <input
             className="input-field pl-10"
-            placeholder="Search transactions..."
+            placeholder={tab === 'expenses' ? 'Search expenses...' : 'Search transactions...'}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
@@ -630,9 +726,11 @@ export function AccountsPage() {
                     <th className="px-3 py-3">Date</th>
                     <th className="px-3 py-3">Category</th>
                     <th className="px-3 py-3">Description</th>
+                    <th className="px-3 py-3">Source</th>
                     <th className="px-3 py-3">Booking</th>
                     <th className="px-3 py-3">Staff</th>
                     <th className="px-3 py-3">Amount</th>
+                    <th className="px-3 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -641,10 +739,45 @@ export function AccountsPage() {
                       <td className="px-3 py-3 text-gray-400">{e.expenseDate}</td>
                       <td className="px-3 py-3">{e.categoryLabel}</td>
                       <td className="px-3 py-3">{e.description || '—'}</td>
+                      <td className="px-3 py-3 text-xs text-gray-400">
+                        {getExpenseSourceLabel(getExpenseSource(e))}
+                      </td>
                       <td className="px-3 py-3 text-gray-400">{e.bookingNumber || '—'}</td>
                       <td className="px-3 py-3 text-gray-400">{e.staffName || '—'}</td>
                       <td className="px-3 py-3 font-semibold text-red-400">
                         {formatCurrency(e.amount)}
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
+                            onClick={() => setViewExpense(e)}
+                            aria-label="View expense"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          {canUpdateExpense && (
+                            <button
+                              type="button"
+                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
+                              onClick={() => openEditExpense(e)}
+                              aria-label="Edit expense"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                          {canUpdateExpense && (
+                            <button
+                              type="button"
+                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-red-400"
+                              onClick={() => openArchiveExpense(e)}
+                              aria-label="Archive expense"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -869,15 +1002,44 @@ export function AccountsPage() {
 
       <AddExpenseModal
         open={expenseOpen}
-        isSubmitting={expenseMutation.isPending}
-        onClose={() => setExpenseOpen(false)}
-        onSubmit={(values) =>
-          expenseMutation.mutate({
-            ...values,
-            bookingId: values.bookingId || undefined,
-            paymentModeCode: values.paymentModeCode || undefined,
-          })
-        }
+        mode={expenseModalMode}
+        expense={selectedExpense}
+        isSubmitting={expenseMutation.isPending || updateExpenseMutation.isPending}
+        onClose={() => {
+          setExpenseOpen(false);
+          setSelectedExpense(null);
+        }}
+        onSubmit={(values) => {
+          const payload = buildExpensePayload(values);
+          if (expenseModalMode === 'edit' && selectedExpense) {
+            updateExpenseMutation.mutate({ id: selectedExpense.id, payload });
+            return;
+          }
+          expenseMutation.mutate(payload);
+        }}
+      />
+
+      <ExpenseViewModal
+        open={Boolean(viewExpense)}
+        expense={viewExpense}
+        canEdit={canUpdateExpense}
+        onClose={() => setViewExpense(null)}
+        onEdit={(expense) => {
+          setViewExpense(null);
+          openEditExpense(expense);
+        }}
+      />
+
+      <ArchiveExpenseDialog
+        open={Boolean(archiveExpense)}
+        expense={archiveExpense}
+        isSubmitting={archiveExpenseMutation.isPending}
+        onClose={() => setArchiveExpense(null)}
+        onConfirm={() => {
+          if (archiveExpense) {
+            archiveExpenseMutation.mutate(archiveExpense.id);
+          }
+        }}
       />
 
       <PaymentReceiptModal

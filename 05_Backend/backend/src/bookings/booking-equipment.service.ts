@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { BookingActivityService } from './booking-activity.service';
 import {
@@ -116,6 +116,18 @@ export class BookingEquipmentService {
     const quantityReturned = dto.quantityReturned;
     const missingQuantity = dto.missingQuantity ?? 0;
     const damagedQuantity = dto.damagedQuantity ?? 0;
+
+    if (quantityReturned < 0 || missingQuantity < 0 || damagedQuantity < 0) {
+      throw new BadRequestException('Return quantities cannot be negative.');
+    }
+
+    const accountedTotal = quantityReturned + missingQuantity + damagedQuantity;
+    if (accountedTotal > quantityIssued) {
+      throw new BadRequestException(
+        'Returned, missing, and damaged quantities cannot exceed issued quantity.',
+      );
+    }
+
     const status = computeEquipmentStatus(
       quantityIssued,
       quantityReturned,

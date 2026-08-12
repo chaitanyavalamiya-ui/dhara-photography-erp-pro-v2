@@ -8,8 +8,9 @@ import {
   BookingFormData,
 } from '@/services/bookings-service';
 import { clientsService } from '@/services/clients-service';
+import { settingsService } from '@/services/settings-service';
 import { BookingItemsEditor } from '@/components/bookings/BookingItemsEditor';
-import { calculateBookingTotals, formatCurrency } from '@/utils/booking-form';
+import { calculateBookingTotals, expandPackageToBookingItems, formatCurrency } from '@/utils/booking-form';
 
 interface BookingFormModalProps {
   open: boolean;
@@ -54,6 +55,12 @@ export function BookingFormModal({
     enabled: open,
   });
 
+  const packagesQuery = useQuery({
+    queryKey: ['settings', 'packages'],
+    queryFn: () => settingsService.getPackages(),
+    enabled: open,
+  });
+
   useEffect(() => {
     if (!open) return;
 
@@ -85,6 +92,8 @@ export function BookingFormModal({
     [clientsQuery.data?.items, form.clientId],
   );
 
+  const [formError, setFormError] = useState<string | null>(null);
+
   const totals = useMemo(
     () => calculateBookingTotals(form.items, form.discount, form.advanceAmount),
     [form.items, form.discount, form.advanceAmount],
@@ -95,10 +104,22 @@ export function BookingFormModal({
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!form.clientId || !form.eventDate || form.items.length === 0) {
+    if (!form.clientId) {
+      setFormError('Please select a client.');
       return;
     }
 
+    if (!form.eventDate) {
+      setFormError('Please select an event date.');
+      return;
+    }
+
+    if (form.items.length === 0) {
+      setFormError('Add at least one service item.');
+      return;
+    }
+
+    setFormError(null);
     onSubmit(form);
   };
 
@@ -125,6 +146,11 @@ export function BookingFormModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {formError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {formError}
+            </div>
+          )}
           <div className="grid gap-5 lg:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-300">
@@ -255,6 +281,39 @@ export function BookingFormModal({
               />
             </div>
           </div>
+
+          {(packagesQuery.data?.length ?? 0) > 0 && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <label className="mb-1.5 block text-sm font-medium text-gray-300">Apply Package</label>
+                <select
+                  className="input-field"
+                  defaultValue=""
+                  onChange={(event) => {
+                    const pkg = packagesQuery.data?.find((entry) => entry.id === event.target.value);
+                    if (!pkg) return;
+                    const expanded = expandPackageToBookingItems(pkg, serviceRates);
+                    setForm((current) => ({
+                      ...current,
+                      items: expanded.items,
+                      discount: expanded.discount,
+                    }));
+                    event.target.value = '';
+                  }}
+                >
+                  <option value="">Select a package to auto-fill services...</option>
+                  {packagesQuery.data?.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.label}
+                      {pkg.offerPrice !== null
+                        ? ` (${formatCurrency(pkg.offerPrice)})`
+                        : ` (${formatCurrency(pkg.defaultPrice)})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           <BookingItemsEditor
             items={form.items}

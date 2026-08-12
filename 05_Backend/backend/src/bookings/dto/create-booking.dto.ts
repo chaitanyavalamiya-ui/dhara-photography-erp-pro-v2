@@ -50,6 +50,13 @@ export class CreateBookingItemDto {
   @Min(0)
   days!: number;
 
+  @ApiPropertyOptional({ example: 10000, description: 'Computed line total; recalculated server-side' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  amount?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

@@ -28,6 +28,7 @@ import {
   toIsoDateString,
 } from './utils/booking.utils';
 import { getStaffRoleLabel } from '../staff/utils/staff.utils';
+import { syncInvoiceAndBookingFinancials } from '../common/utils/financial.utils';
 import { toDateOnlyString } from '../clients/utils/client.utils';
 
 type BookingWithRelations = Prisma.BookingGetPayload<{
@@ -334,6 +335,11 @@ export class BookingsService {
     const advanceAmount = roundMoney(dto.advanceAmount ?? Number(existing.advanceAmount));
     const totals = calculateBookingTotals(preparedItems, discount, advanceAmount);
 
+    const activeInvoice = await this.prisma.invoice.findFirst({
+      where: { companyId, bookingId: id, archivedAt: null, isActive: true },
+      select: { id: true },
+    });
+
     const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.items) {
         await tx.bookingItem.deleteMany({ where: { bookingId: id } });
@@ -356,8 +362,12 @@ export class BookingsService {
           subtotal: toDecimal(totals.subtotal),
           discount: toDecimal(discount),
           totalAmount: toDecimal(totals.totalAmount),
-          advanceAmount: toDecimal(advanceAmount),
-          balanceAmount: toDecimal(totals.balanceAmount),
+          ...(activeInvoice
+            ? {}
+            : {
+                advanceAmount: toDecimal(advanceAmount),
+                balanceAmount: toDecimal(totals.balanceAmount),
+              }),
           updatedById: userId,
           ...(dto.items
             ? {
@@ -381,6 +391,28 @@ export class BookingsService {
       });
     });
 
+    if (activeInvoice) {
+      await this.prisma.$transaction(async (tx) => {
+        if (dto.items !== undefined || dto.discount !== undefined) {
+          await tx.invoice.update({
+            where: { id: activeInvoice.id },
+            data: {
+              subtotal: toDecimal(totals.subtotal),
+              discount: toDecimal(discount),
+              totalAmount: toDecimal(totals.totalAmount),
+              updatedById: userId,
+            },
+          });
+        }
+
+        await syncInvoiceAndBookingFinancials(tx, activeInvoice.id);
+      });
+    }
+
+    const bookingForResponse = activeInvoice
+      ? await this.getBookingOrThrow(companyId, id)
+      : updated;
+
     await this.auditService.log({
       companyId,
       actorUserId: userId,
@@ -389,12 +421,12 @@ export class BookingsService {
       recordType: 'booking',
       recordId: updated.id,
       previousValue: this.auditSnapshot(existing),
-      newValue: this.auditSnapshot(updated),
+      newValue: this.auditSnapshot(bookingForResponse),
       ipAddress,
       userAgent,
     });
 
-    return this.mapBooking(updated);
+    return this.mapBooking(bookingForResponse);
   }
 
   async archive(
@@ -543,7 +575,21 @@ export class BookingsService {
       where.clientId = query.clientId;
     }
 
-    if (query.dateFrom || query.dateTo) {
+    if (query.dateFrom && query.dateTo) {
+      const rangeStart = new Date(query.dateFrom);
+      const rangeEnd = new Date(`${query.dateTo}T23:59:59.999Z`);
+
+      where.AND = [
+        { eventDate: { not: null } },
+        { eventDate: { lte: rangeEnd } },
+        {
+          OR: [
+            { eventEndDate: { gte: rangeStart } },
+            { eventEndDate: null, eventDate: { gte: rangeStart } },
+          ],
+        },
+      ];
+    } else if (query.dateFrom || query.dateTo) {
       where.eventDate = {
         ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
         ...(query.dateTo ? { lte: new Date(`${query.dateTo}T23:59:59.999Z`) } : {}),
@@ -621,7 +667,7 @@ export class BookingsService {
 
         serviceName = serviceRate.name;
         unit = serviceRate.unit;
-        if (!item.rate) {
+        if (item.rate === undefined || item.rate === null) {
           rate = Number(serviceRate.defaultRate);
         }
       }

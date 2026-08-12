@@ -139,7 +139,7 @@ export class BookingStaffPaymentService {
         : existing.paymentDate;
 
     let expenseId = existing.expenseId;
-    if (status === 'paid' && !expenseId) {
+    if (status === 'paid') {
       expenseId = await this.syncPaidExpense(
         companyId,
         userId,
@@ -149,7 +149,19 @@ export class BookingStaffPaymentService {
         paymentDate ?? new Date(),
         ipAddress,
         userAgent,
+        expenseId,
       );
+    } else if (existing.status === 'paid' && existing.expenseId) {
+      await this.archivePaymentExpense(
+        companyId,
+        userId,
+        booking,
+        assignment,
+        existing.expenseId,
+        ipAddress,
+        userAgent,
+      );
+      expenseId = null;
     }
 
     const payment = await this.prisma.bookingStaffPayment.update({
@@ -186,8 +198,16 @@ export class BookingStaffPaymentService {
     return this.mapPayment(payment);
   }
 
-  async remove(companyId: string, userId: string, bookingId: string, assignmentId: string, paymentId: string) {
-    await this.assertAssignment(companyId, bookingId, assignmentId);
+  async remove(
+    companyId: string,
+    userId: string,
+    bookingId: string,
+    assignmentId: string,
+    paymentId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    const { booking, assignment } = await this.assertAssignment(companyId, bookingId, assignmentId);
 
     const existing = await this.prisma.bookingStaffPayment.findFirst({
       where: { id: paymentId, bookingId, bookingStaffId: assignmentId, companyId, archivedAt: null },
@@ -197,16 +217,65 @@ export class BookingStaffPaymentService {
       throw new NotFoundException('Staff payment not found.');
     }
 
+    if (existing.expenseId) {
+      await this.archivePaymentExpense(
+        companyId,
+        userId,
+        booking,
+        assignment,
+        existing.expenseId,
+        ipAddress,
+        userAgent,
+      );
+    }
+
     await this.prisma.bookingStaffPayment.update({
       where: { id: paymentId },
       data: {
         isActive: false,
         archivedAt: new Date(),
+        expenseId: null,
         updatedById: userId,
       },
     });
 
     return { message: 'Staff payment removed successfully.' };
+  }
+
+  private async archivePaymentExpense(
+    companyId: string,
+    userId: string,
+    booking: { id: string; companyId: string; branchId: string; clientId: string; bookingNumber: string },
+    assignment: {
+      id: string;
+      staffId: string;
+      role: string;
+      staff: { fullName: string };
+    },
+    expenseId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
+    await this.expenseSync.archiveLinkedExpense(
+      companyId,
+      userId,
+      {
+        id: assignment.id,
+        companyId: booking.companyId,
+        branchId: booking.branchId,
+        clientId: booking.clientId,
+        bookingId: booking.id,
+        bookingNumber: booking.bookingNumber,
+        staffId: assignment.staffId,
+        staffName: assignment.staff.fullName,
+        role: assignment.role,
+        roleLabel: getStaffRoleLabel(assignment.role),
+        agreedRate: 0,
+        expenseId,
+      },
+      ipAddress,
+      userAgent,
+    );
   }
 
   private async syncPaidExpense(
@@ -224,6 +293,7 @@ export class BookingStaffPaymentService {
     paymentDate: Date,
     ipAddress?: string,
     userAgent?: string,
+    existingExpenseId?: string | null,
   ): Promise<string | null> {
     return this.expenseSync.syncAssignmentExpense(
       companyId,
@@ -240,7 +310,7 @@ export class BookingStaffPaymentService {
         role: assignment.role,
         roleLabel: getStaffRoleLabel(assignment.role),
         agreedRate: amount,
-        expenseId: assignment.expenseId,
+        expenseId: existingExpenseId ?? assignment.expenseId,
         assignmentDate: paymentDate,
       },
       ipAddress,

@@ -144,6 +144,9 @@ function sanitizeBookingPayload<T extends BookingFormData | Partial<BookingFormD
   if (sanitized.notes === '') {
     delete sanitized.notes;
   }
+  if (sanitized.items) {
+    sanitized.items = sanitized.items.map(({ id: _id, ...item }) => item) as T['items'];
+  }
   return sanitized;
 }
 

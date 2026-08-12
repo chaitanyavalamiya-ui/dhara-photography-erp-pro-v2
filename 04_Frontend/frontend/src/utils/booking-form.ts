@@ -37,6 +37,46 @@ export function createItemFromRate(rate: ServiceRate): BookingItem {
   };
 }
 
+export function expandPackageToBookingItems(
+  pkg: {
+    items: Array<{
+      serviceRateId: string;
+      serviceName: string;
+      unit: string;
+      quantity: number;
+      days: number;
+    }>;
+    offerPrice?: number | null;
+  },
+  serviceRates: ServiceRate[],
+): { items: BookingItem[]; discount: number } {
+  const items = pkg.items.map((entry) => {
+    const rate = serviceRates.find((service) => service.id === entry.serviceRateId);
+    const unit = (rate?.unit ?? entry.unit) as 'day' | 'piece';
+    const serviceRate = rate?.defaultRate ?? 0;
+    const quantity = entry.quantity ?? 1;
+    const days = entry.days ?? 1;
+
+    return {
+      serviceRateId: entry.serviceRateId,
+      serviceName: rate?.name ?? entry.serviceName,
+      quantity: unit === 'day' ? 1 : quantity,
+      unit,
+      rate: serviceRate,
+      days: unit === 'day' ? days : 1,
+      amount: calculateItemAmount(unit, serviceRate, quantity, days),
+    };
+  });
+
+  const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
+  const discount =
+    pkg.offerPrice !== null && pkg.offerPrice !== undefined && pkg.offerPrice < subtotal
+      ? Math.round((subtotal - pkg.offerPrice) * 100) / 100
+      : 0;
+
+  return { items, discount };
+}
+
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',

@@ -147,6 +147,13 @@ export class ReturnEquipmentDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  repairQuantity?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   @MaxLength(2000)
   returnNotes?: string;

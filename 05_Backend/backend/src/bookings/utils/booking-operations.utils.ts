@@ -39,6 +39,7 @@ export const EQUIPMENT_STATUSES = [
   'returned',
   'missing',
   'damaged',
+  'repair',
 ] as const;
 
 export type EquipmentStatus = (typeof EQUIPMENT_STATUSES)[number];
@@ -50,7 +51,45 @@ export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
   returned: 'Returned',
   missing: 'Missing',
   damaged: 'Damaged',
+  repair: 'Repair',
 };
+
+export function parseReturnCondition(conditionReturn?: string | null): {
+  damagedQuantity: number;
+  repairQuantity: number;
+} {
+  if (!conditionReturn) {
+    return { damagedQuantity: 0, repairQuantity: 0 };
+  }
+
+  let damagedQuantity = 0;
+  let repairQuantity = 0;
+
+  for (const part of conditionReturn.split(';')) {
+    const [key, value] = part.split(':');
+    const qty = Number(value);
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+    if (key === 'damaged') damagedQuantity = qty;
+    if (key === 'repair') repairQuantity = qty;
+  }
+
+  if (damagedQuantity === 0 && repairQuantity === 0) {
+    if (conditionReturn.toLowerCase().includes('repair')) {
+      repairQuantity = 1;
+    } else if (conditionReturn.toLowerCase().includes('damaged')) {
+      damagedQuantity = 1;
+    }
+  }
+
+  return { damagedQuantity, repairQuantity };
+}
+
+export function encodeReturnCondition(damagedQuantity: number, repairQuantity: number): string | null {
+  const parts: string[] = [];
+  if (damagedQuantity > 0) parts.push(`damaged:${damagedQuantity}`);
+  if (repairQuantity > 0) parts.push(`repair:${repairQuantity}`);
+  return parts.length > 0 ? parts.join(';') : null;
+}
 
 export const STAFF_PAYMENT_STATUSES = ['pending', 'paid'] as const;
 
@@ -78,11 +117,26 @@ export function computeEquipmentStatus(
   quantityReturned: number,
   missingQuantity: number,
   damagedQuantity: number,
+  conditionReturn?: string | null,
 ): EquipmentStatus {
   if (quantityIssued <= 0) return 'not_issued';
+
+  const parsed = parseReturnCondition(conditionReturn);
+  const repairQuantity = parsed.repairQuantity;
+  const explicitDamagedQuantity =
+    parsed.damagedQuantity > 0 ? parsed.damagedQuantity : damagedQuantity;
+  const accountedTotal =
+    quantityReturned + missingQuantity + explicitDamagedQuantity + repairQuantity;
+
+  if (accountedTotal < quantityIssued) {
+    if (quantityReturned > 0 || missingQuantity > 0 || explicitDamagedQuantity > 0 || repairQuantity > 0) {
+      return 'partially_returned';
+    }
+    return 'issued';
+  }
+
   if (missingQuantity > 0) return 'missing';
-  if (damagedQuantity > 0 && quantityReturned >= quantityIssued) return 'damaged';
-  if (quantityReturned <= 0) return 'issued';
-  if (quantityReturned < quantityIssued) return 'partially_returned';
+  if (repairQuantity > 0) return 'repair';
+  if (explicitDamagedQuantity > 0) return 'damaged';
   return 'returned';
 }

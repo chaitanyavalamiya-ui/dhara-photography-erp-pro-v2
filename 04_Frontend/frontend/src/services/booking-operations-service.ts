@@ -30,6 +30,7 @@ export interface BookingEquipmentItem {
   conditionReturn?: string | null;
   missingQuantity: number;
   damagedQuantity: number;
+  repairQuantity: number;
   checkoutNotes?: string | null;
   returnNotes?: string | null;
 }
@@ -175,6 +176,7 @@ export const bookingOperationsService = {
       conditionReturn?: string;
       missingQuantity?: number;
       damagedQuantity?: number;
+      repairQuantity?: number;
       returnNotes?: string;
     },
   ): Promise<BookingEquipmentItem> {
@@ -183,6 +185,10 @@ export const bookingOperationsService = {
       payload,
     );
     return data.data;
+  },
+
+  async removeEquipment(bookingId: string, equipmentId: string): Promise<void> {
+    await apiClient.delete(`/bookings/${bookingId}/equipment/${equipmentId}`);
   },
 
   async getProgress(bookingId: string): Promise<BookingProgress> {

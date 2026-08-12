@@ -8,7 +8,9 @@ import {
 } from './dto/booking-operations.dto';
 import {
   computeEquipmentStatus,
+  encodeReturnCondition,
   getEquipmentStatusLabel,
+  parseReturnCondition,
 } from './utils/booking-operations.utils';
 import { toDecimal } from './utils/booking.utils';
 
@@ -116,23 +118,27 @@ export class BookingEquipmentService {
     const quantityReturned = dto.quantityReturned;
     const missingQuantity = dto.missingQuantity ?? 0;
     const damagedQuantity = dto.damagedQuantity ?? 0;
+    const repairQuantity = dto.repairQuantity ?? 0;
 
-    if (quantityReturned < 0 || missingQuantity < 0 || damagedQuantity < 0) {
+    if (quantityReturned < 0 || missingQuantity < 0 || damagedQuantity < 0 || repairQuantity < 0) {
       throw new BadRequestException('Return quantities cannot be negative.');
     }
 
-    const accountedTotal = quantityReturned + missingQuantity + damagedQuantity;
+    const accountedTotal =
+      quantityReturned + missingQuantity + damagedQuantity + repairQuantity;
     if (accountedTotal > quantityIssued) {
       throw new BadRequestException(
-        'Returned, missing, and damaged quantities cannot exceed issued quantity.',
+        'Returned, missing, damaged, and repair quantities cannot exceed issued quantity.',
       );
     }
 
+    const conditionReturn = encodeReturnCondition(damagedQuantity, repairQuantity);
     const status = computeEquipmentStatus(
       quantityIssued,
       quantityReturned,
       missingQuantity,
       damagedQuantity,
+      conditionReturn,
     );
     const returnedAt = new Date();
 
@@ -144,7 +150,7 @@ export class BookingEquipmentService {
         damagedQuantity: toDecimal(damagedQuantity),
         status,
         returnedAt,
-        conditionReturn: dto.conditionReturn?.trim() || null,
+        conditionReturn: conditionReturn ?? dto.conditionReturn?.trim() ?? null,
         returnNotes: dto.returnNotes?.trim() || null,
         updatedById: userId,
       },
@@ -221,6 +227,10 @@ export class BookingEquipmentService {
     createdAt: Date;
     updatedAt: Date;
   }) {
+    const parsed = parseReturnCondition(item.conditionReturn);
+    const damagedQuantity =
+      parsed.damagedQuantity > 0 ? parsed.damagedQuantity : Number(item.damagedQuantity);
+
     return {
       id: item.id,
       equipmentName: item.equipmentName,
@@ -234,7 +244,8 @@ export class BookingEquipmentService {
       conditionCheckout: item.conditionCheckout,
       conditionReturn: item.conditionReturn,
       missingQuantity: Number(item.missingQuantity),
-      damagedQuantity: Number(item.damagedQuantity),
+      damagedQuantity,
+      repairQuantity: parsed.repairQuantity,
       checkoutNotes: item.checkoutNotes,
       returnNotes: item.returnNotes,
       createdAt: item.createdAt.toISOString(),

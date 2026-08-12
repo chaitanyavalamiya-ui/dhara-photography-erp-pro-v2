@@ -110,6 +110,12 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
 };
 
 async function main(): Promise<void> {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'Database seeding is disabled when NODE_ENV=production. Use a controlled bootstrap process instead.',
+    );
+  }
+
   const adminEmail = process.env.SEED_ADMIN_EMAIL;
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
 

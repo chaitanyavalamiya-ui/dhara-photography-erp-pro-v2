@@ -35,19 +35,25 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Dhara Photography ERP Pro V2')
-    .setDescription('REST API for Dhara Photography Patan ERP')
-    .setVersion('0.1.0')
-    .addBearerAuth()
-    .build();
+  const nodeEnv = configService.get<string>('NODE_ENV', 'development');
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  if (nodeEnv !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Dhara Photography ERP Pro V2')
+      .setDescription('REST API for Dhara Photography Patan ERP')
+      .setVersion('0.1.0')
+      .addBearerAuth()
+      .build();
+
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   await app.listen(port);
   console.log(`Dhara ERP API running on http://localhost:${port}/${apiPrefix}`);
-  console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  if (nodeEnv !== 'production') {
+    console.log(`Swagger docs at http://localhost:${port}/api/docs`);
+  }
 }
 
 bootstrap();

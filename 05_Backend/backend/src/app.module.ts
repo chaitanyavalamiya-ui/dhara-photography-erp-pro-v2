@@ -20,6 +20,7 @@ import { DeliveriesModule } from './deliveries/deliveries.module';
 import { RolesModule } from './roles/roles.module';
 import { StorageModule } from './storage/storage.module';
 import { AuditModule } from './audit/audit.module';
+import { BackupModule } from './backup/backup.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { AuditModule } from './audit/audit.module';
     PrismaModule,
     StorageModule,
     AuditModule,
+    BackupModule,
     HealthModule,
     AuthModule,
     ClientsModule,

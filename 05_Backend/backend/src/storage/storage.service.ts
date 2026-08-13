@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
+import { resolveUploadsPath } from '../backup/app-paths';
 
 export interface StoredFile {
   storageKey: string;
@@ -14,7 +15,11 @@ export class StorageService {
 
   constructor(private readonly configService: ConfigService) {
     const configured = this.configService.get<string>('UPLOAD_DIR', 'uploads');
-    this.uploadRoot = resolve(process.cwd(), configured);
+    this.uploadRoot = resolveUploadsPath({
+      uploadDir: configured,
+      nodeEnv: this.configService.get<string>('NODE_ENV', 'development'),
+      cwd: process.cwd(),
+    });
   }
 
   getUploadRoot(): string {

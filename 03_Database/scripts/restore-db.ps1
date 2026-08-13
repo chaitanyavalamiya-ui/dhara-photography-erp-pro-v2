@@ -4,209 +4,230 @@
   Restore a local Dhara Photography ERP backup (Windows).
 
 .DESCRIPTION
-  Restores a backup created by backup-db.ps1 (.zip) or a legacy .sql dump.
-  Select a file from this PC or a pendrive when -BackupFile is omitted.
+  Validates a backup ZIP (manifest + SHA-256) before touching current data.
+  Takes a pg_dump safety snapshot of the current database, then replaces the
+  database (drop/create) and swaps uploads via staging folders. If the new
+  restore fails after the drop, the safety snapshot is loaded automatically.
 
-  Requires explicit confirmation — will NOT silently overwrite database or uploads.
-
-  Requires: psql (PostgreSQL client tools) on PATH.
-
-  NEVER commit backup files or real credentials to version control.
+  Requires: psql on PATH.
 #>
 param(
     [string]$BackupFile,
-    [string]$EnvFile = (Join-Path $PSScriptRoot "..\..\.env")
+    [string]$EnvFile = (Join-Path $PSScriptRoot "..\..\.env"),
+    [switch]$ValidateOnly,
+    [switch]$JsonOutput,
+    [string]$ConfirmPhrase,
+    [switch]$SkipPrompt
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "backup-common.ps1")
 
-function Load-EnvValue {
-    param(
-        [string]$Path,
-        [string]$Name,
-        [string]$Default = $null
-    )
-
-    if ($Name -eq "DATABASE_URL" -and $env:DATABASE_URL) {
-        return $env:DATABASE_URL
-    }
-    if ($Name -eq "UPLOAD_DIR" -and $env:UPLOAD_DIR) {
-        return $env:UPLOAD_DIR
-    }
-
-    if (-not (Test-Path $Path)) {
-        if ($null -ne $Default) { return $Default }
-        throw "Env file was not found: $Path"
-    }
-
-    foreach ($line in Get-Content $Path) {
-        if ($line -match '^\s*#' -or [string]::IsNullOrWhiteSpace($line)) { continue }
-        if ($line -match "^\s*$([regex]::Escape($Name))\s*=\s*(.+)\s*$") {
-            return $Matches[1].Trim().Trim('"').Trim("'")
-        }
-    }
-
-    if ($null -ne $Default) { return $Default }
-    throw "$Name not found in $Path"
-}
-
-function Expand-EnvPath {
-    param([string]$Path)
-
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        return $Path
-    }
-
-    return [Environment]::ExpandEnvironmentVariables($Path)
-}
-
-function Select-BackupFile {
-    $defaultDir = Join-Path $env:LOCALAPPDATA "DharaPhotographyERP\Backups"
-    if (-not (Test-Path $defaultDir)) {
-        $defaultDir = [Environment]::GetFolderPath("MyDocuments")
-    }
-
-    Add-Type -AssemblyName System.Windows.Forms | Out-Null
-    $dialog = New-Object System.Windows.Forms.OpenFileDialog
-    $dialog.Filter = "Dhara ERP backup (*.zip)|*.zip|SQL database (*.sql)|*.sql|All files (*.*)|*.*"
-    $dialog.Title = "Select Dhara ERP backup (PC or pendrive)"
-    $dialog.InitialDirectory = $defaultDir
-    $dialog.Multiselect = $false
-
-    if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
-        return $null
-    }
-
-    return $dialog.FileName
-}
-
-function Resolve-RestorePaths {
-    param([string]$SourceFile)
-
-    $extension = [System.IO.Path]::GetExtension($SourceFile).ToLowerInvariant()
-
-    if ($extension -eq ".sql") {
-        return @{
-            SqlFile = $SourceFile
-            UploadsDir = $null
-            TempDir = $null
-        }
-    }
-
-    if ($extension -ne ".zip") {
-        throw "Unsupported backup file type: $extension (expected .zip or .sql)"
-    }
-
-    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "dhara_erp_restore_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-    Expand-Archive -Path $SourceFile -DestinationPath $tempDir -Force
-
-    $sqlFile = Join-Path $tempDir "database.sql"
-    if (-not (Test-Path $sqlFile)) {
-        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
-        throw "Backup ZIP does not contain database.sql"
-    }
-
-    $uploadsDir = Join-Path $tempDir "uploads"
-    if (-not (Test-Path $uploadsDir)) {
-        $uploadsDir = $null
-    }
-
-    return @{
-        SqlFile = $sqlFile
-        UploadsDir = $uploadsDir
-        TempDir = $tempDir
-    }
-}
-
-function Assert-PostgresTool {
-    param([string]$ToolName)
-
-    $tool = Get-Command $ToolName -ErrorAction SilentlyContinue
-    if (-not $tool) {
-        throw "ERROR: '$ToolName' was not found on PATH. Install PostgreSQL client tools and ensure $ToolName is available."
-    }
-}
-
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $tempDir = $null
+$uploadsSwap = $null
+$databaseReplaced = $false
+$databaseReplaceStarted = $false
+$uploadsTarget = $null
+$safetySnapshotPath = $null
+$db = $null
 
 try {
+    $repoRoot = Get-DharaRepoRoot -ScriptsDir $PSScriptRoot
+
     if (-not $BackupFile) {
-        $BackupFile = Select-BackupFile
-        if (-not $BackupFile) {
+        if ($JsonOutput -or $SkipPrompt) {
+            throw "BackupFile is required when running without the file picker."
+        }
+        $defaultDir = Resolve-DharaBackupRoot -EnvFile $EnvFile -RepoRoot $repoRoot -Override $null
+        if (-not (Test-Path $defaultDir)) {
+            $defaultDir = [Environment]::GetFolderPath("MyDocuments")
+        }
+        Add-Type -AssemblyName System.Windows.Forms | Out-Null
+        $dialog = New-Object System.Windows.Forms.OpenFileDialog
+        $dialog.Filter = "Dhara ERP backup (*.zip)|*.zip|All files (*.*)|*.*"
+        $dialog.Title = "Select Dhara ERP backup (PC or pendrive)"
+        $dialog.InitialDirectory = $defaultDir
+        $dialog.Multiselect = $false
+        if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) {
             Write-Host "Restore cancelled - no backup file selected." -ForegroundColor Yellow
             exit 1
         }
+        $BackupFile = $dialog.FileName
     }
 
     if (-not (Test-Path $BackupFile)) {
         throw "Backup file not found: $BackupFile"
     }
-
-    $databaseUrl = Load-EnvValue -Path $EnvFile -Name "DATABASE_URL"
-    $uploadDirSetting = Load-EnvValue -Path $EnvFile -Name "UPLOAD_DIR" -Default "uploads"
-
-    if ($uploadDirSetting -match '^[A-Za-z]:\\' -or $uploadDirSetting.StartsWith("\\")) {
-        $uploadsTarget = Expand-EnvPath -Path $uploadDirSetting
-    } else {
-        $uploadsTarget = Join-Path $repoRoot "05_Backend\backend\$uploadDirSetting"
-    }
-    $uploadsTarget = [System.IO.Path]::GetFullPath($uploadsTarget)
-
-    $dbName = "UNKNOWN"
-    if ($databaseUrl -match '/([^/?]+)(\?|$)') {
-        $dbName = $Matches[1]
+    if ([System.IO.Path]::GetExtension($BackupFile).ToLowerInvariant() -ne ".zip") {
+        throw "Unsupported backup file type. A Dhara ERP .zip backup is required."
     }
 
-    $restorePaths = Resolve-RestorePaths -SourceFile $BackupFile
-    $tempDir = $restorePaths.TempDir
+    $databaseUrl = Read-DharaEnvValue -Path $EnvFile -Name "DATABASE_URL"
+    $db = ConvertFrom-DatabaseUrl -DatabaseUrl $databaseUrl
+    $uploadsTarget = Resolve-DharaUploadsPath -EnvFile $EnvFile -RepoRoot $repoRoot
+    $initSchemas = Join-Path $PSScriptRoot "init-schemas.sql"
 
-    Write-Host ""
-    Write-Host "WARNING: This will overwrite local ERP data."
-    Write-Host "  Database : $dbName"
-    Write-Host "  Backup   : $BackupFile"
-    if ($restorePaths.UploadsDir) {
-        Write-Host "  Uploads  : $uploadsTarget"
-    } else {
-        Write-Host "  Uploads  : (not included in this backup - database only)"
+    $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "dhara_erp_restore_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+    New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+    Expand-Zip64Archive -ZipPath $BackupFile -Destination $tempDir
+
+    $validated = Test-DharaBackupPayload -StagingDir $tempDir
+    $manifest = $validated.Manifest
+    $backupSize = (Get-Item $BackupFile).Length
+
+    $preview = @{
+        success = $true
+        valid = $true
+        backupFile = $BackupFile
+        createdAt = [string]$manifest.createdAt
+        applicationName = [string]$manifest.applicationName
+        backupFormatVersion = [string]$manifest.backupFormatVersion
+        databaseName = [string]$manifest.databaseName
+        uploadFileCount = [int]$validated.UploadFileCount
+        sizeBytes = $backupSize
+        integrity = "passed"
+        warning = "This will replace the current Dhara Photography ERP data and photos with this backup."
+        confirmPhrase = $script:DharaRestoreConfirmPhrase
     }
-    Write-Host ""
-    Write-Host "Type the database name exactly to confirm restore: $dbName"
-    $confirmation = Read-Host "Confirmation"
 
-    if ($confirmation -ne $dbName) {
-        Write-Host "Restore cancelled - confirmation did not match." -ForegroundColor Yellow
-        exit 1
-    }
-
-    Assert-PostgresTool -ToolName "psql"
-
-    Write-Host "Restoring database..."
-    & psql $databaseUrl --file="$($restorePaths.SqlFile)" --single-transaction --set ON_ERROR_STOP=on
-    if ($LASTEXITCODE -ne 0) {
-        throw "psql restore failed with exit code $LASTEXITCODE"
-    }
-
-    if ($restorePaths.UploadsDir) {
-        Write-Host "Restoring gallery uploads to: $uploadsTarget"
-        if (Test-Path $uploadsTarget) {
-            Remove-Item -Path $uploadsTarget -Recurse -Force
+    if ($ValidateOnly) {
+        if ($JsonOutput) { Write-DharaJson $preview }
+        else {
+            Write-Host "Backup is valid."
+            Write-Host "Created : $($preview.createdAt)"
+            Write-Host "Database: $($preview.databaseName)"
+            Write-Host "Files   : $($preview.uploadFileCount)"
+            Write-Host "Size    : $([math]::Round($backupSize / 1MB, 2)) MB"
         }
-        $parentDir = Split-Path $uploadsTarget -Parent
-        if (-not (Test-Path $parentDir)) {
-            New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
-        }
-        Copy-Item -Path $restorePaths.UploadsDir -Destination $uploadsTarget -Recurse -Force
+        exit 0
     }
 
-    Write-Host ""
-    Write-Host "Restore completed successfully." -ForegroundColor Green
+    if (-not $JsonOutput) {
+        Write-Host ""
+        Write-Host "Backup date        : $($preview.createdAt)"
+        Write-Host "Application        : $($preview.applicationName) (format $($preview.backupFormatVersion))"
+        Write-Host "Database in backup : $($preview.databaseName)"
+        Write-Host "Upload files       : $($preview.uploadFileCount)"
+        Write-Host "Backup size        : $([math]::Round($backupSize / 1MB, 2)) MB"
+        Write-Host "Integrity          : passed"
+        Write-Host ""
+        Write-Host "This will replace the current Dhara Photography ERP data and photos with this backup." -ForegroundColor Yellow
+        Write-Host "Target database    : $($db.Database)"
+        Write-Host ""
+    }
+
+    if (-not $SkipPrompt) {
+        Write-Host "Type $($db.Database) to continue:"
+        $dbConfirm = Read-Host "Database name"
+        if ($dbConfirm -ne $db.Database) {
+            throw "Restore cancelled - database name confirmation did not match."
+        }
+        Write-Host "Type $($script:DharaRestoreConfirmPhrase) to confirm replacement:"
+        $phraseConfirm = Read-Host "Confirmation"
+        if ($phraseConfirm -ne $script:DharaRestoreConfirmPhrase) {
+            throw "Restore cancelled - confirmation phrase did not match."
+        }
+    } elseif ($ConfirmPhrase -ne $script:DharaRestoreConfirmPhrase) {
+        throw "Restore cancelled - confirmation phrase did not match."
+    }
+
+    if (-not $JsonOutput) { Write-Host "Creating a pre-restore safety snapshot of the current database..." }
+    $safetySnapshotPath = New-DharaDatabaseSafetySnapshot -Db $db
+    if (-not $JsonOutput -and $safetySnapshotPath) {
+        Write-Host "Safety snapshot created."
+    }
+
+    if (-not $JsonOutput) { Write-Host "Replacing database..." }
+    $databaseReplaceStarted = $true
+    Reset-DharaDatabase -Db $db -InitSchemasFile $initSchemas
+    $databaseReplaced = $true
+    Invoke-PsqlFileSafe -Db $db -DatabaseName $db.Database -SqlFile $validated.DatabaseSql
+
+    if (-not $JsonOutput) { Write-Host "Restoring gallery uploads..." }
+    $uploadsSwap = Switch-DharaUploads -BackupUploads $validated.UploadsDir -UploadsTarget $uploadsTarget
+
+    Test-DharaRestoredDatabase -Db $db
+    $restoredUploadCount = @(Get-UploadFileList -UploadsPath $uploadsTarget).Count
+    if ($restoredUploadCount -ne [int]$validated.UploadFileCount) {
+        throw "Restored upload file count ($restoredUploadCount) does not match backup ($($validated.UploadFileCount))."
+    }
+
+    Complete-DharaUploadsSwap -PreviousPath $uploadsSwap.PreviousPath
+    Remove-DharaSafetySnapshot -SnapshotPath $safetySnapshotPath
+
+    $successMessage = "Restore succeeded. ERP data and photos were replaced from the selected backup."
+    $result = @{
+        success = $true
+        outcome = "restore_succeeded"
+        message = $successMessage
+        backupFile = $BackupFile
+        databaseName = $db.Database
+        uploadFileCount = $restoredUploadCount
+        verified = $true
+        originalDatabaseRecovered = $false
+    }
+
+    if ($JsonOutput) {
+        Write-DharaJson $result
+    } else {
+        Write-Host ""
+        Write-Host $successMessage -ForegroundColor Green
+    }
 }
 catch {
+    $restoreError = $_.Exception.Message
+    if ($uploadsSwap -and $uploadsSwap.PreviousPath) {
+        try {
+            Undo-DharaUploadsSwap -UploadsTarget $uploadsTarget -PreviousPath $uploadsSwap.PreviousPath
+        } catch {
+            $restoreError = "$restoreError Uploads rollback also failed: $($_.Exception.Message)"
+        }
+    }
+
+    $outcome = "restore_failed_database_unchanged"
+    $recovered = $false
+    $message = "Restore failed. The current database was not changed. $restoreError"
+
+    if (($databaseReplaced -or $databaseReplaceStarted) -and $db) {
+        $outcome = "restore_failed_manual_recovery_required"
+        $message = "Restore failed and automatic recovery of the original database did not succeed. Manual recovery is required."
+        if ($safetySnapshotPath) {
+            $message = "$message Safety snapshot file: $safetySnapshotPath."
+        } else {
+            $message = "$message No safety snapshot was available."
+        }
+        $message = "$message Reason: $restoreError"
+
+        if ($safetySnapshotPath -and (Test-Path $safetySnapshotPath)) {
+            try {
+                if (-not $JsonOutput) { Write-Host "Restore failed. Recovering the original database from the safety snapshot..." -ForegroundColor Yellow }
+                Restore-DharaDatabaseFromSqlDump -Db $db -SqlFile $safetySnapshotPath
+                $recovered = $true
+                $outcome = "restore_failed_original_recovered"
+                $message = "Restore failed, but the original database was recovered from a pre-restore safety snapshot. Reason: $restoreError"
+            } catch {
+                $outcome = "restore_failed_manual_recovery_required"
+                $message = "Restore failed and automatic recovery of the original database did not succeed. Manual recovery is required. Safety snapshot file: $safetySnapshotPath. Reason: $restoreError Recovery error: $($_.Exception.Message)"
+            }
+        }
+    }
+
+    $failure = @{
+        success = $false
+        outcome = $outcome
+        message = $message
+        originalDatabaseRecovered = $recovered
+        databaseReplaced = [bool]($databaseReplaced -or $databaseReplaceStarted)
+        safetySnapshotPath = $safetySnapshotPath
+        verified = $false
+    }
+
+    if ($JsonOutput) {
+        Write-DharaJson $failure
+        exit 1
+    }
     Write-Host ""
-    Write-Host "ERROR: Restore failed." -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Red
+    Write-Host $message -ForegroundColor Red
     exit 1
 }
 finally {

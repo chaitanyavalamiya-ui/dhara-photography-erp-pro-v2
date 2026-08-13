@@ -17,6 +17,7 @@ import { EditMasterDataModal } from '@/components/settings/EditMasterDataModal';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { RolesPermissionsPanel } from '@/components/settings/RolesPermissionsPanel';
+import { BackupRestorePanel } from '@/components/settings/BackupRestorePanel';
 import { cn } from '@/utils/cn';
 
 type SettingsTab =
@@ -26,7 +27,8 @@ type SettingsTab =
   | 'expense-categories'
   | 'payment-modes'
   | 'activity-log'
-  | 'roles-permissions';
+  | 'roles-permissions'
+  | 'backup-restore';
 
 const TAB_CONFIG: { id: SettingsTab; label: string; category?: MasterDataCategory }[] = [
   { id: 'studio-profile', label: 'Studio Profile' },
@@ -36,6 +38,7 @@ const TAB_CONFIG: { id: SettingsTab; label: string; category?: MasterDataCategor
   { id: 'payment-modes', label: 'Payment Modes', category: 'payment_mode' },
   { id: 'activity-log', label: 'Activity Log' },
   { id: 'roles-permissions', label: 'Roles & Permissions' },
+  { id: 'backup-restore', label: 'Backup & Restore' },
 ];
 
 function formatUpdatedAt(value: string): string {
@@ -310,6 +313,8 @@ export function SettingsPage() {
 
       {tab === 'roles-permissions' ? (
         <RolesPermissionsPanel onFeedback={setFeedback} />
+      ) : tab === 'backup-restore' ? (
+        <BackupRestorePanel onFeedback={setFeedback} />
       ) : (
       <div className="card border-gold/20">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">

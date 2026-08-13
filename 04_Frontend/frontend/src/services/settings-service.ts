@@ -168,3 +168,94 @@ export const settingsService = {
     return data.data;
   },
 };
+
+export interface BackupLocation {
+  backupDir: string;
+  defaultBackupDir: string;
+}
+
+export interface BackupHistoryItem {
+  fileName: string;
+  path: string;
+  sizeBytes: number;
+  modifiedAt: string;
+  status: string;
+}
+
+export interface BackupRunResult {
+  success: boolean;
+  backupFile?: string;
+  sizeBytes?: number;
+  createdAt?: string;
+  uploadFileCount?: number;
+  databaseName?: string;
+  message?: string;
+  verified?: boolean;
+  valid?: boolean;
+  applicationName?: string;
+  backupFormatVersion?: string;
+  warning?: string;
+  integrity?: string;
+  outcome?: string;
+  originalDatabaseRecovered?: boolean;
+  safetySnapshotPath?: string;
+}
+
+const backupRequestConfig = { timeout: 30 * 60 * 1000 };
+
+export const backupService = {
+  async getLocation(): Promise<BackupLocation> {
+    const { data } = await apiClient.get<ApiResponse<BackupLocation>>('/settings/backup/location');
+    return data.data;
+  },
+
+  async setLocation(backupDir: string): Promise<BackupLocation> {
+    const { data } = await apiClient.patch<ApiResponse<BackupLocation>>('/settings/backup/location', {
+      backupDir,
+    });
+    return data.data;
+  },
+
+  async listHistory(): Promise<BackupHistoryItem[]> {
+    const { data } = await apiClient.get<ApiResponse<{ items: BackupHistoryItem[] }>>(
+      '/settings/backup/history',
+    );
+    return data.data.items;
+  },
+
+  async createBackup(): Promise<BackupRunResult> {
+    const { data } = await apiClient.post<ApiResponse<BackupRunResult>>(
+      '/settings/backup',
+      {},
+      backupRequestConfig,
+    );
+    return data.data;
+  },
+
+  async browseBackup(): Promise<{ path: string | null }> {
+    const { data } = await apiClient.post<ApiResponse<{ path: string | null }>>(
+      '/settings/backup/restore/browse',
+      {},
+      backupRequestConfig,
+    );
+    return data.data;
+  },
+
+  async previewRestore(backupFile: string): Promise<BackupRunResult> {
+    const { data } = await apiClient.post<ApiResponse<BackupRunResult>>(
+      '/settings/backup/restore/preview',
+      { backupFile },
+      backupRequestConfig,
+    );
+    return data.data;
+  },
+
+  async restoreBackup(backupFile: string, confirmPhrase: string): Promise<BackupRunResult> {
+    const { data } = await apiClient.post<ApiResponse<BackupRunResult>>(
+      '/settings/backup/restore',
+      { backupFile, confirmPhrase },
+      backupRequestConfig,
+    );
+    return data.data;
+  },
+};

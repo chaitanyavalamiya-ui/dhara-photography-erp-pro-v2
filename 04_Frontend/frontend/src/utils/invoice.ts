@@ -88,6 +88,12 @@ export function printInvoice(elementId: string): void {
     <html>
       <head>
         <title>Invoice</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&display=swap"
+          rel="stylesheet"
+        />
         <style>
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; background: #fff; }

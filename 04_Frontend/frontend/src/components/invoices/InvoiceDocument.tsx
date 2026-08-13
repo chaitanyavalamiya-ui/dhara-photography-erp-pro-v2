@@ -1,6 +1,12 @@
 import { Invoice } from '@/services/invoices-service';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
 import { formatItemQty, formatItemRate, getInvoiceStatusLabel } from '@/utils/invoice';
+import {
+  INVOICE_TAGLINE,
+  getInvoiceDeliverableLabels,
+  parseInvoiceDeliverables,
+  stripInvoiceDeliverableMarker,
+} from '@/utils/invoice-deliverables';
 
 interface InvoiceDocumentProps {
   invoice: Invoice;
@@ -8,6 +14,9 @@ interface InvoiceDocumentProps {
 }
 
 export function InvoiceDocument({ invoice, id = 'invoice-document' }: InvoiceDocumentProps) {
+  const deliverableLabels = getInvoiceDeliverableLabels(parseInvoiceDeliverables(invoice.notes));
+  const visibleNotes = stripInvoiceDeliverableMarker(invoice.notes) || invoice.booking.notes;
+
   return (
     <div
       id={id}
@@ -151,12 +160,46 @@ export function InvoiceDocument({ invoice, id = 'invoice-document' }: InvoiceDoc
         </div>
       </div>
 
-      {(invoice.notes || invoice.booking.notes) && (
+      <div className="px-8 pb-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#b8860b]">
+          Payment Information
+        </p>
+        <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-600">
+          <p>
+            Status:{' '}
+            <span className="font-medium text-[#1a1a1a]">{getInvoiceStatusLabel(invoice.status)}</span>
+          </p>
+          <p>
+            Currency: <span className="font-medium text-[#1a1a1a]">INR</span>
+          </p>
+          <p>
+            Amount Paid:{' '}
+            <span className="font-medium text-[#1a1a1a]">{formatCurrency(invoice.advanceAmount)}</span>
+          </p>
+          <p>
+            Balance Due:{' '}
+            <span className="font-medium text-[#6b1d3a]">{formatCurrency(invoice.balanceAmount)}</span>
+          </p>
+        </div>
+      </div>
+
+      {deliverableLabels.length > 0 && (
+        <div className="mx-8 my-4 rounded border border-[#b8860b]/30 bg-[#b8860b]/5 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#b8860b]">
+            Deliverables
+          </p>
+          <ul className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-[#1a1a1a] sm:grid-cols-2">
+            {deliverableLabels.map((label) => (
+              <li key={label}>• {label}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {visibleNotes && (
         <div className="mx-8 mb-6 rounded border border-gray-200 bg-gray-50 p-4">
           <p className="text-[10px] font-bold uppercase tracking-wider text-[#b8860b]">Notes</p>
-          <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">
-            {invoice.notes || invoice.booking.notes}
-          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">{visibleNotes}</p>
         </div>
       )}
 
@@ -186,10 +229,27 @@ export function InvoiceDocument({ invoice, id = 'invoice-document' }: InvoiceDoc
             </div>
           </div>
         </div>
-        <p className="mt-6 text-center text-[10px] text-gray-400">
-          Thank you for choosing Dhara Photography Patan — Capturing your precious moments with
-          elegance.
-        </p>
+        <div
+          className="mt-8 flex flex-col items-center pt-4"
+          style={{ pageBreakInside: 'avoid' }}
+        >
+          <div
+            className="mb-3 h-px w-40"
+            style={{ background: 'linear-gradient(90deg, transparent, #b8860b, transparent)' }}
+          />
+          <p
+            className="text-center italic"
+            style={{
+              fontFamily: "'Cormorant Garamond', Georgia, 'Times New Roman', serif",
+              color: '#b8860b',
+              fontSize: '13px',
+              letterSpacing: '0.08em',
+              fontWeight: 500,
+            }}
+          >
+            {INVOICE_TAGLINE}
+          </p>
+        </div>
       </div>
     </div>
   );

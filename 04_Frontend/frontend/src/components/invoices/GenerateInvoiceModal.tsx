@@ -4,12 +4,17 @@ import { Search, X } from 'lucide-react';
 import { bookingsService } from '@/services/bookings-service';
 import { invoicesService } from '@/services/invoices-service';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
+import { InvoiceDeliverablesFields } from '@/components/invoices/InvoiceDeliverablesFields';
+import {
+  InvoiceDeliverables,
+  encodeInvoiceNotes,
+} from '@/utils/invoice-deliverables';
 
 interface GenerateInvoiceModalProps {
   open: boolean;
   isSubmitting?: boolean;
   onClose: () => void;
-  onGenerate: (bookingId: string) => void;
+  onGenerate: (bookingId: string, notes?: string) => void;
 }
 
 export function GenerateInvoiceModal({
@@ -19,6 +24,10 @@ export function GenerateInvoiceModal({
   onGenerate,
 }: GenerateInvoiceModalProps) {
   const [search, setSearch] = useState('');
+  const [deliverables, setDeliverables] = useState<InvoiceDeliverables>({
+    items: [],
+    videoMedia: '',
+  });
 
   const bookingsQuery = useQuery({
     queryKey: ['bookings', 'invoice-generate'],
@@ -74,12 +83,13 @@ export function GenerateInvoiceModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-3xl overflow-hidden">
+      <div className="card max-h-[90vh] w-full max-w-3xl overflow-y-auto">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-display text-xl font-semibold text-gold">Generate Invoice</h2>
             <p className="mt-1 text-sm text-gray-400">
-              Select a booking to create an invoice from existing booking data.
+              Select deliverables, then choose a booking. Pendrive or Hard Disk is a delivery option
+              only and does not change the amount.
             </p>
           </div>
           <button
@@ -102,7 +112,11 @@ export function GenerateInvoiceModal({
           />
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto rounded-lg border border-surface-border">
+        <div className="mb-4">
+          <InvoiceDeliverablesFields value={deliverables} onChange={setDeliverables} />
+        </div>
+
+        <div className="max-h-[40vh] overflow-y-auto rounded-lg border border-surface-border">
           {isLoading ? (
             <div className="px-6 py-10 text-center text-sm text-gray-500">Loading bookings...</div>
           ) : isError ? (
@@ -147,7 +161,9 @@ export function GenerateInvoiceModal({
                         type="button"
                         className="btn-primary px-3 py-1.5 text-xs"
                         disabled={isSubmitting}
-                        onClick={() => onGenerate(booking.id)}
+                        onClick={() =>
+                          onGenerate(booking.id, encodeInvoiceNotes('', deliverables) || undefined)
+                        }
                       >
                         {isSubmitting ? 'Generating...' : 'Generate'}
                       </button>

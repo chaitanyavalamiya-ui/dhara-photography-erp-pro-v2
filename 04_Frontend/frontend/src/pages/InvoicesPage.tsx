@@ -60,7 +60,8 @@ export function InvoicesPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (bookingId: string) => invoicesService.create({ bookingId }),
+    mutationFn: ({ bookingId, notes }: { bookingId: string; notes?: string }) =>
+      invoicesService.create({ bookingId, notes }),
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       setGenerateOpen(false);
@@ -353,7 +354,7 @@ export function InvoicesPage() {
         open={generateOpen}
         isSubmitting={createMutation.isPending}
         onClose={() => setGenerateOpen(false)}
-        onGenerate={(bookingId) => createMutation.mutate(bookingId)}
+        onGenerate={(bookingId, notes) => createMutation.mutate({ bookingId, notes })}
       />
 
       <InvoiceViewModal

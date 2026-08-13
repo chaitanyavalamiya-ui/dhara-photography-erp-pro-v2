@@ -1,10 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { X } from 'lucide-react';
 import { Invoice } from '@/services/invoices-service';
 import { formatCurrency } from '@/utils/booking-form';
+import { InvoiceDeliverablesFields } from '@/components/invoices/InvoiceDeliverablesFields';
+import {
+  InvoiceDeliverables,
+  encodeInvoiceNotes,
+  parseInvoiceDeliverables,
+  stripInvoiceDeliverableMarker,
+} from '@/utils/invoice-deliverables';
 
 const editInvoiceSchema = z.object({
   dueDate: z.string().optional(),
@@ -36,13 +43,18 @@ export function EditInvoiceModal({
   } = useForm<EditInvoiceForm>({
     resolver: zodResolver(editInvoiceSchema),
   });
+  const [deliverables, setDeliverables] = useState<InvoiceDeliverables>({
+    items: [],
+    videoMedia: '',
+  });
 
   useEffect(() => {
     if (open && invoice) {
       reset({
         dueDate: invoice.dueDate ?? '',
-        notes: invoice.notes ?? '',
+        notes: stripInvoiceDeliverableMarker(invoice.notes),
       });
+      setDeliverables(parseInvoiceDeliverables(invoice.notes));
     }
   }, [open, invoice, reset]);
 
@@ -50,7 +62,7 @@ export function EditInvoiceModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md">
+      <div className="card max-h-[90vh] w-full max-w-md overflow-y-auto">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-display text-xl font-semibold text-gold">Update Invoice</h2>
@@ -86,7 +98,15 @@ export function EditInvoiceModal({
           </p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form
+          onSubmit={handleSubmit((values) =>
+            onSubmit({
+              ...values,
+              notes: encodeInvoiceNotes(values.notes ?? '', deliverables),
+            }),
+          )}
+          className="space-y-4"
+        >
           <div>
             <label htmlFor="dueDate" className="mb-1.5 block text-sm font-medium text-gray-300">
               Due Date
@@ -96,6 +116,8 @@ export function EditInvoiceModal({
               <p className="mt-1 text-xs text-red-400">{errors.dueDate.message}</p>
             )}
           </div>
+
+          <InvoiceDeliverablesFields value={deliverables} onChange={setDeliverables} />
 
           <div>
             <label htmlFor="notes" className="mb-1.5 block text-sm font-medium text-gray-300">

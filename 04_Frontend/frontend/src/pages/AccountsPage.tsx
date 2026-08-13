@@ -563,7 +563,7 @@ export function AccountsPage() {
             {incomeQuery.isLoading ? (
               <LoadingRows rows={4} />
             ) : (incomeQuery.data?.items.length ?? 0) === 0 ? (
-              <EmptyState message="No payments received in this period." />
+              <EmptyState message={search ? 'No payments match your search.' : 'No payments received in this period.'} />
             ) : (
               <div className="space-y-2">
                 {incomeQuery.data?.items.map((p) => (
@@ -639,7 +639,7 @@ export function AccountsPage() {
           ) : incomeQuery.isError ? (
             <ErrorState message={getApiErrorMessage(incomeQuery.error, 'Failed to load income.')} />
           ) : (incomeQuery.data?.items.length ?? 0) === 0 ? (
-            <EmptyState message="No payments received in this period." />
+            <EmptyState message={search ? 'No payments match your search.' : 'No payments received in this period.'} />
           ) : (
             <>
               <p className="mb-4 text-sm text-gray-400">
@@ -718,7 +718,7 @@ export function AccountsPage() {
             {expensesListQuery.isLoading ? (
               <LoadingRows />
             ) : (expensesListQuery.data?.items.length ?? 0) === 0 ? (
-              <EmptyState message="No expenses in this period." />
+              <EmptyState message={search ? 'No expenses match your search.' : 'No expenses in this period.'} />
             ) : (
               <table className="min-w-full text-left text-sm">
                 <thead>

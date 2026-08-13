@@ -8,13 +8,13 @@ import {
   BOOKING_STATUS_OPTIONS,
   bookingsService,
 } from '@/services/bookings-service';
-import { clientsService } from '@/services/clients-service';
 import { deliveriesService } from '@/services/deliveries-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { BookingFormModal } from '@/components/bookings/BookingFormModal';
 import { BookingViewModal } from '@/components/bookings/BookingViewModal';
 import { DeleteBookingDialog } from '@/components/bookings/DeleteBookingDialog';
 import { DeliveryFormModal } from '@/components/deliveries/DeliveryFormModal';
+import { ClientSearchSelect } from '@/components/clients/ClientSearchSelect';
 import {
   deriveBookingPaymentStatus,
   formatBookingCurrency,
@@ -57,11 +57,6 @@ export function BookingsPage() {
   const serviceRatesQuery = useQuery({
     queryKey: ['bookings', 'service-rates'],
     queryFn: bookingsService.getServiceRates,
-  });
-
-  const clientsQuery = useQuery({
-    queryKey: ['clients', 'filter-options'],
-    queryFn: () => clientsService.list({ limit: 100, status: 'active', sortBy: 'fullName', sortOrder: 'asc' }),
   });
 
   const listQuery = useQuery({
@@ -252,21 +247,14 @@ export function BookingsPage() {
             ))}
           </select>
 
-          <select
-            className="input-field"
+          <ClientSearchSelect
             value={clientFilter}
-            onChange={(event) => {
+            onChange={(clientId) => {
               setPage(1);
-              setClientFilter(event.target.value);
+              setClientFilter(clientId);
             }}
-          >
-            <option value="">All Clients</option>
-            {clientsQuery.data?.items.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.fullName}
-              </option>
-            ))}
-          </select>
+            emptyLabel="All Clients"
+          />
 
           <input
             type="date"

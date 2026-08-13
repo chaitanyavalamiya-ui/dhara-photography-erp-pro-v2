@@ -10,7 +10,8 @@ import {
 import { clientsService } from '@/services/clients-service';
 import { settingsService } from '@/services/settings-service';
 import { BookingItemsEditor } from '@/components/bookings/BookingItemsEditor';
-import { calculateBookingTotals, expandPackageToBookingItems, formatBookingCurrency, mergeBookingClientOptions, assertEventDateRange } from '@/utils/booking-form';
+import { ClientSearchSelect } from '@/components/clients/ClientSearchSelect';
+import { calculateBookingTotals, expandPackageToBookingItems, formatBookingCurrency, assertEventDateRange } from '@/utils/booking-form';
 
 interface BookingFormModalProps {
   open: boolean;
@@ -49,12 +50,6 @@ export function BookingFormModal({
 }: BookingFormModalProps) {
   const [form, setForm] = useState<BookingFormData>(emptyForm);
 
-  const clientsQuery = useQuery({
-    queryKey: ['clients', 'options'],
-    queryFn: () => clientsService.list({ limit: 100, status: 'active', sortBy: 'fullName', sortOrder: 'asc' }),
-    enabled: open,
-  });
-
   const packagesQuery = useQuery({
     queryKey: ['settings', 'packages'],
     queryFn: () => settingsService.getPackages(),
@@ -87,28 +82,17 @@ export function BookingFormModal({
     });
   }, [open, booking, prefillDate]);
 
-  const clientOptions = useMemo(() => {
-    const listed = (clientsQuery.data?.items ?? []).map((client) => ({
-      id: client.id,
-      fullName: client.fullName,
-      mobile: client.mobile,
-      email: client.email,
-    }));
+  const selectedClientQuery = useQuery({
+    queryKey: ['clients', form.clientId],
+    queryFn: () => clientsService.getById(form.clientId),
+    enabled: open && Boolean(form.clientId),
+  });
 
-    const current =
-      mode === 'edit' && booking
-        ? {
-            id: booking.client.id,
-            fullName: booking.client.fullName,
-            mobile: booking.client.mobile,
-            email: booking.client.email,
-          }
-        : null;
-
-    return mergeBookingClientOptions(listed, current);
-  }, [booking, clientsQuery.data?.items, mode]);
-
-  const selectedClient = clientOptions.find((client) => client.id === form.clientId);
+  const selectedClient =
+    selectedClientQuery.data ??
+    (mode === 'edit' && booking && form.clientId === booking.clientId
+      ? booking.client
+      : undefined);
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -180,20 +164,12 @@ export function BookingFormModal({
               <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="booking-client">
                 Client <span className="text-gold">*</span>
               </label>
-              <select
+              <ClientSearchSelect
                 id="booking-client"
-                className="input-field"
                 value={form.clientId}
-                onChange={(event) => setForm((current) => ({ ...current, clientId: event.target.value }))}
+                onChange={(clientId) => setForm((current) => ({ ...current, clientId }))}
                 required
-              >
-                <option value="">Select client...</option>
-                {clientOptions.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.fullName} ({client.mobile})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>

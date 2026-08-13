@@ -1,12 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { PaymentsService } from '../payments/payments.service';
 import { AccountsService } from '../accounts/accounts.service';
 import { roundMoney } from '../bookings/utils/booking.utils';
 import {
   buildBookingEventDateWhere,
-  ACTIVE_BOOKING_FILTER,
+  REPORT_BOOKING_FILTER,
   getMonthRange,
   ReportDateRange,
   ReportDatePreset,
@@ -43,7 +42,6 @@ const ACTIVE_FILTER = {
 export class ReportsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly paymentsService: PaymentsService,
     private readonly accountsService: AccountsService,
   ) {}
 
@@ -52,7 +50,6 @@ export class ReportsService {
     userId: string,
     query: ReportsDateQueryDto,
   ): Promise<ReportsDashboardDto> {
-    await this.paymentsService.backfillAdvancePayments(companyId, userId);
     const period = this.resolvePeriod(query);
     const summary = await this.accountsService.getPeriodSummary(companyId, userId, query);
 
@@ -69,7 +66,7 @@ export class ReportsService {
       this.prisma.booking.aggregate({
         where: {
           companyId,
-          ...ACTIVE_BOOKING_FILTER,
+          ...REPORT_BOOKING_FILTER,
           ...buildBookingEventDateWhere(period),
         },
         _sum: { totalAmount: true },
@@ -103,77 +100,29 @@ export class ReportsService {
     userId: string,
     query: ReportsDateQueryDto,
   ): Promise<ReportsOverviewDto> {
-    await this.paymentsService.backfillAdvancePayments(companyId, userId);
     const period = this.resolvePeriod(query);
+    const summary = await this.accountsService.getPeriodSummary(companyId, userId, query);
 
-    const [
-      bookingAgg,
-      invoiceAgg,
-      paymentAgg,
-      expenseAgg,
-      albumAgg,
-    ] = await Promise.all([
-      this.prisma.booking.aggregate({
-        where: {
-          companyId,
-          ...ACTIVE_BOOKING_FILTER,
-          ...buildBookingEventDateWhere(period),
-        },
-        _sum: { totalAmount: true },
-      }),
-      this.prisma.invoice.aggregate({
-        where: {
-          companyId,
-          ...ACTIVE_FILTER,
-          invoiceDate: { gte: period.start, lte: period.end },
-        },
-        _sum: { totalAmount: true, outstandingAmount: true },
-      }),
-      this.prisma.payment.aggregate({
-        where: {
-          companyId,
-          ...ACTIVE_FILTER,
-          paymentDate: { gte: period.start, lte: period.end },
-        },
-        _sum: { amount: true },
-      }),
-      this.prisma.expense.aggregate({
-        where: {
-          companyId,
-          ...ACTIVE_FILTER,
-          expenseDate: { gte: period.start, lte: period.end },
-        },
-        _sum: { amount: true },
-      }),
-      this.prisma.album.aggregate({
-        where: {
-          companyId,
-          ...ACTIVE_FILTER,
-          OR: [
-            { orderDate: { gte: period.start, lte: period.end } },
-            { orderDate: null, createdAt: { gte: period.start, lte: period.end } },
-          ],
-        },
-        _sum: { albumPrice: true, vendorExpense: true },
-      }),
-    ]);
-
-    const amountReceived = roundMoney(Number(paymentAgg._sum.amount ?? 0));
-    const totalExpenses = roundMoney(Number(expenseAgg._sum.amount ?? 0));
-    const albumSales = roundMoney(Number(albumAgg._sum.albumPrice ?? 0));
-    const albumVendorExpenses = roundMoney(Number(albumAgg._sum.vendorExpense ?? 0));
+    const bookingAgg = await this.prisma.booking.aggregate({
+      where: {
+        companyId,
+        ...REPORT_BOOKING_FILTER,
+        ...buildBookingEventDateWhere(period),
+      },
+      _sum: { totalAmount: true },
+    });
 
     return {
-      period: this.mapPeriod(period),
+      period: summary.period,
       totalBookingValue: roundMoney(Number(bookingAgg._sum.totalAmount ?? 0)),
-      totalInvoiceValue: roundMoney(Number(invoiceAgg._sum.totalAmount ?? 0)),
-      amountReceived,
-      outstandingAmount: roundMoney(Number(invoiceAgg._sum.outstandingAmount ?? 0)),
-      totalExpenses,
-      netProfit: roundMoney(amountReceived - totalExpenses),
-      albumSales,
-      albumVendorExpenses,
-      albumProfit: roundMoney(albumSales - albumVendorExpenses),
+      totalInvoiceValue: summary.totalInvoiceValue,
+      amountReceived: summary.amountReceived,
+      outstandingAmount: summary.outstandingAmount,
+      totalExpenses: summary.totalExpenses,
+      netProfit: summary.netProfit,
+      albumSales: summary.albumOrderValue,
+      albumVendorExpenses: summary.albumVendorExpense,
+      albumProfit: summary.albumProfit,
     };
   }
 
@@ -190,7 +139,7 @@ export class ReportsService {
     const bookings = await this.prisma.booking.findMany({
       where: {
         companyId,
-        ...ACTIVE_BOOKING_FILTER,
+        ...REPORT_BOOKING_FILTER,
         ...buildBookingEventDateWhere(period),
       },
       include: {
@@ -431,7 +380,7 @@ export class ReportsService {
         where: {
           booking: {
             companyId,
-            ...ACTIVE_BOOKING_FILTER,
+            ...REPORT_BOOKING_FILTER,
             ...buildBookingEventDateWhere(period),
           },
         },
@@ -512,7 +461,7 @@ export class ReportsService {
       this.prisma.booking.findMany({
         where: {
           companyId,
-          ...ACTIVE_BOOKING_FILTER,
+          ...REPORT_BOOKING_FILTER,
           ...buildBookingEventDateWhere(period),
         },
         select: { eventType: true, totalAmount: true },
@@ -624,7 +573,7 @@ export class ReportsService {
       this.prisma.booking.count({
         where: {
           companyId,
-          ...ACTIVE_BOOKING_FILTER,
+          ...REPORT_BOOKING_FILTER,
           ...buildBookingEventDateWhere({ start, end }),
         },
       }),

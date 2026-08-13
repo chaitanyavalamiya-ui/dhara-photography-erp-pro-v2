@@ -14,6 +14,7 @@ export interface Client {
   notes?: string | null;
   status: string;
   isActive: boolean;
+  archivedAt?: string | null;
   totalBookings: number;
   totalAmount: number;
   outstandingBalance: number;
@@ -99,5 +100,10 @@ export const clientsService = {
 
   async remove(id: string): Promise<void> {
     await apiClient.delete(`/clients/${id}`);
+  },
+
+  async restore(id: string): Promise<Client> {
+    const { data } = await apiClient.post<ApiResponse<Client>>(`/clients/${id}/restore`);
+    return data.data;
   },
 };

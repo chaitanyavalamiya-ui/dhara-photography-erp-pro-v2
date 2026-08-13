@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookImage, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
-import { clientsService } from '@/services/clients-service';
+import { ClientSearchSelect } from '@/components/clients/ClientSearchSelect';
 import { bookingsService } from '@/services/bookings-service';
 import {
   Album,
@@ -69,21 +69,9 @@ export function AlbumsPage() {
   const canUpdate = hasPermission('album.update');
   const canArchive = hasPermission('album.archive');
 
-  const clientsQuery = useQuery({
-    queryKey: ['clients', 'album-filter'],
-    queryFn: () =>
-      clientsService.list({ limit: 100, status: 'active', sortBy: 'fullName', sortOrder: 'asc' }),
-  });
-
   const bookingsQuery = useQuery({
     queryKey: ['bookings', 'album-filter'],
     queryFn: () => bookingsService.list({ limit: 100, sortBy: 'eventDate', sortOrder: 'desc' }),
-  });
-
-  const selectedClientQuery = useQuery({
-    queryKey: ['clients', clientFilter],
-    queryFn: () => clientsService.getById(clientFilter),
-    enabled: Boolean(clientFilter),
   });
 
   const selectedBookingQuery = useQuery({
@@ -176,10 +164,6 @@ export function AlbumsPage() {
       (statusFilter && statusFilter !== 'all') ||
       (typeFilter && typeFilter !== 'all'),
   );
-  const clientOptions = [...(clientsQuery.data?.items ?? [])];
-  if (selectedClientQuery.data && !clientOptions.some((client) => client.id === selectedClientQuery.data.id)) {
-    clientOptions.unshift(selectedClientQuery.data);
-  }
   const bookingOptions = [...(bookingsQuery.data?.items ?? [])];
   if (
     selectedBookingQuery.data &&
@@ -234,16 +218,14 @@ export function AlbumsPage() {
           <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="mb-1.5 block text-xs text-gray-500">Client</label>
-              <select
-                className="input-field"
+              <ClientSearchSelect
                 value={clientFilter}
-                onChange={(e) => { setClientFilter(e.target.value); setPage(1); }}
-              >
-                <option value="">All clients</option>
-                {(clientOptions).map((c) => (
-                  <option key={c.id} value={c.id}>{c.fullName}</option>
-                ))}
-              </select>
+                onChange={(clientId) => {
+                  setClientFilter(clientId);
+                  setPage(1);
+                }}
+                emptyLabel="All clients"
+              />
             </div>
 
             <div>

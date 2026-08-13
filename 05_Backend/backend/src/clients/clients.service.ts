@@ -20,6 +20,9 @@ import {
   parseOptionalDate,
   toDateOnlyString,
   validateIndianMobile,
+  allocateNextClientNumber,
+  isClientNumberUniqueConflict,
+  isClientMobileUniqueConflict,
 } from './utils/client.utils';
 
 type ClientWithRelations = Prisma.ClientGetPayload<{
@@ -95,7 +98,7 @@ export class ClientsService {
 
   async findOne(companyId: string, id: string): Promise<ClientResponseDto> {
     const client = await this.prisma.client.findFirst({
-      where: { id, companyId, archivedAt: null },
+      where: { id, companyId },
       include: this.clientInclude(),
     });
 
@@ -203,45 +206,68 @@ export class ClientsService {
       },
     });
 
-    const clientNumber = await this.generateClientNumber(companyId);
+    const maxAttempts = 5;
+    let lastError: unknown;
+    let client: ClientWithRelations | undefined;
 
-    const client = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.client.create({
-        data: {
-          companyId,
-          primaryBranchId: branch.id,
-          clientNumber,
-          fullName: dto.fullName.trim(),
-          mobile: dto.mobile.trim(),
-          normalizedMobile,
-          email: dto.email?.trim() || null,
-          normalizedEmail: normalizedEmailValue,
-          whatsapp: dto.whatsapp?.trim() || null,
-          normalizedWhatsapp,
-          address: dto.address?.trim() || null,
-          city: dto.city?.trim() || null,
-          dateOfBirth: parseOptionalDate(dto.dateOfBirth),
-          anniversaryDate: parseOptionalDate(dto.anniversaryDate),
-          notes: dto.notes?.trim() || null,
-          statusId: activeStatus?.id ?? null,
-          createdById: userId,
-          updatedById: userId,
-        },
-        include: this.clientInclude(),
-      });
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        client = await this.prisma.$transaction(async (tx) => {
+          const clientNumber = await this.generateClientNumber(companyId, tx);
 
-      await tx.clientBranch.create({
-        data: {
-          clientId: created.id,
-          branchId: branch.id,
-          isPrimary: true,
-          createdById: userId,
-          updatedById: userId,
-        },
-      });
+          const created = await tx.client.create({
+            data: {
+              companyId,
+              primaryBranchId: branch.id,
+              clientNumber,
+              fullName: dto.fullName.trim(),
+              mobile: dto.mobile.trim(),
+              normalizedMobile,
+              email: dto.email?.trim() || null,
+              normalizedEmail: normalizedEmailValue,
+              whatsapp: dto.whatsapp?.trim() || null,
+              normalizedWhatsapp,
+              address: dto.address?.trim() || null,
+              city: dto.city?.trim() || null,
+              dateOfBirth: parseOptionalDate(dto.dateOfBirth),
+              anniversaryDate: parseOptionalDate(dto.anniversaryDate),
+              notes: dto.notes?.trim() || null,
+              statusId: activeStatus?.id ?? null,
+              createdById: userId,
+              updatedById: userId,
+            },
+            include: this.clientInclude(),
+          });
 
-      return created;
-    });
+          await tx.clientBranch.create({
+            data: {
+              clientId: created.id,
+              branchId: branch.id,
+              isPrimary: true,
+              createdById: userId,
+              updatedById: userId,
+            },
+          });
+
+          return created;
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+        if (isClientMobileUniqueConflict(error)) {
+          throw new ConflictException(
+            'A client with this mobile number already exists, including an archived client. Restore that client or choose another number.',
+          );
+        }
+        if (!isClientNumberUniqueConflict(error) || attempt === maxAttempts - 1) {
+          throw error;
+        }
+      }
+    }
+
+    if (!client) {
+      throw lastError instanceof Error ? lastError : new Error('Failed to create client.');
+    }
 
     await this.auditService.log({
       companyId,
@@ -375,7 +401,63 @@ export class ClientsService {
       userAgent,
     });
 
-    return { message: 'Client deleted successfully.' };
+    return { message: 'Client archived successfully.' };
+  }
+
+  async restore(
+    companyId: string,
+    userId: string,
+    id: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<ClientResponseDto> {
+    const existing = await this.prisma.client.findFirst({
+      where: { id, companyId, archivedAt: { not: null } },
+      include: this.clientInclude(),
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Archived client not found.');
+    }
+
+    await this.ensureUniqueContact(companyId, existing.normalizedMobile, existing.normalizedEmail, id);
+
+    const activeStatus = await this.prisma.masterData.findFirst({
+      where: {
+        companyId,
+        category: 'client_status',
+        code: 'active',
+        isActive: true,
+      },
+    });
+
+    const restored = await this.prisma.client.update({
+      where: { id },
+      data: {
+        isActive: true,
+        archivedAt: null,
+        archivedById: null,
+        archivedReason: null,
+        statusId: activeStatus?.id ?? existing.statusId,
+        updatedById: userId,
+      },
+      include: this.clientInclude(),
+    });
+
+    await this.auditService.log({
+      companyId,
+      actorUserId: userId,
+      module: 'clients',
+      action: 'restore',
+      recordType: 'client',
+      recordId: id,
+      previousValue: this.auditSnapshot(existing),
+      newValue: this.auditSnapshot(restored),
+      ipAddress,
+      userAgent,
+    });
+
+    return this.mapClient(restored);
   }
 
   private clientInclude() {
@@ -415,8 +497,9 @@ export class ClientsService {
       dateOfBirth: toDateOnlyString(client.dateOfBirth),
       anniversaryDate: toDateOnlyString(client.anniversaryDate),
       notes: client.notes,
-      status: client.status?.label ?? (client.isActive ? 'Active' : 'Inactive'),
+      status: client.status?.label ?? (client.archivedAt ? 'Archived' : client.isActive ? 'Active' : 'Inactive'),
       isActive: client.isActive,
+      archivedAt: client.archivedAt?.toISOString() ?? null,
       totalBookings,
       totalAmount,
       outstandingBalance,
@@ -432,24 +515,33 @@ export class ClientsService {
   ): Prisma.ClientWhereInput {
     const where: Prisma.ClientWhereInput = {
       companyId,
-      archivedAt: null,
     };
 
     if (status === 'active') {
+      where.archivedAt = null;
       where.isActive = true;
     } else if (status === 'inactive') {
-      where.isActive = false;
+      where.OR = [{ isActive: false }, { archivedAt: { not: null } }];
     }
 
     if (search?.trim()) {
       const term = search.trim();
-      where.OR = [
-        { fullName: { contains: term, mode: 'insensitive' } },
-        { mobile: { contains: term } },
-        { email: { contains: term, mode: 'insensitive' } },
-        { city: { contains: term, mode: 'insensitive' } },
-        { clientNumber: { contains: term, mode: 'insensitive' } },
-      ];
+      const searchOr: Prisma.ClientWhereInput = {
+        OR: [
+          { fullName: { contains: term, mode: 'insensitive' } },
+          { mobile: { contains: term } },
+          { email: { contains: term, mode: 'insensitive' } },
+          { city: { contains: term, mode: 'insensitive' } },
+          { clientNumber: { contains: term, mode: 'insensitive' } },
+        ],
+      };
+
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, searchOr];
+        delete where.OR;
+      } else {
+        Object.assign(where, searchOr);
+      }
     }
 
     return where;
@@ -541,9 +633,17 @@ export class ClientsService {
     }
   }
 
-  private async generateClientNumber(companyId: string): Promise<string> {
-    const count = await this.prisma.client.count({ where: { companyId } });
-    return `CLT-${String(count + 1).padStart(6, '0')}`;
+  private async generateClientNumber(
+    companyId: string,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const latest = await tx.client.findFirst({
+      where: { companyId },
+      orderBy: { clientNumber: 'desc' },
+      select: { clientNumber: true },
+    });
+
+    return allocateNextClientNumber(latest?.clientNumber);
   }
 
   private auditSnapshot(client: ClientWithRelations): Prisma.InputJsonValue {

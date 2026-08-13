@@ -9,6 +9,7 @@ import { settingsService } from '@/services/settings-service';
 vi.mock('@/services/clients-service', () => ({
   clientsService: {
     list: vi.fn(),
+    getById: vi.fn(),
   },
 }));
 
@@ -72,8 +73,21 @@ function renderForm() {
     ],
     total: 1,
     page: 1,
-    limit: 100,
+        limit: 20,
     totalPages: 1,
+  } as never);
+  vi.mocked(clientsService.getById).mockResolvedValue({
+    id: 'client-current',
+    clientNumber: 'CLT-000002',
+    fullName: 'Rahul Patel',
+    mobile: '9999999999',
+    status: 'Active',
+    isActive: true,
+    totalBookings: 1,
+    totalAmount: 5000,
+    outstandingBalance: 5000,
+    createdAt: '',
+    updatedAt: '',
   } as never);
   vi.mocked(settingsService.getPackages).mockResolvedValue([]);
 

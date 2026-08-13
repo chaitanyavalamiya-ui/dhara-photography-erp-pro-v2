@@ -16,6 +16,7 @@ import {
 import {
   generateReceiptNumber,
   getPaymentTotalForInvoice,
+  isReceiptNumberUniqueConflict,
   syncInvoiceAndBookingFinancials,
 } from '../common/utils/financial.utils';
 import { parseOptionalDate } from '../invoices/utils/invoice.utils';
@@ -104,32 +105,50 @@ export class PaymentsService {
 
     const previousBalance = outstanding;
 
-    const payment = await this.prisma.$transaction(async (tx) => {
-      const receiptNumber = await generateReceiptNumber(tx, companyId);
+    const maxAttempts = 5;
+    let lastError: unknown;
+    let payment: PaymentWithRelations | undefined;
 
-      const created = await tx.payment.create({
-        data: {
-          companyId,
-          branchId: invoice.branchId,
-          clientId: invoice.clientId,
-          bookingId: invoice.bookingId,
-          invoiceId: invoice.id,
-          paymentModeId: paymentMode.id,
-          receiptNumber,
-          amount: toDecimal(amount),
-          paymentDate,
-          transactionReference: dto.transactionReference?.trim() || null,
-          notes: dto.notes?.trim() || null,
-          createdById: userId,
-          updatedById: userId,
-        },
-        include: this.paymentInclude(),
-      });
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        payment = await this.prisma.$transaction(async (tx) => {
+          const receiptNumber = await generateReceiptNumber(tx, companyId);
 
-      await syncInvoiceAndBookingFinancials(tx, invoice.id);
+          const created = await tx.payment.create({
+            data: {
+              companyId,
+              branchId: invoice.branchId,
+              clientId: invoice.clientId,
+              bookingId: invoice.bookingId,
+              invoiceId: invoice.id,
+              paymentModeId: paymentMode.id,
+              receiptNumber,
+              amount: toDecimal(amount),
+              paymentDate,
+              transactionReference: dto.transactionReference?.trim() || null,
+              notes: dto.notes?.trim() || null,
+              createdById: userId,
+              updatedById: userId,
+            },
+            include: this.paymentInclude(),
+          });
 
-      return created;
-    });
+          await syncInvoiceAndBookingFinancials(tx, invoice.id);
+
+          return created;
+        });
+        break;
+      } catch (error) {
+        lastError = error;
+        if (!isReceiptNumberUniqueConflict(error) || attempt === maxAttempts - 1) {
+          throw error;
+        }
+      }
+    }
+
+    if (!payment) {
+      throw lastError instanceof Error ? lastError : new Error('Failed to create payment.');
+    }
 
     const mapped = this.mapPayment(payment);
     mapped.previousBalance = previousBalance;
@@ -163,8 +182,8 @@ export class PaymentsService {
     userAgent?: string,
   ): Promise<PaymentResponseDto> {
     const existing = await this.getPaymentOrThrow(companyId, id);
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id: existing.invoiceId },
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id: existing.invoiceId, companyId },
     });
 
     if (!invoice) {

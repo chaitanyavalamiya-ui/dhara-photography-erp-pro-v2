@@ -103,7 +103,18 @@ export class ClientsController {
     @Param('id') id: string,
     @Req() req: Request,
   ): Promise<{ message: string }> {
-    return this.clientsService.archive(
+    return { message: 'Client archived successfully.' };
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions('clients.archive')
+  @ApiOperation({ summary: 'Restore an archived client' })
+  async restore(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<ClientResponseDto> {
+    return this.clientsService.restore(
       user.companyId,
       user.sub,
       id,

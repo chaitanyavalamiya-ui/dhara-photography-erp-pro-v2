@@ -40,6 +40,9 @@ export class ClientResponseDto {
   @ApiProperty()
   isActive!: boolean;
 
+  @ApiPropertyOptional()
+  archivedAt?: string | null;
+
   @ApiProperty()
   totalBookings!: number;
 

@@ -9,6 +9,7 @@ import {
   Search,
   Eye,
   Pencil,
+  RotateCcw,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -126,6 +127,20 @@ export function ClientsPage() {
       setFeedback({
         type: 'error',
         message: getApiErrorMessage(error, 'Failed to delete client.'),
+      });
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: clientsService.restore,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
+      setFeedback({ type: 'success', message: 'Client restored successfully.' });
+    },
+    onError: (error: unknown) => {
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(error, 'Failed to restore client.'),
       });
     },
   });
@@ -314,9 +329,13 @@ export function ClientsPage() {
         ) : clients.length === 0 ? (
           <div className="flex min-h-48 flex-col items-center justify-center rounded-lg border border-dashed border-surface-border px-6 py-10 text-center">
             <Users className="mb-3 h-10 w-10 text-gray-600" />
-            <h3 className="font-display text-lg font-semibold text-gray-200">No clients yet</h3>
+            <h3 className="font-display text-lg font-semibold text-gray-200">
+              {search || statusFilter !== 'active' ? 'No clients match your search.' : 'No clients yet.'}
+            </h3>
             <p className="mt-2 max-w-md text-sm text-gray-500">
-              Start building your studio client list by adding your first client.
+              {search || statusFilter !== 'active'
+                ? 'Try a different name, mobile, or status filter.'
+                : 'Start building your studio client list by adding your first client.'}
             </p>
             {canCreate && (
               <button type="button" className="btn-primary mt-5" onClick={openCreate}>
@@ -410,7 +429,7 @@ export function ClientsPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
-                        {canUpdate && (
+                        {canUpdate && !client.archivedAt && (
                           <button
                             type="button"
                             className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
@@ -420,7 +439,17 @@ export function ClientsPage() {
                             <Pencil className="h-4 w-4" />
                           </button>
                         )}
-                        {canArchive && (
+                        {canArchive && client.archivedAt && (
+                          <button
+                            type="button"
+                            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
+                            onClick={() => restoreMutation.mutate(client.id)}
+                            aria-label="Restore client"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                        )}
+                        {canArchive && !client.archivedAt && (
                           <button
                             type="button"
                             className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-red-400"
@@ -481,6 +510,7 @@ export function ClientsPage() {
       <ClientViewModal
         open={Boolean(viewClient)}
         client={viewClient}
+        canEdit={canUpdate}
         onClose={() => setViewClient(null)}
         onEdit={(client) => {
           setViewClient(null);

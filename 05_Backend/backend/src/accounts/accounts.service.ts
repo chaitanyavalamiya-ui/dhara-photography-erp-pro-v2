@@ -5,7 +5,8 @@ import { PaymentsService } from '../payments/payments.service';
 import { roundMoney } from '../bookings/utils/booking.utils';
 import {
   buildBookingEventDateWhere,
-  ACTIVE_BOOKING_FILTER,
+  REPORT_BOOKING_FILTER,
+  paginateNewestFirstRunningBalances,
   getMonthRange,
   ReportDateRange,
   ReportDatePreset,
@@ -182,7 +183,7 @@ export class AccountsService {
       this.prisma.booking.count({
         where: {
           companyId,
-          ...ACTIVE_BOOKING_FILTER,
+          ...REPORT_BOOKING_FILTER,
           ...buildBookingEventDateWhere(period),
         },
       }),
@@ -259,7 +260,7 @@ export class AccountsService {
         invoiceNumber: payment.invoice?.invoiceNumber ?? null,
         bookingNumber: payment.booking.bookingNumber,
         paymentMethod: payment.paymentMode.label,
-        amount: Number(payment.amount),
+        amount: roundMoney(Number(payment.amount)),
       })),
       total,
       page,
@@ -387,7 +388,7 @@ export class AccountsService {
         bookingId: expense.bookingId,
         bookingNumber: expense.booking?.bookingNumber ?? null,
         description: expense.description,
-        amount: Number(expense.amount),
+        amount: roundMoney(Number(expense.amount)),
         source: expense.bookingStaffAssignment ? 'staff_assignment' : 'manual',
       })),
       total,
@@ -466,7 +467,7 @@ export class AccountsService {
           this.prisma.booking.count({
             where: {
               companyId,
-              ...ACTIVE_BOOKING_FILTER,
+              ...REPORT_BOOKING_FILTER,
               ...buildBookingEventDateWhere({ start, end }),
             },
           }),
@@ -533,7 +534,7 @@ export class AccountsService {
         this.prisma.booking.count({
           where: {
             companyId,
-            ...ACTIVE_BOOKING_FILTER,
+            ...REPORT_BOOKING_FILTER,
             ...buildBookingEventDateWhere({ start, end }),
           },
         }),
@@ -649,10 +650,10 @@ export class AccountsService {
         description: `Payment ${payment.receiptNumber ?? ''}`.trim(),
         bookingNumber: payment.booking.bookingNumber,
         clientName: payment.client.fullName,
-        income: Number(payment.amount),
+        income: roundMoney(Number(payment.amount)),
         expense: 0,
         paymentMethod: payment.paymentMode.label,
-        amount: Number(payment.amount),
+        amount: roundMoney(Number(payment.amount)),
       })),
       ...expenses.map((expense) => ({
         id: expense.id,
@@ -662,9 +663,9 @@ export class AccountsService {
         bookingNumber: expense.booking?.bookingNumber ?? null,
         clientName: expense.client?.fullName ?? null,
         income: 0,
-        expense: Number(expense.amount),
+        expense: roundMoney(Number(expense.amount)),
         paymentMethod: expense.paymentMode?.label ?? null,
-        amount: Number(expense.amount),
+        amount: roundMoney(Number(expense.amount)),
       })),
     ];
 
@@ -675,12 +676,9 @@ export class AccountsService {
     const totalExpense = roundMoney(entries.reduce((sum, row) => sum + row.expense, 0));
     const start = (page - 1) * limit;
     const pageEntries = entries.slice(start, start + limit);
+    const runningBalances = paginateNewestFirstRunningBalances(entries, page, limit);
 
-    let runningBalance = 0;
-
-    const items: AccountTransactionDto[] = pageEntries.map((entry) => {
-      runningBalance = roundMoney(runningBalance + entry.income - entry.expense);
-      return {
+    const items: AccountTransactionDto[] = pageEntries.map((entry, index) => ({
         id: entry.id,
         date: entry.date.toISOString().slice(0, 10),
         type: entry.type,
@@ -691,9 +689,8 @@ export class AccountsService {
         expense: entry.expense,
         paymentMethod: entry.paymentMethod,
         amount: entry.amount,
-        runningBalance,
-      };
-    });
+        runningBalance: runningBalances[index] ?? 0,
+    }));
 
     return {
       period: this.mapPeriod(period),

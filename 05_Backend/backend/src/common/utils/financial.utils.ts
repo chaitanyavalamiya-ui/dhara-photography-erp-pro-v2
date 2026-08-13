@@ -55,12 +55,55 @@ export async function syncInvoiceAndBookingFinancials(
   });
 }
 
+export function allocateNextReceiptNumber(latestNumber?: string | null): string {
+  const match = latestNumber?.match(/^RCPT-(\d+)$/);
+  const next = (match ? Number(match[1]) : 0) + 1;
+  return `RCPT-${String(next).padStart(6, '0')}`;
+}
+
+export function isReceiptNumberUniqueConflict(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+    return false;
+  }
+
+  const target = error.meta?.target;
+  const haystack = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  return /receipt[_]?number/i.test(haystack) || haystack.includes('company_id_receipt_number');
+}
+
 export async function generateReceiptNumber(
   tx: DbClient,
   companyId: string,
 ): Promise<string> {
-  const count = await tx.payment.count({ where: { companyId } });
-  return `RCPT-${String(count + 1).padStart(6, '0')}`;
+  const latest = await tx.payment.findFirst({
+    where: { companyId, receiptNumber: { not: null } },
+    orderBy: { receiptNumber: 'desc' },
+    select: { receiptNumber: true },
+  });
+
+  return allocateNextReceiptNumber(latest?.receiptNumber);
+}
+
+export function paginateNewestFirstRunningBalances(
+  entries: Array<{ income: number; expense: number }>,
+  page: number,
+  limit: number,
+): number[] {
+  const periodNet = roundMoney(
+    entries.reduce((sum, row) => sum + row.income - row.expense, 0),
+  );
+  const start = (page - 1) * limit;
+  const skippedNet = roundMoney(
+    entries.slice(0, start).reduce((sum, row) => sum + row.income - row.expense, 0),
+  );
+  let cursor = roundMoney(periodNet - skippedNet);
+  const pageEntries = entries.slice(start, start + limit);
+
+  return pageEntries.map((entry) => {
+    const runningBalance = cursor;
+    cursor = roundMoney(cursor - (entry.income - entry.expense));
+    return runningBalance;
+  });
 }
 
 export function getMonthRange(year: number, month: number): { start: Date; end: Date } {
@@ -73,6 +116,13 @@ export function getMonthRange(year: number, month: number): { start: Date; end: 
 export const ACTIVE_BOOKING_FILTER = {
   archivedAt: null,
   isActive: true,
+} as const;
+
+/** Accounts/reports occupancy — cancelled bookings stay in the calendar but not in financial counts. */
+export const REPORT_BOOKING_FILTER = {
+  archivedAt: null,
+  isActive: true,
+  status: { code: { not: 'cancelled' } },
 } as const;
 
 /**

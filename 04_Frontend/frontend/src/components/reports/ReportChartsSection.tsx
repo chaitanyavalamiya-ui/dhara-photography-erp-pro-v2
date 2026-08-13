@@ -41,8 +41,6 @@ const tooltipStyle: CSSProperties = {
   boxShadow: 'var(--dhara-glass-shadow)',
 };
 
-const axisTick = { fill: 'var(--dhara-text-secondary)', fontSize: 11 };
-
 interface ReportChartsSectionProps {
   charts?: ReportsCharts;
   loading?: boolean;
@@ -50,6 +48,11 @@ interface ReportChartsSectionProps {
 
 export function ReportChartsSection({ charts, loading }: ReportChartsSectionProps) {
   const { theme } = useDharaTheme();
+  const isMidnightDark = theme === 'midnight-dark';
+  const tick = {
+    fill: 'var(--dhara-text-secondary)',
+    fontSize: isMidnightDark ? 13 : 11,
+  };
 
   if (loading) {
     return (
@@ -68,17 +71,30 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
       <ChartCard title="Revenue Overview">
         <ResponsiveContainer width="100%" height={260}>
           <ComposedChart data={charts.monthlyIncomeExpense}>
+            {isMidnightDark && (
+              <defs>
+                <linearGradient id="midnightRevenueFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#00D2FF" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#00D2FF" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+            )}
             <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
-            <XAxis dataKey="label" tick={axisTick} />
-            <YAxis tick={axisTick} />
+            <XAxis dataKey="label" tick={tick} />
+            <YAxis tick={tick} />
             <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
-            <Area type="monotone" dataKey="income" stroke="none" fill="var(--dhara-glow)" />
+            <Area
+              type="monotone"
+              dataKey="income"
+              stroke="none"
+              fill={isMidnightDark ? 'url(#midnightRevenueFill)' : 'var(--dhara-glow)'}
+            />
             <Line
               type="monotone"
               dataKey="income"
               name="Revenue"
               stroke="var(--dhara-accent)"
-              strokeWidth={2.5}
+              strokeWidth={isMidnightDark ? 2.75 : 2.5}
               dot={false}
             />
           </ComposedChart>
@@ -89,8 +105,8 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={charts.monthlyIncomeExpense} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
-            <XAxis type="number" tick={axisTick} />
-            <YAxis type="category" dataKey="label" width={72} tick={axisTick} />
+            <XAxis type="number" tick={tick} />
+            <YAxis type="category" dataKey="label" width={72} tick={tick} />
             <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
             <Legend />
             <Bar dataKey="income" name="Income" fill="var(--dhara-success)" radius={[0, 4, 4, 0]} />
@@ -103,8 +119,8 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={charts.monthlyIncomeExpense}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
-            <XAxis dataKey="label" tick={axisTick} />
-            <YAxis tick={axisTick} />
+            <XAxis dataKey="label" tick={tick} />
+            <YAxis tick={tick} />
             <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
             <Line type="monotone" dataKey="profit" name="Profit" stroke="var(--dhara-accent)" strokeWidth={2} />
           </LineChart>
@@ -140,8 +156,8 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={charts.expensesByCategory} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
-            <XAxis type="number" tick={axisTick} />
-            <YAxis type="category" dataKey="label" width={100} tick={axisTick} />
+            <XAxis type="number" tick={tick} />
+            <YAxis type="category" dataKey="label" width={100} tick={tick} />
             <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
             <Bar dataKey="value" fill="var(--dhara-danger)" radius={[0, 4, 4, 0]} />
           </BarChart>
@@ -153,8 +169,8 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={charts.bookingRevenueByType}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
-              <XAxis dataKey="label" tick={axisTick} />
-              <YAxis tick={axisTick} />
+              <XAxis dataKey="label" tick={tick} />
+              <YAxis tick={tick} />
               <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
               <Bar dataKey="value" name="Revenue" fill="var(--dhara-accent)" radius={[4, 4, 0, 0]} />
             </BarChart>

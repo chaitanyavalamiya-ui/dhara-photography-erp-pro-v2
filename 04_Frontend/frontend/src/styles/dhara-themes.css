@@ -153,28 +153,6 @@ html[data-dhara-theme='rose-gold-wedding'] {
   --dhara-glass-blur: 16px;
 }
 
-html[data-dhara-theme='champagne-luxury'] {
-  --dhara-bg-primary: #1c120c;
-  --dhara-bg-secondary: #26180f;
-  --dhara-surface: #ede0cc;
-  --dhara-surface-hover: #f6ecda;
-  --dhara-text-primary: #3a2418;
-  --dhara-text-secondary: #6b5344;
-  --dhara-accent: #c4a35a;
-  --dhara-accent-soft: #8a6428;
-  --dhara-border: rgba(90, 60, 30, 0.18);
-  --dhara-glow: rgba(196, 163, 90, 0.22);
-  --dhara-ambient: rgba(90, 50, 24, 0.35);
-  --dhara-success: #3f8f5a;
-  --dhara-warning: #b07a20;
-  --dhara-danger: #b54a4a;
-  --dhara-btn-text: #2a1a10;
-  --dhara-glass-bg: rgba(237, 224, 204, 0.82);
-  --dhara-glass-border: rgba(90, 60, 30, 0.16);
-  --dhara-glass-shadow: 0 16px 36px rgba(28, 18, 12, 0.28);
-  --dhara-glass-blur: 14px;
-}
-
 html[data-dhara-theme='black-and-white'] {
   --dhara-bg-primary: #0a0a0a;
   --dhara-bg-secondary: #111111;
@@ -218,6 +196,28 @@ html[data-dhara-theme='royal-ivory'] {
   --dhara-glass-border: #ded4c5;
   --dhara-glass-shadow: 0 16px 36px rgba(80, 64, 48, 0.14);
   --dhara-glass-blur: 14px;
+}
+
+html[data-dhara-theme='midnight-dark'] {
+  --dhara-bg-primary: #020617;
+  --dhara-bg-secondary: #07111f;
+  --dhara-surface: rgba(8, 18, 36, 0.72);
+  --dhara-surface-hover: rgba(15, 32, 58, 0.82);
+  --dhara-text-primary: #f8fafc;
+  --dhara-text-secondary: #94a3b8;
+  --dhara-accent: #00d2ff;
+  --dhara-accent-soft: #7ae9ff;
+  --dhara-border: rgba(255, 255, 255, 0.1);
+  --dhara-glow: rgba(0, 210, 255, 0.22);
+  --dhara-ambient: rgba(0, 210, 255, 0.12);
+  --dhara-success: #4ade80;
+  --dhara-warning: #fbbf24;
+  --dhara-danger: #e11d48;
+  --dhara-btn-text: #020617;
+  --dhara-glass-bg: rgba(255, 255, 255, 0.05);
+  --dhara-glass-border: rgba(255, 255, 255, 0.1);
+  --dhara-glass-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), 0 0 24px rgba(0, 210, 255, 0.08);
+  --dhara-glass-blur: 12px;
 }
 
 .dhara-glass {

@@ -24,28 +24,31 @@ import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/auth-store';
+import { RoboOverlay } from '@/robo/RoboOverlay';
+import { RoboProvider, useRobo } from '@/robo/RoboProvider';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.read' },
-  { to: '/clients', label: 'Clients', icon: Users, permission: 'clients.read' },
-  { to: '/bookings', label: 'Bookings', icon: BookOpen, permission: 'bookings.read' },
-  { to: '/calendar', label: 'Calendar', icon: CalendarDays, permission: 'bookings.read' },
-  { to: '/gallery', label: 'Gallery', icon: Image, permission: 'gallery.read' },
-  { to: '/invoices', label: 'Invoices', icon: FileText, permission: 'invoices.read' },
-  { to: '/albums', label: 'Albums', icon: BookImage, permission: 'album.read' },
-  { to: '/accounts', label: 'Accounts', icon: Wallet, permission: 'accounts.read' },
-  { to: '/accounts', label: 'Expenses', icon: Receipt, permission: 'expenses.read' },
-  { to: '/deliveries', label: 'Delivery', icon: Package, permission: 'delivery.read' },
-  { to: '/bookings', label: 'Equipment', icon: Camera, permission: 'bookings.read' },
-  { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'reports.read' },
-  { to: '/users', label: 'Users & Security', icon: Shield, permission: 'users.read' },
-  { to: '/staff', label: 'Staff', icon: UserCog, permission: 'staff.read' },
-  { to: '/settings', label: 'Settings', icon: Settings, permission: 'settings.read' },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'dashboard.read', roboTarget: 'dashboard-nav' },
+  { to: '/clients', label: 'Clients', icon: Users, permission: 'clients.read', roboTarget: 'clients-nav' },
+  { to: '/bookings', label: 'Bookings', icon: BookOpen, permission: 'bookings.read', roboTarget: 'booking-nav' },
+  { to: '/calendar', label: 'Calendar', icon: CalendarDays, permission: 'bookings.read', roboTarget: 'calendar-nav' },
+  { to: '/gallery', label: 'Gallery', icon: Image, permission: 'gallery.read', roboTarget: 'gallery-nav' },
+  { to: '/invoices', label: 'Invoices', icon: FileText, permission: 'invoices.read', roboTarget: 'invoice-nav' },
+  { to: '/albums', label: 'Albums', icon: BookImage, permission: 'album.read', roboTarget: 'albums-nav' },
+  { to: '/accounts', label: 'Accounts', icon: Wallet, permission: 'accounts.read', roboTarget: 'accounts-nav' },
+  { to: '/accounts', label: 'Expenses', icon: Receipt, permission: 'expenses.read', roboTarget: 'expenses-nav' },
+  { to: '/deliveries', label: 'Delivery', icon: Package, permission: 'delivery.read', roboTarget: 'delivery-nav' },
+  { to: '/bookings', label: 'Equipment', icon: Camera, permission: 'bookings.read', roboTarget: 'equipment-nav' },
+  { to: '/reports', label: 'Reports', icon: BarChart3, permission: 'reports.read', roboTarget: 'reports-nav' },
+  { to: '/users', label: 'Users & Security', icon: Shield, permission: 'users.read', roboTarget: 'users-nav' },
+  { to: '/staff', label: 'Staff', icon: UserCog, permission: 'staff.read', roboTarget: 'staff-nav' },
+  { to: '/settings', label: 'Settings', icon: Settings, permission: 'settings.read', roboTarget: 'settings-nav' },
   {
     to: '/settings?tab=backup-restore',
     label: 'Backup & Restore',
     icon: HardDrive,
     permission: 'settings.read',
+    roboTarget: 'backup-nav',
   },
 ];
 
@@ -59,10 +62,11 @@ export function AppLayout() {
   );
 
   return (
+    <RoboProvider>
     <div className="dhara-erp-shell flex min-h-screen">
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex flex-col border-r transition-all duration-300',
+          'dhara-erp-sidebar fixed inset-y-0 left-0 z-30 flex flex-col border-r transition-all duration-300',
           collapsed ? 'w-[72px]' : 'w-64',
         )}
         style={{
@@ -102,6 +106,7 @@ export function AppLayout() {
             <NavLink
               key={`${item.label}-${item.to}`}
               to={item.to}
+              data-robo-target={item.roboTarget}
               className={() => {
                 const backupActive =
                   item.to.includes('backup-restore') &&
@@ -132,19 +137,7 @@ export function AppLayout() {
           ))}
         </nav>
 
-        <button
-          type="button"
-          className="dhara-nav-item mx-3 mb-2"
-          style={{
-            color: 'var(--dhara-accent-soft)',
-            border: '1px solid var(--dhara-border)',
-            background: 'color-mix(in srgb, var(--dhara-accent) 10%, var(--dhara-surface))',
-          }}
-          title="Robo AI Assistant — visual preview only"
-        >
-          <Bot />
-          {!collapsed && <span>Robo AI Assistant</span>}
-        </button>
+        <SidebarRoboButton collapsed={collapsed} />
 
         <button
           type="button"
@@ -174,6 +167,30 @@ export function AppLayout() {
           Dhara Photography ERP Pro · Crafted for photographers · Patan
         </footer>
       </div>
+      <RoboOverlay />
     </div>
+    </RoboProvider>
+  );
+}
+
+function SidebarRoboButton({ collapsed }: { collapsed: boolean }) {
+  const { openChat } = useRobo();
+  return (
+    <button
+      type="button"
+      className="dhara-nav-item mx-3 mb-2"
+      data-robo-target="robo-nav"
+      title="Robo AI Assistant"
+      aria-label="Open Robo AI Assistant from sidebar"
+      style={{
+        color: 'var(--dhara-accent-soft)',
+        border: '1px solid var(--dhara-border)',
+        background: 'color-mix(in srgb, var(--dhara-accent) 10%, var(--dhara-surface))',
+      }}
+      onClick={openChat}
+    >
+      <Bot />
+      {!collapsed && <span>Robo AI Assistant</span>}
+    </button>
   );
 }

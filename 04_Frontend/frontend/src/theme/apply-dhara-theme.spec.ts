@@ -35,6 +35,14 @@ describe('dhara theme persistence', () => {
     expect(readDharaTheme()).toBe('royal-cinematic');
   });
 
+  it('migrates a stored champagne-luxury theme to royal-cinematic', () => {
+    localStorage.setItem(DHARA_THEME_STORAGE_KEY, 'champagne-luxury');
+    expect(readDharaTheme()).toBe('royal-cinematic');
+    expect(bootstrapDharaTheme()).toBe('royal-cinematic');
+    expect(localStorage.getItem(DHARA_THEME_STORAGE_KEY)).toBe('royal-cinematic');
+    expect(document.documentElement.getAttribute('data-dhara-theme')).toBe('royal-cinematic');
+  });
+
   it('applies a theme live without navigating away', () => {
     const href = window.location.href;
     applyDharaTheme('sapphire-luxury');
@@ -55,6 +63,13 @@ describe('dhara theme persistence', () => {
     expect(document.documentElement.getAttribute('data-dhara-theme')).toBe('royal-ivory');
     expect(document.body.getAttribute('data-dhara-theme')).toBe('royal-ivory');
     expect(localStorage.getItem(DHARA_THEME_STORAGE_KEY)).toBe('royal-ivory');
+  });
+
+  it('applies Midnight Dark live and persists it without changing the default', () => {
+    applyDharaTheme('midnight-dark');
+    expect(document.documentElement.getAttribute('data-dhara-theme')).toBe('midnight-dark');
+    expect(localStorage.getItem(DHARA_THEME_STORAGE_KEY)).toBe('midnight-dark');
+    expect(DEFAULT_DHARA_THEME).toBe('royal-cinematic');
   });
 
   it('paints a visual theme without changing the saved selection', () => {

@@ -10,7 +10,7 @@ describe('ThemeSelector', () => {
     document.documentElement.setAttribute('data-dhara-theme', 'royal-cinematic');
   });
 
-  it('opens a dropdown of all ten themes and applies a selection immediately', () => {
+  it('opens a dropdown of all themes and applies a selection immediately', () => {
     render(
       <DharaThemeProvider>
         <ThemeSelector />
@@ -26,6 +26,9 @@ describe('ThemeSelector', () => {
     for (const theme of DHARA_THEMES) {
       expect(screen.getByRole('option', { name: new RegExp(theme.name) })).toBeInTheDocument();
     }
+    expect(DHARA_THEMES).toHaveLength(10);
+    expect(DHARA_THEMES.map((theme) => theme.id)).not.toContain('champagne-luxury');
+    expect(screen.queryByRole('option', { name: /Champagne Luxury/ })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('option', { name: /Emerald Royal/ }));
     expect(document.documentElement.getAttribute('data-dhara-theme')).toBe('emerald-royal');
@@ -33,5 +36,19 @@ describe('ThemeSelector', () => {
     expect(localStorage.getItem('dhara-theme')).toBe('emerald-royal');
     expect(screen.getByRole('button', { name: /Emerald Royal/ })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('option', { name: /Emerald Royal/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('includes Midnight Dark without changing the default', () => {
+    render(
+      <DharaThemeProvider>
+        <ThemeSelector />
+      </DharaThemeProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: /Dhara Royal Cinematic/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Dhara Royal Cinematic/ }));
+    fireEvent.click(screen.getByRole('option', { name: /Midnight Dark/ }));
+    expect(document.documentElement.getAttribute('data-dhara-theme')).toBe('midnight-dark');
+    expect(localStorage.getItem('dhara-theme')).toBe('midnight-dark');
   });
 });

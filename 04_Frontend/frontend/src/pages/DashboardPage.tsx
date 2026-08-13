@@ -83,7 +83,7 @@ function bookingStatusClass(statusCode: string) {
     case 'enquiry':
       return 'status-badge status-badge-warn';
     case 'cancelled':
-      return 'status-badge status-badge-danger';
+      return 'status-badge status-badge-danger status-badge-cancelled';
     default:
       return 'status-badge';
   }
@@ -94,8 +94,9 @@ function invoiceStatusClass(status: string) {
     case 'paid':
       return 'status-badge status-badge-ok';
     case 'partially_paid':
+      return 'status-badge status-badge-warn status-badge-partial';
     case 'unpaid':
-      return 'status-badge status-badge-warn';
+      return 'status-badge status-badge-warn status-badge-unpaid';
     case 'overdue':
       return 'status-badge status-badge-danger';
     default:
@@ -389,7 +390,7 @@ export function DashboardPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(280px,0.9fr)]">
         <div className="space-y-6">
           {canBookings && (
-            <div className="card overflow-hidden p-0">
+            <div className="card dhara-recent-bookings overflow-hidden p-0">
               <div className="flex items-center justify-between px-6 pt-6">
                 <h3 className="font-display text-2xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
                   Recent Bookings
@@ -590,7 +591,7 @@ export function DashboardPage() {
               <h3 className="mb-4 font-display text-xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
                 Quick Actions
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="dhara-quick-actions-grid grid grid-cols-2 gap-3">
                 {quickActions.map((action) => (
                   <Link key={action.label} to={action.to} className="btn-secondary dhara-studio-control dhara-card-hover">
                     <action.icon className="mr-2 h-4 w-4" />
@@ -606,7 +607,7 @@ export function DashboardPage() {
               <h3 className="mb-4 font-display text-xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
                 Studio Shortcuts
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="dhara-studio-shortcuts grid grid-cols-2 gap-3">
                 {studioShortcuts.map((action) => (
                   <Link
                     key={action.label}

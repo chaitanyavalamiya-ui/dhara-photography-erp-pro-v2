@@ -3,11 +3,15 @@ import {
   DHARA_THEME_STORAGE_KEY,
   DharaThemeId,
   isDharaThemeId,
+  isRetiredDharaThemeId,
 } from './dhara-themes';
 
 export function readDharaTheme(): DharaThemeId {
   try {
     const stored = localStorage.getItem(DHARA_THEME_STORAGE_KEY);
+    if (isRetiredDharaThemeId(stored) || (stored && !isDharaThemeId(stored))) {
+      return DEFAULT_DHARA_THEME;
+    }
     if (isDharaThemeId(stored)) {
       return stored;
     }

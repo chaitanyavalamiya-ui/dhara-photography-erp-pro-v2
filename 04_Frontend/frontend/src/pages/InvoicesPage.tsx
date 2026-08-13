@@ -139,7 +139,7 @@ export function InvoicesPage() {
           </p>
         </div>
         {canCreate && (
-          <button type="button" className="btn-primary" onClick={() => setGenerateOpen(true)}>
+          <button type="button" className="btn-primary" data-robo-target="add-invoice" onClick={() => setGenerateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Generate Invoice
           </button>

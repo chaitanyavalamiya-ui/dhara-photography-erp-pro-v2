@@ -49,7 +49,7 @@ export function Header() {
 
   return (
     <header
-      className="sticky top-0 z-20 flex h-[76px] items-center justify-between gap-4 px-4 sm:px-6"
+      className="dhara-erp-header sticky top-0 z-20 flex h-[76px] items-center justify-between gap-4 px-4 sm:px-6"
       style={{
         background: 'var(--dhara-glass-bg)',
         borderBottom: '1px solid var(--dhara-border)',

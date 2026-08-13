@@ -1,17 +1,19 @@
 export const DHARA_THEME_STORAGE_KEY = 'dhara-theme';
 export const DEFAULT_DHARA_THEME = 'royal-cinematic';
 
+export const RETIRED_DHARA_THEME_IDS = ['champagne-luxury'] as const;
+
 export const DHARA_THEME_IDS = [
   'royal-cinematic',
   'royal-black-gold',
   'midnight-studio',
   'futuristic-cyan',
-  'champagne-luxury',
   'emerald-royal',
   'sapphire-luxury',
   'rose-gold-wedding',
   'black-and-white',
   'royal-ivory',
+  'midnight-dark',
 ] as const;
 
 export type DharaThemeId = (typeof DHARA_THEME_IDS)[number];
@@ -54,13 +56,6 @@ export const DHARA_THEMES: DharaThemeDefinition[] = [
     approved: true,
   },
   {
-    id: 'champagne-luxury',
-    name: 'Champagne Luxury',
-    description: 'Warm album ivory on dark chocolate.',
-    swatches: ['#1C120C', '#EDE0CC', '#C4A35A'],
-    approved: true,
-  },
-  {
     id: 'emerald-royal',
     name: 'Emerald Royal',
     description: 'Heritage palace green with antique gold.',
@@ -95,8 +90,19 @@ export const DHARA_THEMES: DharaThemeDefinition[] = [
     swatches: ['#F5F1E8', '#FFFCF6', '#B08A57'],
     approved: true,
   },
+  {
+    id: 'midnight-dark',
+    name: 'Midnight Dark',
+    description: 'Deep navy-black glass with neon cyan.',
+    swatches: ['#020617', '#00D2FF', '#9F1239'],
+    approved: true,
+  },
 ];
 
 export function isDharaThemeId(value: string | null | undefined): value is DharaThemeId {
   return DHARA_THEME_IDS.includes(value as DharaThemeId);
+}
+
+export function isRetiredDharaThemeId(value: string | null | undefined): boolean {
+  return RETIRED_DHARA_THEME_IDS.includes(value as (typeof RETIRED_DHARA_THEME_IDS)[number]);
 }

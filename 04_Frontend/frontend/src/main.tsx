@@ -7,6 +7,7 @@ import { bootstrapDharaTheme } from './theme/apply-dhara-theme';
 import { DharaThemeProvider } from './theme/ThemeProvider';
 import './index.css';
 import './styles/dhara-themes.css';
+import './styles/midnight-dark-trial.css';
 
 bootstrapDharaTheme();
 

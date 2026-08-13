@@ -21,5 +21,6 @@ import { BookingReminderService } from './booking-reminder.service';
     BookingProgressService,
     BookingReminderService,
   ],
+  exports: [BookingsService],
 })
 export class BookingsModule {}

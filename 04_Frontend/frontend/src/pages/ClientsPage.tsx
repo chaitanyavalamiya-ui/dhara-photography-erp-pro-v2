@@ -206,7 +206,7 @@ export function ClientsPage() {
           </p>
         </div>
         {canCreate && (
-          <button type="button" className="btn-primary" onClick={openCreate}>
+          <button type="button" className="btn-primary" data-robo-target="add-client" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Add Client
           </button>
@@ -338,7 +338,7 @@ export function ClientsPage() {
                 : 'Start building your studio client list by adding your first client.'}
             </p>
             {canCreate && (
-              <button type="button" className="btn-primary mt-5" onClick={openCreate}>
+              <button type="button" className="btn-primary mt-5" data-robo-target="add-client" onClick={openCreate}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Client
               </button>

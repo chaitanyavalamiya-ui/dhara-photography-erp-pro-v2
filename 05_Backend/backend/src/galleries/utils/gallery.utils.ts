@@ -1,3 +1,7 @@
+import { open } from 'fs/promises';
+import { join } from 'path';
+import { tmpdir } from 'os';
+
 export const GALLERY_STATUS_CODES = [
   'draft',
   'active',
@@ -15,10 +19,17 @@ export const ALLOWED_IMAGE_MIME_TYPES = new Set([
   'image/gif',
 ]);
 
-export const MAX_UPLOAD_FILE_SIZE_BYTES = 15 * 1024 * 1024;
-export const MAX_UPLOAD_FILES = 20;
+export const MAX_UPLOAD_FILE_SIZE_BYTES = 200 * 1024 * 1024;
+export const MAX_UPLOAD_FILE_SIZE_MB = MAX_UPLOAD_FILE_SIZE_BYTES / (1024 * 1024);
+/** One original per HTTP request so a 200 MB file is never multiplied in RAM. */
+export const MAX_UPLOAD_FILES_PER_REQUEST = 1;
+export const MAGIC_BYTE_HEADER_LENGTH = 16;
 export const GALLERY_PHOTO_PAGE_DEFAULT = 40;
 export const GALLERY_PHOTO_PAGE_MAX = 100;
+
+export function getGalleryUploadTempDir(): string {
+  return join(tmpdir(), 'dhara-gallery-uploads');
+}
 
 export const STUDIO_ORIGINAL_PERMISSIONS = [
   'gallery.create',
@@ -85,21 +96,43 @@ export function detectImageMimeFromMagicBytes(buffer: Buffer): string | null {
   return null;
 }
 
+export function uploadFileTooLargeMessage(): string {
+  return `File is too large. Maximum allowed size is ${MAX_UPLOAD_FILE_SIZE_MB} MB.`;
+}
+
+export async function readFileHeader(
+  filePath: string,
+  length = MAGIC_BYTE_HEADER_LENGTH,
+): Promise<Buffer> {
+  const handle = await open(filePath, 'r');
+  try {
+    const header = Buffer.alloc(length);
+    const { bytesRead } = await handle.read(header, 0, length, 0);
+    return header.subarray(0, bytesRead);
+  } finally {
+    await handle.close();
+  }
+}
+
 export function assertValidUploadFile(file: {
   originalname: string;
   mimetype: string;
   size: number;
-  buffer: Buffer;
+  header: Buffer;
 }): void {
+  if (file.originalname.includes('\0')) {
+    throw new Error(`Invalid file name: ${file.originalname}`);
+  }
+
   if (!ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) {
     throw new Error(`Unsupported file type: ${file.originalname}`);
   }
 
-  if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES || file.buffer.length > MAX_UPLOAD_FILE_SIZE_BYTES) {
-    throw new Error(`File too large: ${file.originalname}`);
+  if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
+    throw new Error(uploadFileTooLargeMessage());
   }
 
-  const detected = detectImageMimeFromMagicBytes(file.buffer);
+  const detected = detectImageMimeFromMagicBytes(file.header);
   if (!detected || detected !== file.mimetype) {
     throw new Error(`File content does not match an allowed image type: ${file.originalname}`);
   }

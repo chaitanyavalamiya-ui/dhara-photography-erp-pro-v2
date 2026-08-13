@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
+import { copyFile, mkdir, readFile, rename, unlink, writeFile } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import { isPathInside, resolveUploadsPath } from '../backup/app-paths';
 
@@ -42,6 +42,20 @@ export class StorageService {
     const absolutePath = this.resolveAbsolutePath(storageKey);
     await mkdir(dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, buffer);
+
+    return { storageKey, absolutePath };
+  }
+
+  async saveFromPath(storageKey: string, sourcePath: string): Promise<StoredFile> {
+    const absolutePath = this.resolveAbsolutePath(storageKey);
+    await mkdir(dirname(absolutePath), { recursive: true });
+
+    try {
+      await rename(sourcePath, absolutePath);
+    } catch {
+      await copyFile(sourcePath, absolutePath);
+      await unlink(sourcePath).catch(() => undefined);
+    }
 
     return { storageKey, absolutePath };
   }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ImagePlus, Trash2, Upload, X, ZoomIn } from 'lucide-react';
+import { ImagePlus, RotateCcw, Trash2, Upload, X, ZoomIn } from 'lucide-react';
 import {
   Gallery,
   GalleryPhoto,
@@ -12,6 +12,11 @@ import { GalleryPhotoImage } from '@/components/gallery/GalleryPhotoImage';
 import { GalleryLightbox } from '@/components/gallery/GalleryLightbox';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
+import {
+  GalleryUploadItem,
+  galleryFileTooLargeMessage,
+  isGalleryUploadOversize,
+} from '@/utils/gallery-upload';
 
 const PHOTO_PAGE_SIZE = 40;
 
@@ -35,7 +40,9 @@ export function GalleryDetailModal({
   const queryClient = useQueryClient();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const uploadQueueRef = useRef<GalleryUploadItem[]>([]);
+  const uploadingRef = useRef(false);
+  const [uploadItems, setUploadItems] = useState<GalleryUploadItem[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
@@ -71,20 +78,94 @@ export function GalleryDetailModal({
     });
   }, [photosQuery.data]);
 
-  const uploadMutation = useMutation({
-    mutationFn: (files: File[]) =>
-      galleriesService.uploadPhotos(gallery!.id, files, setUploadProgress),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['galleries'] });
-      setPhotoPage(1);
-      setUploadProgress(null);
-      setFeedback({ type: 'success', message: 'Photos uploaded successfully.' });
-    },
-    onError: (error: unknown) => {
-      setUploadProgress(null);
-      setFeedback({ type: 'error', message: getApiErrorMessage(error, 'Upload failed.') });
-    },
-  });
+  const syncUploadItems = (next: GalleryUploadItem[]) => {
+    uploadQueueRef.current = next;
+    setUploadItems(next);
+  };
+
+  const patchUploadItem = (id: string, patch: Partial<GalleryUploadItem>) => {
+    syncUploadItems(
+      uploadQueueRef.current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
+  };
+
+  const processUploadQueue = async () => {
+    if (uploadingRef.current || !gallery) return;
+    uploadingRef.current = true;
+    try {
+      while (true) {
+        const next = uploadQueueRef.current.find((item) => item.status === 'pending');
+        if (!next) break;
+        patchUploadItem(next.id, { status: 'uploading', progress: 0, error: undefined });
+        try {
+          await galleriesService.uploadPhoto(gallery.id, next.file, (percent) => {
+            patchUploadItem(next.id, { progress: percent });
+          });
+          patchUploadItem(next.id, { status: 'uploaded', progress: 100 });
+          queryClient.invalidateQueries({ queryKey: ['galleries'] });
+          setPhotoPage(1);
+        } catch (error) {
+          patchUploadItem(next.id, {
+            status: 'failed',
+            progress: 0,
+            error: getApiErrorMessage(error, 'Upload failed.'),
+          });
+        }
+      }
+    } finally {
+      uploadingRef.current = false;
+      const items = uploadQueueRef.current;
+      const uploaded = items.filter((item) => item.status === 'uploaded').length;
+      const failed = items.filter((item) => item.status === 'failed').length;
+      if (failed && uploaded) {
+        setFeedback({
+          type: 'error',
+          message: `${uploaded} photo(s) uploaded. ${failed} failed.`,
+        });
+      } else if (failed) {
+        setFeedback({ type: 'error', message: `${failed} photo(s) failed to upload.` });
+      } else if (uploaded) {
+        setFeedback({ type: 'success', message: 'Photos uploaded successfully.' });
+      }
+      if (items.some((item) => item.status === 'pending')) {
+        void processUploadQueue();
+      }
+    }
+  };
+
+  const enqueueFiles = (fileList: FileList | null) => {
+    if (!fileList?.length) return;
+    const added: GalleryUploadItem[] = Array.from(fileList).map((file, index) => {
+      const oversize = isGalleryUploadOversize(file);
+      return {
+        id: `${file.name}-${file.size}-${file.lastModified}-${Date.now()}-${index}`,
+        file,
+        status: oversize ? 'failed' : 'pending',
+        progress: 0,
+        error: oversize ? galleryFileTooLargeMessage() : undefined,
+      };
+    });
+    syncUploadItems([...uploadQueueRef.current, ...added]);
+    void processUploadQueue();
+  };
+
+  const retryFailedUpload = (id: string) => {
+    const item = uploadQueueRef.current.find((entry) => entry.id === id);
+    if (!item) return;
+    if (isGalleryUploadOversize(item.file)) {
+      patchUploadItem(id, { status: 'failed', error: galleryFileTooLargeMessage() });
+      return;
+    }
+    patchUploadItem(id, { status: 'pending', progress: 0, error: undefined });
+    void processUploadQueue();
+  };
+
+  useEffect(() => {
+    if (open) return;
+    uploadingRef.current = false;
+    uploadQueueRef.current = [];
+    setUploadItems([]);
+  }, [open]);
 
   const deleteMutation = useMutation({
     mutationFn: (photoId: string) => galleriesService.deletePhoto(gallery!.id, photoId),
@@ -119,9 +200,10 @@ export function GalleryDetailModal({
   const viewOriginal = canViewOriginalPhoto(gallery.allowClientDownload, hasPermission);
 
   const handleFiles = (fileList: FileList | null) => {
-    if (!fileList?.length) return;
-    uploadMutation.mutate(Array.from(fileList));
+    enqueueFiles(fileList);
   };
+
+  const isUploading = uploadItems.some((item) => item.status === 'uploading' || item.status === 'pending');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -143,12 +225,14 @@ export function GalleryDetailModal({
                   accept="image/jpeg,image/png,image/webp,image/gif"
                   multiple
                   className="hidden"
-                  onChange={(e) => handleFiles(e.target.files)}
+                  onChange={(e) => {
+                    handleFiles(e.target.files);
+                    e.target.value = '';
+                  }}
                 />
                 <button
                   type="button"
                   className="btn-primary px-3 py-1.5 text-xs"
-                  disabled={uploadMutation.isPending}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="mr-1.5 inline h-3.5 w-3.5" />
@@ -181,15 +265,47 @@ export function GalleryDetailModal({
             </div>
           )}
 
-          {uploadProgress !== null && (
-            <div className="mb-4">
-              <div className="mb-1 flex justify-between text-xs text-gray-400">
-                <span>Uploading...</span>
-                <span>{uploadProgress}%</span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-surface-elevated">
-                <div className="h-full bg-gold transition-all" style={{ width: `${uploadProgress}%` }} />
-              </div>
+          {uploadItems.length > 0 && (
+            <div className="mb-4 space-y-2 rounded-lg border border-surface-border bg-surface-elevated p-3">
+              <p className="text-xs uppercase tracking-wider text-gray-500">
+                {isUploading ? 'Uploading originals…' : 'Upload status'}
+              </p>
+              {uploadItems.map((item) => (
+                <div key={item.id} className="rounded-md border border-surface-border px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-xs text-gray-200">{item.file.name}</p>
+                    <span
+                      className={cn(
+                        'shrink-0 text-[10px] uppercase tracking-wide',
+                        item.status === 'uploaded' && 'text-green-400',
+                        item.status === 'failed' && 'text-red-400',
+                        item.status === 'uploading' && 'text-gold',
+                        item.status === 'pending' && 'text-gray-400',
+                      )}
+                    >
+                      {item.status}
+                    </span>
+                  </div>
+                  {item.status === 'uploading' && (
+                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-card">
+                      <div className="h-full bg-gold transition-all" style={{ width: `${item.progress}%` }} />
+                    </div>
+                  )}
+                  {item.status === 'failed' && (
+                    <div className="mt-1 flex items-start justify-between gap-2">
+                      <p className="text-[11px] text-red-400">{item.error ?? 'Upload failed.'}</p>
+                      <button
+                        type="button"
+                        className="shrink-0 text-[11px] text-gold hover:underline"
+                        onClick={() => retryFailedUpload(item.id)}
+                      >
+                        <RotateCcw className="mr-1 inline h-3 w-3" />
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 

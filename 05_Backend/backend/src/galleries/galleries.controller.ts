@@ -10,13 +10,16 @@ import {
   Req,
   Res,
   UploadedFiles,
+  UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import { memoryStorage } from 'multer';
 import { GalleriesService } from './galleries.service';
+import { CleanupMulterTempFilesInterceptor } from './cleanup-multer-temp-files.interceptor';
+import { GalleryMulterExceptionFilter } from './gallery-multer.exception-filter';
+import { createGalleryUploadMulterOptions } from './gallery-upload.multer';
 import { CreateGalleryDto } from './dto/create-gallery.dto';
 import { UpdateGalleryDto } from './dto/update-gallery.dto';
 import { ListGalleriesQueryDto } from './dto/list-galleries-query.dto';
@@ -30,11 +33,7 @@ import {
 import { RequirePermissions } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
-import {
-  ALLOWED_IMAGE_MIME_TYPES,
-  MAX_UPLOAD_FILES,
-  MAX_UPLOAD_FILE_SIZE_BYTES,
-} from './utils/gallery.utils';
+import { MAX_UPLOAD_FILES_PER_REQUEST } from './utils/gallery.utils';
 
 @ApiTags('Galleries')
 @ApiBearerAuth()
@@ -130,18 +129,10 @@ export class GalleriesController {
   @RequirePermissions('gallery.update')
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload photos to gallery' })
+  @UseFilters(GalleryMulterExceptionFilter)
   @UseInterceptors(
-    FilesInterceptor('files', MAX_UPLOAD_FILES, {
-      storage: memoryStorage(),
-      limits: { fileSize: MAX_UPLOAD_FILE_SIZE_BYTES },
-      fileFilter: (_req, file, callback) => {
-        if (!ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) {
-          callback(new Error(`Unsupported file type: ${file.originalname}`), false);
-          return;
-        }
-        callback(null, true);
-      },
-    }),
+    FilesInterceptor('files', MAX_UPLOAD_FILES_PER_REQUEST, createGalleryUploadMulterOptions()),
+    CleanupMulterTempFilesInterceptor,
   )
   async uploadPhotos(
     @CurrentUser() user: JwtPayload,

@@ -1,8 +1,16 @@
+import { writeFileSync, mkdirSync, readFileSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import {
   assertValidUploadFile,
   canAccessOriginalPhoto,
   detectImageMimeFromMagicBytes,
+  MAGIC_BYTE_HEADER_LENGTH,
+  MAX_UPLOAD_FILE_SIZE_BYTES,
+  MAX_UPLOAD_FILES_PER_REQUEST,
+  readFileHeader,
   sanitizeFileName,
+  uploadFileTooLargeMessage,
 } from './gallery.utils';
 
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
@@ -25,9 +33,73 @@ describe('gallery.utils', () => {
         originalname: 'photo.jpg',
         mimetype: 'image/jpeg',
         size: JPEG.length,
-        buffer: Buffer.from('hello'),
+        header: Buffer.from('hello'),
       }),
     ).toThrow(/does not match/);
+  });
+
+  it('rejects NUL characters in file names', () => {
+    expect(() =>
+      assertValidUploadFile({
+        originalname: 'photo\0.jpg',
+        mimetype: 'image/jpeg',
+        size: JPEG.length,
+        header: JPEG,
+      }),
+    ).toThrow(/Invalid file name/);
+  });
+
+  it('accepts files below and exactly at the 200 MB limit', () => {
+    expect(() =>
+      assertValidUploadFile({
+        originalname: 'photo.jpg',
+        mimetype: 'image/jpeg',
+        size: MAX_UPLOAD_FILE_SIZE_BYTES - 1,
+        header: JPEG,
+      }),
+    ).not.toThrow();
+
+    expect(() =>
+      assertValidUploadFile({
+        originalname: 'photo.jpg',
+        mimetype: 'image/jpeg',
+        size: MAX_UPLOAD_FILE_SIZE_BYTES,
+        header: JPEG,
+      }),
+    ).not.toThrow();
+  });
+
+  it('rejects files above 200 MB with the configured error message', () => {
+    expect(uploadFileTooLargeMessage()).toBe(
+      'File is too large. Maximum allowed size is 200 MB.',
+    );
+    expect(() =>
+      assertValidUploadFile({
+        originalname: 'huge.jpg',
+        mimetype: 'image/jpeg',
+        size: MAX_UPLOAD_FILE_SIZE_BYTES + 1,
+        header: JPEG,
+      }),
+    ).toThrow(uploadFileTooLargeMessage());
+  });
+
+  it('limits each HTTP request to one original for RAM safety', () => {
+    expect(MAX_UPLOAD_FILES_PER_REQUEST).toBe(1);
+    expect(MAX_UPLOAD_FILE_SIZE_BYTES).toBe(200 * 1024 * 1024);
+  });
+
+  it('reads only a small header from disk instead of the full file', async () => {
+    const dir = join(tmpdir(), 'dhara-gallery-header-test');
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, 'photo.jpg');
+    const body = Buffer.concat([JPEG, Buffer.alloc(1024, 7)]);
+    writeFileSync(path, body);
+
+    const header = await readFileHeader(path);
+    expect(header.length).toBeLessThanOrEqual(MAGIC_BYTE_HEADER_LENGTH);
+    expect(detectImageMimeFromMagicBytes(header)).toBe('image/jpeg');
+    expect(readFileSync(path).equals(body)).toBe(true);
+    unlinkSync(path);
   });
 
   it('allows studio roles to view originals when client download is off', () => {

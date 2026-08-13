@@ -1,16 +1,43 @@
 import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { mkdtempSync, writeFileSync } from 'fs';
+import { basename, dirname, join } from 'path';
+import { tmpdir } from 'os';
 import { GalleriesService } from './galleries.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
-import { generateJpegThumbnail } from './utils/thumbnail.utils';
+import { generateJpegThumbnailFromPath } from './utils/thumbnail.utils';
+import { MAX_UPLOAD_FILE_SIZE_BYTES, uploadFileTooLargeMessage } from './utils/gallery.utils';
 
 jest.mock('./utils/thumbnail.utils', () => ({
-  generateJpegThumbnail: jest.fn(async () => Buffer.from('thumb-bytes')),
+  generateJpegThumbnailFromPath: jest.fn(async () => Buffer.from('thumb-bytes')),
 }));
 
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(32, 1)]);
+
+function writeTempFile(name: string, contents: Buffer): string {
+  const dir = mkdtempSync(join(tmpdir(), 'dhara-upload-'));
+  const path = join(dir, name);
+  writeFileSync(path, contents);
+  return path;
+}
+
+function diskFile(path: string, overrides: Partial<Express.Multer.File> = {}): Express.Multer.File {
+  return {
+    fieldname: 'files',
+    originalname: 'ok.jpg',
+    encoding: '7bit',
+    mimetype: 'image/jpeg',
+    size: JPEG.length,
+    destination: dirname(path),
+    filename: basename(path),
+    path,
+    stream: undefined as never,
+    buffer: undefined as never,
+    ...overrides,
+  };
+}
 
 function galleryRecord(overrides: Record<string, unknown> = {}) {
   return {
@@ -61,6 +88,8 @@ describe('GalleriesService', () => {
       (galleryId: string, fileName: string) => `galleries/${galleryId}/${fileName}`,
     ),
     saveBuffer: jest.fn(),
+    saveFromPath: jest.fn(),
+    resolveAbsolutePath: jest.fn((key: string) => `/uploads/${key}`),
     readBuffer: jest.fn(),
     deleteFile: jest.fn(),
   };
@@ -190,25 +219,51 @@ describe('GalleriesService', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('validates all uploads before writing files', async () => {
+  it('rejects invalid MIME without writing originals', async () => {
     mockPrisma.galleryPhoto.count.mockResolvedValue(0);
+    const path = writeTempFile('bad.txt', Buffer.from('nope'));
 
     await expect(
       service.uploadPhotos('company-1', 'user-1', 'gallery-1', [
-        {
+        diskFile(path, {
           originalname: 'bad.txt',
           mimetype: 'text/plain',
           size: 4,
-          buffer: Buffer.from('nope'),
-        } as Express.Multer.File,
+        }),
       ]),
     ).rejects.toBeInstanceOf(BadRequestException);
 
+    expect(mockStorage.saveFromPath).not.toHaveBeenCalled();
     expect(mockStorage.saveBuffer).not.toHaveBeenCalled();
   });
 
-  it('keeps the original when thumbnail generation fails', async () => {
-    (generateJpegThumbnail as jest.Mock).mockRejectedValueOnce(new Error('thumb failed'));
+  it('rejects invalid magic bytes without writing originals', async () => {
+    mockPrisma.galleryPhoto.count.mockResolvedValue(0);
+    const path = writeTempFile('spoof.jpg', Buffer.from('not-a-jpeg'));
+
+    await expect(
+      service.uploadPhotos('company-1', 'user-1', 'gallery-1', [
+        diskFile(path, { originalname: 'spoof.jpg', size: 10 }),
+      ]),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(mockStorage.saveFromPath).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversize files using the configured 200 MB message', async () => {
+    mockPrisma.galleryPhoto.count.mockResolvedValue(0);
+    const path = writeTempFile('huge.jpg', JPEG);
+
+    await expect(
+      service.uploadPhotos('company-1', 'user-1', 'gallery-1', [
+        diskFile(path, { size: MAX_UPLOAD_FILE_SIZE_BYTES + 1 }),
+      ]),
+    ).rejects.toThrow(uploadFileTooLargeMessage());
+
+    expect(mockStorage.saveFromPath).not.toHaveBeenCalled();
+  });
+
+  it('accepts a mocked 200 MB original and stores it from disk', async () => {
     mockPrisma.galleryPhoto.count.mockResolvedValue(0);
     mockPrisma.galleryPhoto.create.mockImplementation(async ({ data }) => ({
       ...data,
@@ -217,18 +272,37 @@ describe('GalleriesService', () => {
       clientSelectionNotes: null,
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
     }));
+    const path = writeTempFile('ok.jpg', JPEG);
 
     const created = await service.uploadPhotos('company-1', 'user-1', 'gallery-1', [
-      {
-        originalname: 'ok.jpg',
-        mimetype: 'image/jpeg',
-        size: JPEG.length,
-        buffer: JPEG,
-      } as Express.Multer.File,
+      diskFile(path, { size: MAX_UPLOAD_FILE_SIZE_BYTES }),
     ]);
 
     expect(created).toHaveLength(1);
+    expect(mockStorage.saveFromPath).toHaveBeenCalledTimes(1);
     expect(mockStorage.saveBuffer).toHaveBeenCalledTimes(1);
+    expect(generateJpegThumbnailFromPath).toHaveBeenCalled();
+  });
+
+  it('keeps the original when thumbnail generation fails', async () => {
+    (generateJpegThumbnailFromPath as jest.Mock).mockRejectedValueOnce(new Error('thumb failed'));
+    mockPrisma.galleryPhoto.count.mockResolvedValue(0);
+    mockPrisma.galleryPhoto.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      id: 'photo-1',
+      clientSelected: false,
+      clientSelectionNotes: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    }));
+    const path = writeTempFile('ok.jpg', JPEG);
+
+    const created = await service.uploadPhotos('company-1', 'user-1', 'gallery-1', [
+      diskFile(path),
+    ]);
+
+    expect(created).toHaveLength(1);
+    expect(mockStorage.saveFromPath).toHaveBeenCalledTimes(1);
+    expect(mockStorage.saveBuffer).not.toHaveBeenCalled();
     expect(mockPrisma.galleryPhoto.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -236,6 +310,41 @@ describe('GalleriesService', () => {
         }),
       }),
     );
+  });
+
+  it('cleans written files when the database insert fails', async () => {
+    mockPrisma.galleryPhoto.count.mockResolvedValue(0);
+    mockPrisma.galleryPhoto.create.mockRejectedValue(new Error('db down'));
+    const path = writeTempFile('ok.jpg', JPEG);
+
+    await expect(
+      service.uploadPhotos('company-1', 'user-1', 'gallery-1', [diskFile(path)]),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(mockStorage.deleteFile).toHaveBeenCalled();
+  });
+
+  it('keeps an earlier successful file when a later file in the same request fails', async () => {
+    mockPrisma.galleryPhoto.count.mockResolvedValue(0);
+    mockPrisma.galleryPhoto.create.mockImplementation(async ({ data }) => ({
+      ...data,
+      id: 'photo-ok',
+      clientSelected: false,
+      clientSelectionNotes: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    }));
+    const okPath = writeTempFile('ok.jpg', JPEG);
+    const badPath = writeTempFile('bad.jpg', Buffer.from('nope'));
+
+    await expect(
+      service.uploadPhotos('company-1', 'user-1', 'gallery-1', [
+        diskFile(okPath),
+        diskFile(badPath, { originalname: 'bad.jpg' }),
+      ]),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(mockPrisma.galleryPhoto.create).toHaveBeenCalledTimes(1);
+    expect(mockStorage.saveFromPath).toHaveBeenCalledTimes(1);
   });
 
   it('does not delete files still referenced by albums', async () => {

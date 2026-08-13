@@ -1,4 +1,9 @@
 import { apiClient, ApiResponse } from './api-client';
+import {
+  GALLERY_UPLOAD_TIMEOUT_MS,
+  galleryFileTooLargeMessage,
+  isGalleryUploadOversize,
+} from '@/utils/gallery-upload';
 
 export type GalleryStatus = 'draft' | 'active' | 'client_review' | 'approved' | 'delivered';
 
@@ -114,19 +119,24 @@ export const galleriesService = {
     return data.data;
   },
 
-  async uploadPhotos(
+  async uploadPhoto(
     galleryId: string,
-    files: File[],
+    file: File,
     onProgress?: (percent: number) => void,
-  ): Promise<GalleryPhoto[]> {
+  ): Promise<GalleryPhoto> {
+    if (isGalleryUploadOversize(file)) {
+      throw new Error(galleryFileTooLargeMessage());
+    }
+
     const formData = new FormData();
-    files.forEach((file) => formData.append('files', file));
+    formData.append('files', file);
 
     const { data } = await apiClient.post<ApiResponse<GalleryPhoto[]>>(
       `/galleries/${galleryId}/photos`,
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: GALLERY_UPLOAD_TIMEOUT_MS,
         onUploadProgress: (event) => {
           if (!onProgress || !event.total) return;
           onProgress(Math.round((event.loaded / event.total) * 100));
@@ -134,7 +144,23 @@ export const galleriesService = {
       },
     );
 
-    return data.data;
+    const photo = data.data[0];
+    if (!photo) {
+      throw new Error('Upload did not return a photo record.');
+    }
+    return photo;
+  },
+
+  async uploadPhotos(
+    galleryId: string,
+    files: File[],
+    onProgress?: (percent: number) => void,
+  ): Promise<GalleryPhoto[]> {
+    const created: GalleryPhoto[] = [];
+    for (const file of files) {
+      created.push(await this.uploadPhoto(galleryId, file, onProgress));
+    }
+    return created;
   },
 
   async deletePhoto(galleryId: string, photoId: string): Promise<void> {

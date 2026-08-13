@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { unlink } from 'fs/promises';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
@@ -25,10 +26,11 @@ import {
   GALLERY_STATUS_CODES,
   assertValidUploadFile,
   canAccessOriginalPhoto,
+  readFileHeader,
   sanitizeFileName,
   toDateOnlyLabel,
 } from './utils/gallery.utils';
-import { generateJpegThumbnail } from './utils/thumbnail.utils';
+import { generateJpegThumbnailFromPath } from './utils/thumbnail.utils';
 import { parseOptionalDate } from '../invoices/utils/invoice.utils';
 
 type GalleryListRecord = Prisma.GalleryGetPayload<{
@@ -268,14 +270,6 @@ export class GalleriesService {
       throw new BadRequestException('No files uploaded.');
     }
 
-    for (const file of files) {
-      try {
-        assertValidUploadFile(file);
-      } catch (error) {
-        throw new BadRequestException(error instanceof Error ? error.message : 'Invalid upload.');
-      }
-    }
-
     const existingCount = await this.prisma.galleryPhoto.count({
       where: { galleryId, archivedAt: null, isActive: true },
     });
@@ -284,17 +278,35 @@ export class GalleriesService {
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
+      const tempPath = file.path;
       const storedName = `${randomUUID()}-${sanitizeFileName(file.originalname)}`;
       const storageKey = this.storageService.buildGalleryPhotoKey(gallery.id, storedName);
       const writtenKeys: string[] = [];
 
       try {
-        await this.storageService.saveBuffer(storageKey, file.buffer);
+        if (!tempPath) {
+          throw new BadRequestException('Upload did not stream to disk.');
+        }
+
+        const header = await readFileHeader(tempPath);
+        try {
+          assertValidUploadFile({
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+            header,
+          });
+        } catch (error) {
+          throw new BadRequestException(error instanceof Error ? error.message : 'Invalid upload.');
+        }
+
+        await this.storageService.saveFromPath(storageKey, tempPath);
         writtenKeys.push(storageKey);
 
+        const storedOriginal = this.storageService.resolveAbsolutePath(storageKey);
         let thumbnailKey = storageKey;
         try {
-          const thumbnailBuffer = await generateJpegThumbnail(file.buffer);
+          const thumbnailBuffer = await generateJpegThumbnailFromPath(storedOriginal);
           const thumbnailName = `${randomUUID()}-thumb.jpg`;
           thumbnailKey = this.storageService.buildGalleryPhotoKey(
             gallery.id,
@@ -330,6 +342,10 @@ export class GalleriesService {
         throw new BadRequestException(
           `Failed to save ${file.originalname}. Earlier files in this request were kept.`,
         );
+      } finally {
+        if (tempPath) {
+          await unlink(tempPath).catch(() => undefined);
+        }
       }
     }
 

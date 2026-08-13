@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { bookingsService } from '@/services/bookings-service';
-import { GALLERY_STATUS_OPTIONS, GalleryStatus } from '@/services/galleries-service';
+import { GALLERY_STATUS_OPTIONS, galleriesService, GalleryStatus } from '@/services/galleries-service';
 
 const schema = z.object({
   bookingId: z.string().min(1, 'Select a booking'),
@@ -19,7 +19,6 @@ type FormValues = z.infer<typeof schema>;
 interface CreateGalleryModalProps {
   open: boolean;
   isSubmitting?: boolean;
-  existingBookingIds?: string[];
   onClose: () => void;
   onSubmit: (values: {
     bookingId: string;
@@ -32,13 +31,20 @@ interface CreateGalleryModalProps {
 export function CreateGalleryModal({
   open,
   isSubmitting,
-  existingBookingIds = [],
   onClose,
   onSubmit,
 }: CreateGalleryModalProps) {
+  const [bookingSearch, setBookingSearch] = useState('');
+
   const bookingsQuery = useQuery({
-    queryKey: ['bookings', 'gallery-create'],
-    queryFn: () => bookingsService.list({ limit: 50, sortBy: 'createdAt', sortOrder: 'desc' }),
+    queryKey: ['bookings', 'gallery-create', bookingSearch],
+    queryFn: () =>
+      bookingsService.list({
+        limit: 20,
+        search: bookingSearch.trim() || undefined,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      }),
     enabled: open,
   });
 
@@ -57,6 +63,21 @@ export function CreateGalleryModal({
   const bookingId = watch('bookingId');
   const selectedBooking = bookingsQuery.data?.items.find((b) => b.id === bookingId);
 
+  const selectedBookingQuery = useQuery({
+    queryKey: ['bookings', 'gallery-create-selected', bookingId],
+    queryFn: () => bookingsService.getById(bookingId),
+    enabled: open && Boolean(bookingId) && !selectedBooking,
+  });
+
+  const existingGalleryQuery = useQuery({
+    queryKey: ['galleries', 'booking-exists', bookingId],
+    queryFn: () => galleriesService.list({ bookingId, limit: 1 }),
+    enabled: open && Boolean(bookingId),
+  });
+
+  const resolvedBooking = selectedBooking ?? selectedBookingQuery.data;
+  const bookingAlreadyHasGallery = (existingGalleryQuery.data?.items.length ?? 0) > 0;
+
   useEffect(() => {
     if (open) {
       reset({ bookingId: '', name: '', description: '', status: 'draft' });
@@ -64,18 +85,19 @@ export function CreateGalleryModal({
   }, [open, reset]);
 
   useEffect(() => {
-    if (!bookingId || !bookingsQuery.data) return;
-    const booking = bookingsQuery.data.items.find((b) => b.id === bookingId);
+    if (!bookingId) return;
+    const booking = resolvedBooking;
     if (!booking) return;
     setValue('name', `${booking.eventType} — ${booking.client.fullName}`);
     setValue('description', booking.notes ?? '');
-  }, [bookingId, bookingsQuery.data, setValue]);
+  }, [bookingId, resolvedBooking, setValue]);
 
   if (!open) return null;
 
-  const bookings = (bookingsQuery.data?.items ?? []).filter(
-    (b) => !existingBookingIds.includes(b.id),
-  );
+  const bookings = [...(bookingsQuery.data?.items ?? [])];
+  if (resolvedBooking && !bookings.some((booking) => booking.id === resolvedBooking.id)) {
+    bookings.unshift(resolvedBooking);
+  }
   const bookingsLoading = bookingsQuery.isLoading;
   const noBookingsAvailable = !bookingsLoading && !bookingsQuery.isError && bookings.length === 0;
 
@@ -95,6 +117,12 @@ export function CreateGalleryModal({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
             <label className="mb-1.5 block text-sm text-gray-300">Booking</label>
+            <input
+              className="input-field mb-2"
+              placeholder="Search bookings..."
+              value={bookingSearch}
+              onChange={(e) => setBookingSearch(e.target.value)}
+            />
             <select
               className="input-field"
               disabled={bookingsLoading || noBookingsAvailable}
@@ -118,7 +146,12 @@ export function CreateGalleryModal({
             )}
             {noBookingsAvailable && (
               <p className="mt-1 text-xs text-gray-500">
-                All listed bookings already have an active gallery, or no bookings exist yet.
+                No bookings match this search, or no bookings exist yet.
+              </p>
+            )}
+            {bookingAlreadyHasGallery && (
+              <p className="mt-1 text-xs text-red-400">
+                This booking already has an active gallery.
               </p>
             )}
             {errors.bookingId && <p className="mt-1 text-xs text-red-400">{errors.bookingId.message}</p>}
@@ -130,10 +163,10 @@ export function CreateGalleryModal({
             {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>}
           </div>
 
-          {selectedBooking && (
+          {resolvedBooking && (
             <div className="rounded-lg border border-surface-border bg-surface-elevated p-3 text-sm text-gray-400">
-              <p>Client: <span className="text-gray-200">{selectedBooking.client.fullName}</span></p>
-              <p>Event: <span className="text-gray-200">{selectedBooking.eventType}</span></p>
+              <p>Client: <span className="text-gray-200">{resolvedBooking.client.fullName}</span></p>
+              <p>Event: <span className="text-gray-200">{resolvedBooking.eventType}</span></p>
             </div>
           )}
 
@@ -156,7 +189,7 @@ export function CreateGalleryModal({
             <button
               type="submit"
               className="btn-primary"
-              disabled={isSubmitting || bookingsLoading || noBookingsAvailable}
+              disabled={isSubmitting || bookingsLoading || noBookingsAvailable || bookingAlreadyHasGallery}
             >
               {isSubmitting ? 'Creating...' : 'Create Gallery'}
             </button>

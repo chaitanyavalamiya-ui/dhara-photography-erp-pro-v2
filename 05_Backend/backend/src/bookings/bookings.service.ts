@@ -19,8 +19,12 @@ import {
   ServiceRateResponseDto,
 } from './dto/booking-response.dto';
 import {
+  allocateNextBookingNumber,
+  assertEventDateRange,
   calculateBookingTotals,
   calculateItemAmount,
+  deriveBookingPaymentStatus,
+  isBookingNumberUniqueConflict,
   parseOptionalDateTime,
   roundMoney,
   toDateOnlyLabel,
@@ -236,48 +240,20 @@ export class BookingsService {
     const discount = roundMoney(dto.discount ?? 0);
     const advanceAmount = roundMoney(dto.advanceAmount ?? 0);
     const totals = calculateBookingTotals(preparedItems, discount, advanceAmount);
-    const bookingNumber = await this.generateBookingNumber(companyId);
+    assertEventDateRange(dto.eventDate, dto.eventEndDate);
 
-    const booking = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.booking.create({
-        data: {
-          companyId,
-          branchId: branch.id,
-          clientId: client.id,
-          bookingNumber,
-          eventType: dto.eventType,
-          statusId: status.id,
-          eventDate: parseOptionalDateTime(dto.eventDate),
-          eventEndDate: parseOptionalDateTime(dto.eventEndDate),
-          venue: dto.venue?.trim() || null,
-          city: dto.city?.trim() || null,
-          notes: dto.notes?.trim() || null,
-          subtotal: toDecimal(totals.subtotal),
-          discount: toDecimal(discount),
-          totalAmount: toDecimal(totals.totalAmount),
-          advanceAmount: toDecimal(advanceAmount),
-          balanceAmount: toDecimal(totals.balanceAmount),
-          createdById: userId,
-          updatedById: userId,
-          items: {
-            create: preparedItems.map((item, index) => ({
-              serviceRateId: item.serviceRateId ?? null,
-              serviceName: item.serviceName,
-              quantity: toDecimal(item.quantity),
-              unit: item.unit,
-              rate: toDecimal(item.rate),
-              days: toDecimal(item.days),
-              amount: toDecimal(item.amount),
-              notes: item.notes ?? null,
-              sortOrder: index,
-            })),
-          },
-        },
-        include: this.bookingInclude(),
-      });
-
-      return created;
-    });
+    const booking = await this.createBookingWithNumberRetry(
+      companyId,
+      userId,
+      dto,
+      client,
+      branch.id,
+      status.id,
+      preparedItems,
+      discount,
+      advanceAmount,
+      totals,
+    );
 
     await this.auditService.log({
       companyId,
@@ -303,6 +279,13 @@ export class BookingsService {
     userAgent?: string,
   ): Promise<BookingResponseDto> {
     const existing = await this.getBookingOrThrow(companyId, id);
+
+    if (dto.eventDate !== undefined || dto.eventEndDate !== undefined) {
+      assertEventDateRange(
+        dto.eventDate !== undefined ? dto.eventDate : toDateOnlyLabel(existing.eventDate),
+        dto.eventEndDate !== undefined ? dto.eventEndDate : toDateOnlyLabel(existing.eventEndDate),
+      );
+    }
 
     if (dto.clientId && dto.clientId !== existing.clientId) {
       const client = await this.prisma.client.findFirst({
@@ -534,6 +517,11 @@ export class BookingsService {
       totalAmount: Number(booking.totalAmount),
       advanceAmount: Number(booking.advanceAmount),
       balanceAmount: Number(booking.balanceAmount),
+      paymentStatus: deriveBookingPaymentStatus(
+        Number(booking.totalAmount),
+        Number(booking.advanceAmount),
+        Number(booking.balanceAmount),
+      ),
       isActive: booking.isActive,
       createdAt: booking.createdAt.toISOString(),
       updatedAt: booking.updatedAt.toISOString(),
@@ -697,9 +685,84 @@ export class BookingsService {
     return prepared;
   }
 
-  private async generateBookingNumber(companyId: string): Promise<string> {
-    const count = await this.prisma.booking.count({ where: { companyId } });
-    return `BK-${String(count + 1).padStart(6, '0')}`;
+  private async createBookingWithNumberRetry(
+    companyId: string,
+    userId: string,
+    dto: CreateBookingDto,
+    client: { id: string },
+    branchId: string,
+    statusId: string,
+    preparedItems: PreparedItem[],
+    discount: number,
+    advanceAmount: number,
+    totals: { subtotal: number; totalAmount: number; balanceAmount: number },
+  ): Promise<BookingWithRelations> {
+    const maxAttempts = 8;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const bookingNumber = await this.generateBookingNumber(companyId, tx);
+          return tx.booking.create({
+            data: {
+              companyId,
+              branchId,
+              clientId: client.id,
+              bookingNumber,
+              eventType: dto.eventType,
+              statusId,
+              eventDate: parseOptionalDateTime(dto.eventDate),
+              eventEndDate: parseOptionalDateTime(dto.eventEndDate),
+              venue: dto.venue?.trim() || null,
+              city: dto.city?.trim() || null,
+              notes: dto.notes?.trim() || null,
+              subtotal: toDecimal(totals.subtotal),
+              discount: toDecimal(discount),
+              totalAmount: toDecimal(totals.totalAmount),
+              advanceAmount: toDecimal(advanceAmount),
+              balanceAmount: toDecimal(totals.balanceAmount),
+              createdById: userId,
+              updatedById: userId,
+              items: {
+                create: preparedItems.map((item, index) => ({
+                  serviceRateId: item.serviceRateId ?? null,
+                  serviceName: item.serviceName,
+                  quantity: toDecimal(item.quantity),
+                  unit: item.unit,
+                  rate: toDecimal(item.rate),
+                  days: toDecimal(item.days),
+                  amount: toDecimal(item.amount),
+                  notes: item.notes ?? null,
+                  sortOrder: index,
+                })),
+              },
+            },
+            include: this.bookingInclude(),
+          });
+        });
+      } catch (error) {
+        lastError = error;
+        if (!isBookingNumberUniqueConflict(error) || attempt === maxAttempts - 1) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  private async generateBookingNumber(
+    companyId: string,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<string> {
+    const latest = await tx.booking.findFirst({
+      where: { companyId },
+      orderBy: { bookingNumber: 'desc' },
+      select: { bookingNumber: true },
+    });
+
+    return allocateNextBookingNumber(latest?.bookingNumber);
   }
 
   private auditSnapshot(booking: BookingWithRelations): Prisma.InputJsonValue {

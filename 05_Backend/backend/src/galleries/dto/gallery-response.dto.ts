@@ -76,6 +76,23 @@ export class GalleryResponseDto {
   photos?: GalleryPhotoDto[];
 }
 
+export class PaginatedGalleryPhotosResponseDto {
+  @ApiProperty({ type: [GalleryPhotoDto] })
+  items!: GalleryPhotoDto[];
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  page!: number;
+
+  @ApiProperty()
+  limit!: number;
+
+  @ApiProperty()
+  totalPages!: number;
+}
+
 export class PaginatedGalleriesResponseDto {
   @ApiProperty({ type: [GalleryResponseDto] })
   items!: GalleryResponseDto[];

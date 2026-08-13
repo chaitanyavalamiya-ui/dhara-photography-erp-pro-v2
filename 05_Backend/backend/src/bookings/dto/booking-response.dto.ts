@@ -102,6 +102,9 @@ export class BookingResponseDto {
   @ApiProperty()
   balanceAmount!: number;
 
+  @ApiProperty({ enum: ['Paid', 'Partial', 'Unpaid'] })
+  paymentStatus!: 'Paid' | 'Partial' | 'Unpaid';
+
   @ApiProperty()
   isActive!: boolean;
 

@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ImageOff, Pencil, X } from 'lucide-react';
 import { Album, albumsService } from '@/services/albums-service';
-import { galleriesService } from '@/services/galleries-service';
+import { GalleryPhoto, galleriesService } from '@/services/galleries-service';
 import { GalleryPhotoImage } from '@/components/gallery/GalleryPhotoImage';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
@@ -53,12 +53,37 @@ export function AlbumDetailModal({
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
   );
+  const [photoPage, setPhotoPage] = useState(1);
+  const [loadedPhotos, setLoadedPhotos] = useState<GalleryPhoto[]>([]);
 
+  const galleryArchived = Boolean(album?.galleryArchived);
   const galleryQuery = useQuery({
-    queryKey: ['galleries', album?.galleryId, 'album-detail'],
-    queryFn: () => galleriesService.getById(album!.galleryId!),
-    enabled: open && !!album?.galleryId,
+    queryKey: ['galleries', album?.galleryId, 'album-detail', photoPage],
+    queryFn: () => galleriesService.listPhotos(album!.galleryId!, { page: photoPage, limit: 40 }),
+    enabled: open && !!album?.galleryId && !galleryArchived,
   });
+
+  useEffect(() => {
+    if (!open || !album?.galleryId) {
+      setPhotoPage(1);
+      setLoadedPhotos([]);
+      return;
+    }
+    setPhotoPage(1);
+    setLoadedPhotos([]);
+  }, [open, album?.galleryId]);
+
+  useEffect(() => {
+    const pageData = galleryQuery.data;
+    if (!pageData) return;
+    setLoadedPhotos((current) => {
+      if (pageData.page === 1) {
+        return pageData.items;
+      }
+      const seen = new Set(current.map((photo) => photo.id));
+      return [...current, ...pageData.items.filter((photo) => !seen.has(photo.id))];
+    });
+  }, [galleryQuery.data]);
 
   const selectedPhotoIds = useMemo(
     () => new Set((album?.photos ?? []).map((p) => p.galleryPhotoId)),
@@ -66,7 +91,7 @@ export function AlbumDetailModal({
   );
 
   const selectedCount = selectedPhotoIds.size;
-  const totalGalleryPhotos = galleryQuery.data?.photos?.length ?? 0;
+  const totalGalleryPhotos = galleryQuery.data?.total ?? loadedPhotos.length;
 
   const invalidateAlbumQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['albums'] });
@@ -132,7 +157,9 @@ export function AlbumDetailModal({
     );
   }
 
-  const galleryPhotos = galleryQuery.data?.photos ?? [];
+  const galleryPhotos = loadedPhotos;
+  const unavailablePhotos = (album.photos ?? []).filter((photo) => photo.available === false);
+  const hasMorePhotos = (galleryQuery.data?.page ?? 1) < (galleryQuery.data?.totalPages ?? 1);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -248,14 +275,31 @@ export function AlbumDetailModal({
               <ImageOff className="h-10 w-10 text-gray-600" />
               <p className="mt-3 text-sm text-gray-400">No gallery linked. Edit the album to connect a gallery.</p>
             </div>
-          ) : galleryQuery.isLoading ? (
+          ) : galleryArchived ? (
+            <div className="rounded-lg border border-dashed border-surface-border p-4 text-sm text-gray-400">
+              The linked gallery is archived. Historical photo selection is preserved and cannot be changed
+              until a new active gallery is linked.
+              {(album.photos ?? []).length > 0 && (
+                <ul className="mt-3 space-y-1 text-xs">
+                  {(album.photos ?? []).map((photo) => (
+                    <li key={photo.id}>{photo.originalName}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : galleryQuery.isLoading && galleryPhotos.length === 0 ? (
             <p className="text-sm text-gray-400">Loading gallery photos...</p>
+          ) : galleryQuery.isError ? (
+            <p className="text-sm text-red-400">
+              {getApiErrorMessage(galleryQuery.error, 'Failed to load gallery photos.')}
+            </p>
           ) : galleryPhotos.length === 0 ? (
             <div className="flex min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-surface-border text-center">
               <ImageOff className="h-10 w-10 text-gray-600" />
               <p className="mt-3 text-sm text-gray-400">No photos in the linked gallery yet.</p>
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {galleryPhotos.map((photo) => {
                 const isSelected = selectedPhotoIds.has(photo.id);
@@ -274,6 +318,7 @@ export function AlbumDetailModal({
                       galleryId={album.galleryId!}
                       photoId={photo.id}
                       alt={photo.originalName}
+                      variant="thumbnail"
                       className="aspect-square w-full"
                     />
                     {isSelected && (
@@ -288,6 +333,26 @@ export function AlbumDetailModal({
                 );
               })}
             </div>
+            {hasMorePhotos && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  className="btn-secondary text-xs"
+                  disabled={galleryQuery.isFetching}
+                  onClick={() => setPhotoPage((page) => page + 1)}
+                >
+                  {galleryQuery.isFetching ? 'Loading...' : 'Load more photos'}
+                </button>
+              </div>
+            )}
+            {unavailablePhotos.length > 0 && (
+              <div className="mt-4 rounded-lg border border-surface-border p-3 text-xs text-gray-400">
+                {unavailablePhotos.length} selected photo
+                {unavailablePhotos.length === 1 ? '' : 's'} were removed from the gallery and are no longer
+                shown above. Album history is kept.
+              </div>
+            )}
+            </>
           )}
         </div>
       </div>

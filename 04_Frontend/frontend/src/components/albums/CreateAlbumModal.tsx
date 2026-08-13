@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -46,9 +46,17 @@ interface CreateAlbumModalProps {
 }
 
 export function CreateAlbumModal({ open, isSubmitting, onClose, onSubmit }: CreateAlbumModalProps) {
+  const [bookingSearch, setBookingSearch] = useState('');
+
   const bookingsQuery = useQuery({
-    queryKey: ['bookings', 'album-create'],
-    queryFn: () => bookingsService.list({ limit: 50, sortBy: 'createdAt', sortOrder: 'desc' }),
+    queryKey: ['bookings', 'album-create', bookingSearch],
+    queryFn: () =>
+      bookingsService.list({
+        limit: 20,
+        search: bookingSearch.trim() || undefined,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+      }),
     enabled: open,
   });
 
@@ -73,6 +81,14 @@ export function CreateAlbumModal({ open, isSubmitting, onClose, onSubmit }: Crea
 
   const bookingId = watch('bookingId');
   const selectedBooking = bookingsQuery.data?.items.find((b) => b.id === bookingId);
+
+  const selectedBookingQuery = useQuery({
+    queryKey: ['bookings', 'album-create-selected', bookingId],
+    queryFn: () => bookingsService.getById(bookingId),
+    enabled: open && Boolean(bookingId) && !selectedBooking,
+  });
+
+  const resolvedBooking = selectedBooking ?? selectedBookingQuery.data;
 
   const galleriesQuery = useQuery({
     queryKey: ['galleries', 'album-create', bookingId],
@@ -100,19 +116,23 @@ export function CreateAlbumModal({ open, isSubmitting, onClose, onSubmit }: Crea
   }, [open, reset]);
 
   useEffect(() => {
-    if (!bookingId || !selectedBooking) return;
-    setValue('name', `${selectedBooking.eventType} Album — ${selectedBooking.client.fullName}`);
+    if (!bookingId || !resolvedBooking) return;
+    setValue('name', `${resolvedBooking.eventType} Album — ${resolvedBooking.client.fullName}`);
     const galleries = galleriesQuery.data?.items ?? [];
     if (galleries.length > 0) {
       setValue('galleryId', galleries[0].id);
     } else {
       setValue('galleryId', '');
     }
-  }, [bookingId, selectedBooking, galleriesQuery.data, setValue]);
+  }, [bookingId, resolvedBooking, galleriesQuery.data, setValue]);
 
   if (!open) return null;
 
   const bookingsLoading = bookingsQuery.isLoading;
+  const bookings = [...(bookingsQuery.data?.items ?? [])];
+  if (resolvedBooking && !bookings.some((booking) => booking.id === resolvedBooking.id)) {
+    bookings.unshift(resolvedBooking);
+  }
   const galleries = galleriesQuery.data?.items ?? [];
 
   return (
@@ -132,9 +152,15 @@ export function CreateAlbumModal({ open, isSubmitting, onClose, onSubmit }: Crea
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <label className="mb-1.5 block text-sm text-gray-300">Booking</label>
+              <input
+                className="input-field mb-2"
+                placeholder="Search bookings..."
+                value={bookingSearch}
+                onChange={(e) => setBookingSearch(e.target.value)}
+              />
               <select className="input-field" disabled={bookingsLoading} {...register('bookingId')}>
                 <option value="">{bookingsLoading ? 'Loading bookings...' : 'Select booking...'}</option>
-                {(bookingsQuery.data?.items ?? []).map((b) => (
+                {bookings.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.bookingNumber} — {b.client.fullName} ({b.eventType})
                   </option>
@@ -228,10 +254,10 @@ export function CreateAlbumModal({ open, isSubmitting, onClose, onSubmit }: Crea
             </div>
           </div>
 
-          {selectedBooking && (
+          {resolvedBooking && (
             <div className="rounded-lg border border-surface-border bg-surface-elevated p-3 text-sm text-gray-400">
-              <p>Client: <span className="text-gray-200">{selectedBooking.client.fullName}</span></p>
-              <p>Event: <span className="text-gray-200">{selectedBooking.eventType}</span></p>
+              <p>Client: <span className="text-gray-200">{resolvedBooking.client.fullName}</span></p>
+              <p>Event: <span className="text-gray-200">{resolvedBooking.eventType}</span></p>
             </div>
           )}
 

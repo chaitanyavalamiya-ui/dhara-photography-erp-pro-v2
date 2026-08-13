@@ -15,7 +15,12 @@ import { BookingFormModal } from '@/components/bookings/BookingFormModal';
 import { BookingViewModal } from '@/components/bookings/BookingViewModal';
 import { DeleteBookingDialog } from '@/components/bookings/DeleteBookingDialog';
 import { DeliveryFormModal } from '@/components/deliveries/DeliveryFormModal';
-import { formatCurrency, formatDate } from '@/utils/booking-form';
+import {
+  deriveBookingPaymentStatus,
+  formatBookingCurrency,
+  formatDate,
+  getBookingsEmptyMessage,
+} from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
 
@@ -146,6 +151,9 @@ export function BookingsPage() {
 
   const bookings = listQuery.data?.items ?? [];
   const totalPages = listQuery.data?.totalPages ?? 1;
+  const hasFilters = Boolean(
+    search || clientFilter || dateFrom || dateTo || statusFilter !== 'all',
+  );
 
   const handleSearchSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -292,11 +300,15 @@ export function BookingsPage() {
         ) : bookings.length === 0 ? (
           <div className="flex min-h-48 flex-col items-center justify-center rounded-lg border border-dashed border-surface-border px-6 py-10 text-center">
             <BookOpen className="mb-3 h-10 w-10 text-gray-600" />
-            <h3 className="font-display text-lg font-semibold text-gray-200">No bookings yet</h3>
+            <h3 className="font-display text-lg font-semibold text-gray-200">
+              {getBookingsEmptyMessage(hasFilters)}
+            </h3>
             <p className="mt-2 max-w-md text-sm text-gray-500">
-              Create your first booking by selecting a client and adding services.
+              {hasFilters
+                ? 'Try a different search, status, client, or date range.'
+                : 'Create your first booking by selecting a client and adding services.'}
             </p>
-            {canCreate && (
+            {canCreate && !hasFilters && (
               <button type="button" className="btn-primary mt-5" onClick={openCreate}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Booking
@@ -318,6 +330,7 @@ export function BookingsPage() {
                     { key: 'totalAmount', label: 'Total Amount' },
                     { key: 'advance', label: 'Advance', sortable: false },
                     { key: 'balanceAmount', label: 'Balance' },
+                    { key: 'paymentStatus', label: 'Payment', sortable: false },
                     { key: 'status', label: 'Status', sortable: false },
                   ].map((column) => (
                     <th key={column.key} className="px-3 py-3 font-medium">
@@ -354,13 +367,38 @@ export function BookingsPage() {
                     <td className="px-3 py-4 text-gray-300">{booking.venue || '—'}</td>
                     <td className="px-3 py-4 text-gray-400">{booking.servicesSummary || '—'}</td>
                     <td className="px-3 py-4 font-medium text-gold">
-                      {formatCurrency(booking.totalAmount)}
+                      {formatBookingCurrency(booking.totalAmount)}
                     </td>
                     <td className="px-3 py-4 text-gray-300">
-                      {formatCurrency(booking.advanceAmount)}
+                      {formatBookingCurrency(booking.advanceAmount)}
                     </td>
                     <td className="px-3 py-4 text-gray-300">
-                      {formatCurrency(booking.balanceAmount)}
+                      {formatBookingCurrency(booking.balanceAmount)}
+                    </td>
+                    <td className="px-3 py-4">
+                      {(() => {
+                        const paymentStatus =
+                          booking.paymentStatus ??
+                          deriveBookingPaymentStatus(
+                            booking.totalAmount,
+                            booking.advanceAmount,
+                            booking.balanceAmount,
+                          );
+                        return (
+                      <span
+                        className={cn(
+                          'rounded-full px-2.5 py-1 text-xs font-medium',
+                          paymentStatus === 'Paid'
+                            ? 'bg-green-500/10 text-green-400'
+                            : paymentStatus === 'Partial'
+                              ? 'bg-orange-400/10 text-orange-200'
+                              : 'bg-gray-500/10 text-gray-400',
+                        )}
+                      >
+                        {paymentStatus}
+                      </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-3 py-4">
                       <span className="rounded-full bg-gold/10 px-2.5 py-1 text-xs font-medium text-gold">
@@ -473,6 +511,7 @@ export function BookingsPage() {
       <BookingViewModal
         open={Boolean(viewBooking)}
         booking={viewBooking}
+        canEdit={canUpdate}
         onClose={() => setViewBooking(null)}
         onEdit={(booking) => {
           setViewBooking(null);

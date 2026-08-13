@@ -40,6 +40,70 @@ export function calculateBookingTotals(
   return { subtotal, totalAmount, balanceAmount };
 }
 
+export type BookingPaymentStatus = 'Paid' | 'Partial' | 'Unpaid';
+
+export function deriveBookingPaymentStatus(
+  totalAmount: number,
+  advanceAmount: number,
+  balanceAmount: number,
+): BookingPaymentStatus {
+  const total = roundMoney(totalAmount);
+  const advance = roundMoney(advanceAmount);
+  const balance = roundMoney(balanceAmount);
+
+  if (total <= 0) {
+    return advance > 0 ? 'Paid' : 'Unpaid';
+  }
+
+  if (balance <= 0) {
+    return 'Paid';
+  }
+
+  if (advance <= 0) {
+    return 'Unpaid';
+  }
+
+  return 'Partial';
+}
+
+export function toDateOnlyKey(value?: string | null): string | null {
+  if (!value?.trim()) {
+    return null;
+  }
+
+  return value.trim().slice(0, 10);
+}
+
+export function assertEventDateRange(eventDate?: string | null, eventEndDate?: string | null): void {
+  const start = toDateOnlyKey(eventDate);
+
+  if (!start) {
+    throw new BadRequestException('Event start date is required.');
+  }
+
+  const end = toDateOnlyKey(eventEndDate);
+
+  if (end && end < start) {
+    throw new BadRequestException('Event end date cannot be before the start date.');
+  }
+}
+
+export function allocateNextBookingNumber(latestNumber?: string | null): string {
+  const match = latestNumber?.match(/^BK-(\d+)$/);
+  const next = (match ? Number(match[1]) : 0) + 1;
+  return `BK-${String(next).padStart(6, '0')}`;
+}
+
+export function isBookingNumberUniqueConflict(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+    return false;
+  }
+
+  const target = error.meta?.target;
+  const haystack = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  return /booking[_]?number/i.test(haystack) || haystack.includes('company_id_booking_number');
+}
+
 export function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }

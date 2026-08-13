@@ -23,6 +23,9 @@ export class AlbumPhotoDto {
   notes?: string | null;
 
   @ApiProperty()
+  available!: boolean;
+
+  @ApiProperty()
   createdAt!: string;
 }
 
@@ -50,6 +53,9 @@ export class AlbumResponseDto {
 
   @ApiPropertyOptional()
   galleryName?: string | null;
+
+  @ApiProperty()
+  galleryArchived!: boolean;
 
   @ApiProperty()
   albumType!: string;

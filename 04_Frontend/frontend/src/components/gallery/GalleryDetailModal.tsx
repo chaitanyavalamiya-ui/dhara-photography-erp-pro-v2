@@ -1,34 +1,82 @@
-import { useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ImagePlus, Trash2, Upload, X, ZoomIn } from 'lucide-react';
-import { Gallery, galleriesService } from '@/services/galleries-service';
+import {
+  Gallery,
+  GalleryPhoto,
+  canViewOriginalPhoto,
+  galleriesService,
+} from '@/services/galleries-service';
+import { useAuthStore } from '@/stores/auth-store';
 import { GalleryPhotoImage } from '@/components/gallery/GalleryPhotoImage';
 import { GalleryLightbox } from '@/components/gallery/GalleryLightbox';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
 
+const PHOTO_PAGE_SIZE = 40;
+
 interface GalleryDetailModalProps {
   open: boolean;
   gallery: Gallery | null;
   canUpdate?: boolean;
+  canArchive?: boolean;
   onClose: () => void;
+  onArchive?: () => void;
 }
 
-export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: GalleryDetailModalProps) {
+export function GalleryDetailModal({
+  open,
+  gallery,
+  canUpdate,
+  canArchive,
+  onClose,
+  onArchive,
+}: GalleryDetailModalProps) {
   const queryClient = useQueryClient();
+  const hasPermission = useAuthStore((s) => s.hasPermission);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null,
+  );
+  const [photoPage, setPhotoPage] = useState(1);
+  const [loadedPhotos, setLoadedPhotos] = useState<GalleryPhoto[]>([]);
+
+  const photosQuery = useQuery({
+    queryKey: ['galleries', gallery?.id, 'photos', photoPage],
+    queryFn: () => galleriesService.listPhotos(gallery!.id, { page: photoPage, limit: PHOTO_PAGE_SIZE }),
+    enabled: open && !!gallery,
+  });
+
+  useEffect(() => {
+    if (!open || !gallery) {
+      setPhotoPage(1);
+      setLoadedPhotos([]);
+      return;
+    }
+    setPhotoPage(1);
+    setLoadedPhotos([]);
+  }, [open, gallery?.id]);
+
+  useEffect(() => {
+    const pageData = photosQuery.data;
+    if (!pageData) return;
+    setLoadedPhotos((current) => {
+      if (pageData.page === 1) {
+        return pageData.items;
+      }
+      const seen = new Set(current.map((photo) => photo.id));
+      return [...current, ...pageData.items.filter((photo) => !seen.has(photo.id))];
+    });
+  }, [photosQuery.data]);
 
   const uploadMutation = useMutation({
     mutationFn: (files: File[]) =>
       galleriesService.uploadPhotos(gallery!.id, files, setUploadProgress),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['galleries'] });
-      if (gallery) {
-        queryClient.invalidateQueries({ queryKey: ['galleries', gallery.id] });
-      }
+      setPhotoPage(1);
       setUploadProgress(null);
       setFeedback({ type: 'success', message: 'Photos uploaded successfully.' });
     },
@@ -40,11 +88,9 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
 
   const deleteMutation = useMutation({
     mutationFn: (photoId: string) => galleriesService.deletePhoto(gallery!.id, photoId),
-    onSuccess: () => {
+    onSuccess: (_data, photoId) => {
       queryClient.invalidateQueries({ queryKey: ['galleries'] });
-      if (gallery) {
-        queryClient.invalidateQueries({ queryKey: ['galleries', gallery.id] });
-      }
+      setLoadedPhotos((current) => current.filter((photo) => photo.id !== photoId));
       setLightboxIndex(null);
     },
     onError: (error: unknown) => {
@@ -67,7 +113,10 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
     );
   }
 
-  const photos = gallery.photos ?? [];
+  const photos = loadedPhotos;
+  const totalPhotos = photosQuery.data?.total ?? gallery.photoCount;
+  const hasMore = (photosQuery.data?.page ?? 1) < (photosQuery.data?.totalPages ?? 1);
+  const viewOriginal = canViewOriginalPhoto(gallery.allowClientDownload, hasPermission);
 
   const handleFiles = (fileList: FileList | null) => {
     if (!fileList?.length) return;
@@ -82,7 +131,7 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
             <p className="text-xs uppercase tracking-wider text-gray-500">{gallery.bookingNumber}</p>
             <h2 className="font-display text-xl font-semibold text-gold">{gallery.name}</h2>
             <p className="text-sm text-gray-400">
-              {gallery.clientName} · {gallery.eventType} · {gallery.photoCount} photos
+              {gallery.clientName} · {gallery.eventType} · {totalPhotos} photos
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -106,6 +155,11 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
                   Upload Photos
                 </button>
               </>
+            )}
+            {canArchive && onArchive && (
+              <button type="button" className="btn-secondary px-3 py-1.5 text-xs text-red-400" onClick={onArchive}>
+                Archive
+              </button>
             )}
             <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
               <X className="h-5 w-5" />
@@ -139,51 +193,79 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
             </div>
           )}
 
-          {photos.length === 0 ? (
+          {photosQuery.isError ? (
+            <div className="rounded-lg border border-red-500/30 p-4 text-sm text-red-400">
+              {getApiErrorMessage(photosQuery.error, 'Failed to load photos.')}
+            </div>
+          ) : photosQuery.isLoading && photos.length === 0 ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="aspect-square animate-pulse rounded-lg bg-surface-elevated" />
+              ))}
+            </div>
+          ) : photos.length === 0 ? (
             <div className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-surface-border text-center">
               <ImagePlus className="h-12 w-12 text-gray-600" />
               <p className="mt-3 text-sm text-gray-400">No photos yet. Upload images to start this gallery.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {photos.map((photo, index) => (
-                <div key={photo.id} className="group relative overflow-hidden rounded-lg border border-surface-border bg-surface-elevated">
-                  <GalleryPhotoImage
-                    galleryId={gallery.id}
-                    photoId={photo.id}
-                    alt={photo.originalName}
-                    className="aspect-square w-full cursor-pointer"
-                    onClick={() => setLightboxIndex(index)}
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 transition group-hover:opacity-100">
-                    <p className="truncate text-xs text-gray-200">{photo.originalName}</p>
-                    <div className="mt-1 flex gap-1">
-                      <button
-                        type="button"
-                        className="rounded bg-black/40 p-1 text-gray-200 hover:text-gold"
-                        onClick={() => setLightboxIndex(index)}
-                      >
-                        <ZoomIn className="h-3.5 w-3.5" />
-                      </button>
-                      {canUpdate && (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {photos.map((photo, index) => (
+                  <div
+                    key={photo.id}
+                    className="group relative overflow-hidden rounded-lg border border-surface-border bg-surface-elevated"
+                  >
+                    <GalleryPhotoImage
+                      galleryId={gallery.id}
+                      photoId={photo.id}
+                      alt={photo.originalName}
+                      variant="thumbnail"
+                      className="aspect-square w-full cursor-pointer"
+                      onClick={() => setLightboxIndex(index)}
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 transition group-hover:opacity-100">
+                      <p className="truncate text-xs text-gray-200">{photo.originalName}</p>
+                      <div className="mt-1 flex gap-1">
                         <button
                           type="button"
-                          className="rounded bg-black/40 p-1 text-gray-200 hover:text-red-400"
-                          onClick={() => deleteMutation.mutate(photo.id)}
+                          className="rounded bg-black/40 p-1 text-gray-200 hover:text-gold"
+                          onClick={() => setLightboxIndex(index)}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <ZoomIn className="h-3.5 w-3.5" />
                         </button>
-                      )}
+                        {canUpdate && (
+                          <button
+                            type="button"
+                            className="rounded bg-black/40 p-1 text-gray-200 hover:text-red-400"
+                            onClick={() => deleteMutation.mutate(photo.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
+                    {photo.clientSelected && (
+                      <span className="absolute left-2 top-2 rounded bg-gold/90 px-1.5 py-0.5 text-[10px] font-semibold text-maroon-dark">
+                        Selected
+                      </span>
+                    )}
                   </div>
-                  {photo.clientSelected && (
-                    <span className="absolute left-2 top-2 rounded bg-gold/90 px-1.5 py-0.5 text-[10px] font-semibold text-maroon-dark">
-                      Selected
-                    </span>
-                  )}
+                ))}
+              </div>
+              {hasMore && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs"
+                    disabled={photosQuery.isFetching}
+                    onClick={() => setPhotoPage((page) => page + 1)}
+                  >
+                    {photosQuery.isFetching ? 'Loading...' : 'Load more photos'}
+                  </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -194,6 +276,7 @@ export function GalleryDetailModal({ open, gallery, canUpdate, onClose }: Galler
           galleryId={gallery.id}
           photos={photos}
           initialIndex={lightboxIndex}
+          viewOriginal={viewOriginal}
           onClose={() => setLightboxIndex(null)}
         />
       )}

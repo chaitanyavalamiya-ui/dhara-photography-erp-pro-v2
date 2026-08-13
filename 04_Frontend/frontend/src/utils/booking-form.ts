@@ -22,6 +22,66 @@ export function calculateBookingTotals(
   return { subtotal, totalAmount, balanceAmount };
 }
 
+export type BookingPaymentStatus = 'Paid' | 'Partial' | 'Unpaid';
+
+export function deriveBookingPaymentStatus(
+  totalAmount: number,
+  advanceAmount: number,
+  balanceAmount: number,
+): BookingPaymentStatus {
+  const total = Math.round(totalAmount * 100) / 100;
+  const advance = Math.round(advanceAmount * 100) / 100;
+  const balance = Math.round(balanceAmount * 100) / 100;
+
+  if (total <= 0) {
+    return advance > 0 ? 'Paid' : 'Unpaid';
+  }
+
+  if (balance <= 0) {
+    return 'Paid';
+  }
+
+  if (advance <= 0) {
+    return 'Unpaid';
+  }
+
+  return 'Partial';
+}
+
+export function assertEventDateRange(eventDate?: string | null, eventEndDate?: string | null): string | null {
+  if (!eventDate?.trim()) {
+    return 'Please select an event date.';
+  }
+
+  const start = eventDate.trim().slice(0, 10);
+  const end = eventEndDate?.trim() ? eventEndDate.trim().slice(0, 10) : '';
+
+  if (end && end < start) {
+    return 'Event end date cannot be before the start date.';
+  }
+
+  return null;
+}
+
+export function mergeBookingClientOptions<T extends { id: string }>(
+  clients: T[],
+  current?: T | null,
+): T[] {
+  if (!current) {
+    return clients;
+  }
+
+  if (clients.some((client) => client.id === current.id)) {
+    return clients;
+  }
+
+  return [current, ...clients];
+}
+
+export function getBookingsEmptyMessage(hasFilters: boolean): string {
+  return hasFilters ? 'No bookings match your filters.' : 'No bookings yet.';
+}
+
 export function createItemFromRate(rate: ServiceRate): BookingItem {
   const quantity = rate.unit === 'piece' ? 1 : 1;
   const days = rate.unit === 'day' ? 1 : 1;
@@ -82,6 +142,15 @@ export function formatCurrency(amount: number): string {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+export function formatBookingCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
 }
 

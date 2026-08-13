@@ -27,7 +27,7 @@ type AlbumBase = Prisma.AlbumGetPayload<{
   include: {
     client: { select: { fullName: true } };
     booking: { select: { bookingNumber: true } };
-    gallery: { select: { id: true; name: true } };
+    gallery: { select: { id: true; name: true; archivedAt: true; isActive: true } };
     _count: { select: { photos: true } };
   };
 }>;
@@ -35,7 +35,7 @@ type AlbumBase = Prisma.AlbumGetPayload<{
 type AlbumPhotoWithGallery = Prisma.AlbumPhotoGetPayload<{
   include: {
     galleryPhoto: {
-      select: { id: true; galleryId: true; originalName: true; mimeType: true };
+      select: { id: true; galleryId: true; originalName: true; mimeType: true; isActive: true; archivedAt: true };
     };
   };
 }>;
@@ -382,6 +382,8 @@ export class AlbumsService {
               galleryId: true,
               originalName: true,
               mimeType: true,
+              isActive: true,
+              archivedAt: true,
             },
           },
         },
@@ -536,7 +538,7 @@ export class AlbumsService {
     return {
       client: { select: { fullName: true } },
       booking: { select: { bookingNumber: true } },
-      gallery: { select: { id: true, name: true } },
+      gallery: { select: { id: true, name: true, archivedAt: true, isActive: true } },
       ...(withPhotos
         ? {
             photos: {
@@ -547,6 +549,8 @@ export class AlbumsService {
                     galleryId: true,
                     originalName: true,
                     mimeType: true,
+                    isActive: true,
+                    archivedAt: true,
                   },
                 },
               },
@@ -619,6 +623,7 @@ export class AlbumsService {
       bookingNumber: album.booking.bookingNumber,
       galleryId: album.galleryId,
       galleryName: album.gallery?.name ?? null,
+      galleryArchived: Boolean(album.gallery?.archivedAt) || album.gallery?.isActive === false,
       albumType: album.albumType,
       albumPrice,
       pageCount: album.pageCount,
@@ -650,6 +655,7 @@ export class AlbumsService {
       mimeType: photo.galleryPhoto.mimeType,
       sortOrder: photo.sortOrder,
       notes: photo.notes,
+      available: photo.galleryPhoto.isActive && !photo.galleryPhoto.archivedAt,
       createdAt: photo.createdAt.toISOString(),
     };
   }

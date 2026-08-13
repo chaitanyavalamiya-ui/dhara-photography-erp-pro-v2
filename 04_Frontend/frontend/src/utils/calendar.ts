@@ -38,6 +38,18 @@ export function getCalendarGridDays(year: number, month: number): Date[] {
   });
 }
 
+export function getVisibleCalendarRange(year: number, month: number) {
+  const days = getCalendarGridDays(year, month);
+  return {
+    dateFrom: toDateKey(days[0]),
+    dateTo: toDateKey(days[days.length - 1]),
+  };
+}
+
+export function occupiesCalendarDay(event: CalendarBookingEvent): boolean {
+  return event.statusCode !== 'cancelled';
+}
+
 export function expandBookingDates(event: CalendarBookingEvent): string[] {
   if (!event.eventDate) return [];
 
@@ -66,6 +78,42 @@ export function getBookingDatesInMonth(
     const date = parseDateKey(dateKey);
     return date >= monthStart && date <= monthEnd;
   });
+}
+
+export function getBookingDatesInRange(
+  event: CalendarBookingEvent,
+  dateFrom: string,
+  dateTo: string,
+): string[] {
+  const rangeStart = parseDateKey(dateFrom);
+  const rangeEnd = parseDateKey(dateTo);
+
+  return expandBookingDates(event).filter((dateKey) => {
+    const date = parseDateKey(dateKey);
+    return date >= rangeStart && date <= rangeEnd;
+  });
+}
+
+export function groupOccupyingEventsByDate(
+  events: CalendarBookingEvent[],
+  dateFrom: string,
+  dateTo: string,
+): Map<string, CalendarBookingEvent[]> {
+  const map = new Map<string, CalendarBookingEvent[]>();
+
+  for (const event of events) {
+    if (!occupiesCalendarDay(event)) {
+      continue;
+    }
+
+    for (const dateKey of getBookingDatesInRange(event, dateFrom, dateTo)) {
+      const existing = map.get(dateKey) ?? [];
+      existing.push(event);
+      map.set(dateKey, existing);
+    }
+  }
+
+  return map;
 }
 
 export interface CalendarMonthSummary {

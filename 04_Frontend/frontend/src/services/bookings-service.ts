@@ -50,6 +50,7 @@ export interface Booking {
   totalAmount: number;
   advanceAmount: number;
   balanceAmount: number;
+  paymentStatus?: 'Paid' | 'Partial' | 'Unpaid';
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { Building2, Boxes, History, ListTree, Pencil, Plus, Search, Settings2 } from 'lucide-react';
 import {
   MasterDataCategory,
@@ -17,6 +18,7 @@ import { EditMasterDataModal } from '@/components/settings/EditMasterDataModal';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { RolesPermissionsPanel } from '@/components/settings/RolesPermissionsPanel';
+import { AppearancePanel } from '@/components/settings/AppearancePanel';
 import { BackupRestorePanel } from '@/components/settings/BackupRestorePanel';
 import { cn } from '@/utils/cn';
 
@@ -28,6 +30,7 @@ type SettingsTab =
   | 'payment-modes'
   | 'activity-log'
   | 'roles-permissions'
+  | 'appearance'
   | 'backup-restore';
 
 const TAB_CONFIG: { id: SettingsTab; label: string; category?: MasterDataCategory }[] = [
@@ -38,6 +41,7 @@ const TAB_CONFIG: { id: SettingsTab; label: string; category?: MasterDataCategor
   { id: 'payment-modes', label: 'Payment Modes', category: 'payment_mode' },
   { id: 'activity-log', label: 'Activity Log' },
   { id: 'roles-permissions', label: 'Roles & Permissions' },
+  { id: 'appearance', label: 'Appearance' },
   { id: 'backup-restore', label: 'Backup & Restore' },
 ];
 
@@ -66,6 +70,7 @@ export function SettingsPage() {
     [canViewRoles],
   );
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<SettingsTab>('studio-profile');
   const [search, setSearch] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -82,10 +87,15 @@ export function SettingsPage() {
   );
 
   useEffect(() => {
-    if (!visibleTabs.some((item) => item.id === tab)) {
+    const raw = searchParams.get('tab');
+    if (raw && visibleTabs.some((item) => item.id === raw)) {
+      setTab(raw as SettingsTab);
+      return;
+    }
+    if (!raw) {
       setTab(visibleTabs[0]?.id ?? 'studio-profile');
     }
-  }, [visibleTabs, tab]);
+  }, [visibleTabs, searchParams]);
 
   const activeTab = visibleTabs.find((item) => item.id === tab) ?? visibleTabs[0];
   const masterDataCategory = activeTab.category;
@@ -289,7 +299,7 @@ export function SettingsPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 border-b border-surface-border pb-1">
+      <div className="dhara-page-tabs flex flex-wrap gap-2 border-b border-surface-border pb-1">
         {visibleTabs.map((item) => (
           <button
             key={item.id}
@@ -298,6 +308,7 @@ export function SettingsPage() {
               setTab(item.id);
               setSearch('');
               setAuditPage(1);
+              setSearchParams(item.id === 'studio-profile' ? {} : { tab: item.id }, { replace: true });
             }}
             className={cn(
               'rounded-t-lg px-4 py-2 text-sm font-medium transition',
@@ -313,6 +324,8 @@ export function SettingsPage() {
 
       {tab === 'roles-permissions' ? (
         <RolesPermissionsPanel onFeedback={setFeedback} />
+      ) : tab === 'appearance' ? (
+        <AppearancePanel />
       ) : tab === 'backup-restore' ? (
         <BackupRestorePanel onFeedback={setFeedback} />
       ) : (

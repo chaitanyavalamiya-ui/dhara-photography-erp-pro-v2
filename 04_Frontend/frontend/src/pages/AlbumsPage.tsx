@@ -80,6 +80,18 @@ export function AlbumsPage() {
     queryFn: () => bookingsService.list({ limit: 100, sortBy: 'eventDate', sortOrder: 'desc' }),
   });
 
+  const selectedClientQuery = useQuery({
+    queryKey: ['clients', clientFilter],
+    queryFn: () => clientsService.getById(clientFilter),
+    enabled: Boolean(clientFilter),
+  });
+
+  const selectedBookingQuery = useQuery({
+    queryKey: ['bookings', bookingFilter],
+    queryFn: () => bookingsService.getById(bookingFilter),
+    enabled: Boolean(bookingFilter),
+  });
+
   const listQuery = useQuery({
     queryKey: ['albums', page, search, statusFilter, typeFilter, clientFilter, bookingFilter],
     queryFn: () =>
@@ -157,6 +169,24 @@ export function AlbumsPage() {
   };
 
   const albums = listQuery.data?.items ?? [];
+  const hasFilters = Boolean(
+    search ||
+      clientFilter ||
+      bookingFilter ||
+      (statusFilter && statusFilter !== 'all') ||
+      (typeFilter && typeFilter !== 'all'),
+  );
+  const clientOptions = [...(clientsQuery.data?.items ?? [])];
+  if (selectedClientQuery.data && !clientOptions.some((client) => client.id === selectedClientQuery.data.id)) {
+    clientOptions.unshift(selectedClientQuery.data);
+  }
+  const bookingOptions = [...(bookingsQuery.data?.items ?? [])];
+  if (
+    selectedBookingQuery.data &&
+    !bookingOptions.some((booking) => booking.id === selectedBookingQuery.data.id)
+  ) {
+    bookingOptions.unshift(selectedBookingQuery.data);
+  }
 
   return (
     <div className="space-y-6">
@@ -210,7 +240,7 @@ export function AlbumsPage() {
                 onChange={(e) => { setClientFilter(e.target.value); setPage(1); }}
               >
                 <option value="">All clients</option>
-                {(clientsQuery.data?.items ?? []).map((c) => (
+                {(clientOptions).map((c) => (
                   <option key={c.id} value={c.id}>{c.fullName}</option>
                 ))}
               </select>
@@ -224,7 +254,7 @@ export function AlbumsPage() {
                 onChange={(e) => { setBookingFilter(e.target.value); setPage(1); }}
               >
                 <option value="">All bookings</option>
-                {(bookingsQuery.data?.items ?? []).map((b) => (
+                {(bookingOptions).map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.bookingNumber} — {b.client.fullName}
                   </option>
@@ -278,8 +308,10 @@ export function AlbumsPage() {
       ) : albums.length === 0 ? (
         <div className="card flex min-h-64 flex-col items-center justify-center text-center">
           <BookImage className="h-12 w-12 text-gray-600" />
-          <p className="mt-3 text-gray-400">No albums found.</p>
-          {canCreate && (
+          <p className="mt-3 text-gray-400">
+            {hasFilters ? 'No albums match your filters.' : 'No albums yet.'}
+          </p>
+          {canCreate && !hasFilters && (
             <button type="button" className="btn-primary mt-4" onClick={() => setCreateOpen(true)}>
               Create your first album
             </button>

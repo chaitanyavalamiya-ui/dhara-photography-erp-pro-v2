@@ -14,6 +14,14 @@ export interface GalleryPhoto {
   createdAt: string;
 }
 
+export interface PaginatedGalleryPhotos {
+  items: GalleryPhoto[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
 export interface Gallery {
   id: string;
   name: string;
@@ -60,6 +68,21 @@ export const GALLERY_STATUS_OPTIONS = [
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:3000/api/v1';
 
+export function canViewOriginalPhoto(
+  allowClientDownload: boolean,
+  hasPermission: (permission: string) => boolean,
+): boolean {
+  if (allowClientDownload) {
+    return true;
+  }
+
+  return (
+    hasPermission('gallery.create') ||
+    hasPermission('gallery.update') ||
+    hasPermission('gallery.archive')
+  );
+}
+
 export const galleriesService = {
   async list(params: Record<string, unknown> = {}): Promise<PaginatedGalleries> {
     const { data } = await apiClient.get<ApiResponse<PaginatedGalleries>>('/galleries', { params });
@@ -73,6 +96,21 @@ export const galleriesService = {
 
   async create(payload: CreateGalleryPayload): Promise<Gallery> {
     const { data } = await apiClient.post<ApiResponse<Gallery>>('/galleries', payload);
+    return data.data;
+  },
+
+  async archive(id: string): Promise<void> {
+    await apiClient.delete(`/galleries/${id}`);
+  },
+
+  async listPhotos(
+    galleryId: string,
+    params: { page?: number; limit?: number } = {},
+  ): Promise<PaginatedGalleryPhotos> {
+    const { data } = await apiClient.get<ApiResponse<PaginatedGalleryPhotos>>(
+      `/galleries/${galleryId}/photos`,
+      { params },
+    );
     return data.data;
   },
 

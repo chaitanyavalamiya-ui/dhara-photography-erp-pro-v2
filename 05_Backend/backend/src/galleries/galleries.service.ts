@@ -1,8 +1,9 @@
 import {
   BadRequestException,
-  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -12,25 +13,28 @@ import { StorageService } from '../storage/storage.service';
 import { CreateGalleryDto } from './dto/create-gallery.dto';
 import { UpdateGalleryDto } from './dto/update-gallery.dto';
 import { ListGalleriesQueryDto } from './dto/list-galleries-query.dto';
+import { ListGalleryPhotosQueryDto } from './dto/list-gallery-photos-query.dto';
 import {
   GalleryPhotoDto,
   GalleryResponseDto,
   PaginatedGalleriesResponseDto,
+  PaginatedGalleryPhotosResponseDto,
 } from './dto/gallery-response.dto';
 import {
-  ALLOWED_IMAGE_MIME_TYPES,
+  GALLERY_PHOTO_PAGE_DEFAULT,
   GALLERY_STATUS_CODES,
-  MAX_UPLOAD_FILE_SIZE_BYTES,
+  assertValidUploadFile,
+  canAccessOriginalPhoto,
   sanitizeFileName,
   toDateOnlyLabel,
 } from './utils/gallery.utils';
+import { generateJpegThumbnail } from './utils/thumbnail.utils';
 import { parseOptionalDate } from '../invoices/utils/invoice.utils';
 
-type GalleryWithRelations = Prisma.GalleryGetPayload<{
+type GalleryListRecord = Prisma.GalleryGetPayload<{
   include: {
     client: { select: { fullName: true } };
     booking: { select: { bookingNumber: true } };
-    photos: { where: { archivedAt: null; isActive: true }; orderBy: { sortOrder: 'asc' } };
     _count: { select: { photos: true } };
   };
 }>;
@@ -54,7 +58,7 @@ export class GalleriesService {
     const [galleries, total] = await Promise.all([
       this.prisma.gallery.findMany({
         where,
-        include: this.galleryInclude(),
+        include: this.galleryListInclude(),
         orderBy: this.buildOrderBy(query.sortBy ?? 'createdAt', query.sortOrder ?? 'desc'),
         skip: (page - 1) * limit,
         take: limit,
@@ -72,8 +76,8 @@ export class GalleriesService {
   }
 
   async findOne(companyId: string, id: string): Promise<GalleryResponseDto> {
-    const gallery = await this.getGalleryOrThrow(companyId, id, true);
-    return this.mapGallery(gallery, true);
+    const gallery = await this.getGalleryOrThrow(companyId, id);
+    return this.mapGallery(gallery);
   }
 
   async create(
@@ -122,7 +126,7 @@ export class GalleriesService {
         createdById: userId,
         updatedById: userId,
       },
-      include: this.galleryInclude(),
+      include: this.galleryListInclude(),
     });
 
     await this.auditService.log({
@@ -137,7 +141,7 @@ export class GalleriesService {
       userAgent,
     });
 
-    return this.mapGallery(gallery, true);
+    return this.mapGallery(gallery);
   }
 
   async update(
@@ -148,7 +152,7 @@ export class GalleriesService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<GalleryResponseDto> {
-    const existing = await this.getGalleryOrThrow(companyId, id, true);
+    const existing = await this.getGalleryOrThrow(companyId, id);
 
     const updated = await this.prisma.gallery.update({
       where: { id },
@@ -166,7 +170,7 @@ export class GalleriesService {
         allowClientDownload: dto.allowClientDownload,
         updatedById: userId,
       },
-      include: this.galleryInclude(),
+      include: this.galleryListInclude(),
     });
 
     await this.auditService.log({
@@ -182,7 +186,7 @@ export class GalleriesService {
       userAgent,
     });
 
-    return this.mapGallery(updated, true);
+    return this.mapGallery(updated);
   }
 
   async archive(
@@ -192,7 +196,7 @@ export class GalleriesService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<{ message: string }> {
-    const existing = await this.getGalleryOrThrow(companyId, id, false);
+    const existing = await this.getGalleryOrThrow(companyId, id);
 
     await this.prisma.gallery.update({
       where: { id },
@@ -220,15 +224,34 @@ export class GalleriesService {
     return { message: 'Gallery archived successfully.' };
   }
 
-  async listPhotos(companyId: string, galleryId: string): Promise<GalleryPhotoDto[]> {
-    await this.getGalleryOrThrow(companyId, galleryId, false);
+  async listPhotos(
+    companyId: string,
+    galleryId: string,
+    query: ListGalleryPhotosQueryDto = {},
+  ): Promise<PaginatedGalleryPhotosResponseDto> {
+    await this.getGalleryOrThrow(companyId, galleryId);
 
-    const photos = await this.prisma.galleryPhoto.findMany({
-      where: { galleryId, archivedAt: null, isActive: true },
-      orderBy: { sortOrder: 'asc' },
-    });
+    const page = query.page ?? 1;
+    const limit = query.limit ?? GALLERY_PHOTO_PAGE_DEFAULT;
+    const where = { galleryId, archivedAt: null, isActive: true } as const;
 
-    return photos.map((photo) => this.mapPhoto(photo));
+    const [photos, total] = await Promise.all([
+      this.prisma.galleryPhoto.findMany({
+        where,
+        orderBy: { sortOrder: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.galleryPhoto.count({ where }),
+    ]);
+
+    return {
+      items: photos.map((photo) => this.mapPhoto(photo)),
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
   }
 
   async uploadPhotos(
@@ -239,10 +262,18 @@ export class GalleriesService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<GalleryPhotoDto[]> {
-    const gallery = await this.getGalleryOrThrow(companyId, galleryId, false);
+    const gallery = await this.getGalleryOrThrow(companyId, galleryId);
 
     if (!files?.length) {
       throw new BadRequestException('No files uploaded.');
+    }
+
+    for (const file of files) {
+      try {
+        assertValidUploadFile(file);
+      } catch (error) {
+        throw new BadRequestException(error instanceof Error ? error.message : 'Invalid upload.');
+      }
     }
 
     const existingCount = await this.prisma.galleryPhoto.count({
@@ -253,36 +284,53 @@ export class GalleriesService {
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
-
-      if (!ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) {
-        throw new BadRequestException(`Unsupported file type: ${file.originalname}`);
-      }
-
-      if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
-        throw new BadRequestException(`File too large: ${file.originalname}`);
-      }
-
       const storedName = `${randomUUID()}-${sanitizeFileName(file.originalname)}`;
       const storageKey = this.storageService.buildGalleryPhotoKey(gallery.id, storedName);
+      const writtenKeys: string[] = [];
 
-      await this.storageService.saveBuffer(storageKey, file.buffer);
+      try {
+        await this.storageService.saveBuffer(storageKey, file.buffer);
+        writtenKeys.push(storageKey);
 
-      const photo = await this.prisma.galleryPhoto.create({
-        data: {
-          galleryId: gallery.id,
-          fileName: storedName,
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          fileSize: file.size,
-          storageKey,
-          thumbnailKey: storageKey,
-          sortOrder: existingCount + index,
-          createdById: userId,
-          updatedById: userId,
-        },
-      });
+        let thumbnailKey = storageKey;
+        try {
+          const thumbnailBuffer = await generateJpegThumbnail(file.buffer);
+          const thumbnailName = `${randomUUID()}-thumb.jpg`;
+          thumbnailKey = this.storageService.buildGalleryPhotoKey(
+            gallery.id,
+            `thumbs/${thumbnailName}`,
+          );
+          await this.storageService.saveBuffer(thumbnailKey, thumbnailBuffer);
+          writtenKeys.push(thumbnailKey);
+        } catch {
+          thumbnailKey = storageKey;
+        }
 
-      created.push(this.mapPhoto(photo));
+        const photo = await this.prisma.galleryPhoto.create({
+          data: {
+            galleryId: gallery.id,
+            fileName: storedName,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            fileSize: file.size,
+            storageKey,
+            thumbnailKey,
+            sortOrder: existingCount + index,
+            createdById: userId,
+            updatedById: userId,
+          },
+        });
+
+        created.push(this.mapPhoto(photo));
+      } catch (error) {
+        await Promise.all(writtenKeys.map((key) => this.storageService.deleteFile(key)));
+        if (error instanceof BadRequestException) {
+          throw error;
+        }
+        throw new BadRequestException(
+          `Failed to save ${file.originalname}. Earlier files in this request were kept.`,
+        );
+      }
     }
 
     await this.auditService.log({
@@ -308,10 +356,11 @@ export class GalleriesService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<{ message: string }> {
-    await this.getGalleryOrThrow(companyId, galleryId, false);
+    await this.getGalleryOrThrow(companyId, galleryId);
 
     const photo = await this.prisma.galleryPhoto.findFirst({
       where: { id: photoId, galleryId, archivedAt: null, isActive: true },
+      include: { _count: { select: { albumPhotos: true } } },
     });
 
     if (!photo) {
@@ -327,9 +376,12 @@ export class GalleriesService {
       },
     });
 
-    await this.storageService.deleteFile(photo.storageKey);
-    if (photo.thumbnailKey && photo.thumbnailKey !== photo.storageKey) {
-      await this.storageService.deleteFile(photo.thumbnailKey);
+    const referencedByAlbum = photo._count.albumPhotos > 0;
+    if (!referencedByAlbum) {
+      await this.storageService.deleteFile(photo.storageKey);
+      if (photo.thumbnailKey && photo.thumbnailKey !== photo.storageKey) {
+        await this.storageService.deleteFile(photo.thumbnailKey);
+      }
     }
 
     await this.auditService.log({
@@ -339,7 +391,7 @@ export class GalleriesService {
       action: 'delete_photo',
       recordType: 'gallery_photo',
       recordId: photoId,
-      previousValue: { originalName: photo.originalName },
+      previousValue: { originalName: photo.originalName, keptFilesForAlbum: referencedByAlbum },
       ipAddress,
       userAgent,
     });
@@ -351,38 +403,67 @@ export class GalleriesService {
     companyId: string,
     galleryId: string,
     photoId: string,
-    variant: 'original' | 'thumbnail' = 'original',
+    variant: 'original' | 'thumbnail' = 'thumbnail',
+    permissions: string[] = [],
   ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
-    await this.getGalleryOrThrow(companyId, galleryId, false);
+    const gallery = await this.getGalleryOrThrow(companyId, galleryId);
 
     const photo = await this.prisma.galleryPhoto.findFirst({
-      where: { id: photoId, galleryId, archivedAt: null, isActive: true },
+      where: { id: photoId, galleryId },
+      include: { _count: { select: { albumPhotos: true } } },
     });
 
     if (!photo) {
       throw new NotFoundException('Photo not found.');
     }
 
-    const storageKey =
-      variant === 'thumbnail' && photo.thumbnailKey ? photo.thumbnailKey : photo.storageKey;
+    const photoArchived = Boolean(photo.archivedAt) || !photo.isActive;
+    const requestedVariant = variant === 'original' ? 'original' : 'thumbnail';
 
-    const buffer = await this.storageService.readBuffer(storageKey);
+    if (photoArchived) {
+      if (requestedVariant === 'original' || photo._count.albumPhotos === 0) {
+        throw new NotFoundException('Photo not found.');
+      }
+    }
+
+    if (
+      requestedVariant === 'original' &&
+      !canAccessOriginalPhoto(permissions, gallery.allowClientDownload)
+    ) {
+      throw new ForbiddenException(
+        'Original photo download is not allowed for this gallery.',
+      );
+    }
+
+    const storageKey =
+      requestedVariant === 'thumbnail' && photo.thumbnailKey
+        ? photo.thumbnailKey
+        : photo.storageKey;
+
+    let buffer: Buffer;
+    try {
+      buffer = await this.storageService.readBuffer(storageKey);
+    } catch {
+      throw new NotFoundException('Photo file not found.');
+    }
 
     return {
       buffer,
-      mimeType: photo.mimeType,
-      fileName: photo.originalName,
+      mimeType:
+        requestedVariant === 'thumbnail' && photo.thumbnailKey !== photo.storageKey
+          ? 'image/jpeg'
+          : photo.mimeType,
+      fileName:
+        requestedVariant === 'thumbnail'
+          ? `thumb-${sanitizeFileName(photo.originalName)}`
+          : photo.originalName,
     };
   }
 
-  private galleryInclude() {
+  private galleryListInclude() {
     return {
       client: { select: { fullName: true } },
       booking: { select: { bookingNumber: true } },
-      photos: {
-        where: { archivedAt: null, isActive: true },
-        orderBy: { sortOrder: 'asc' as const },
-      },
       _count: {
         select: {
           photos: { where: { archivedAt: null, isActive: true } },
@@ -391,26 +472,10 @@ export class GalleriesService {
     };
   }
 
-  private async getGalleryOrThrow(
-    companyId: string,
-    id: string,
-    withPhotos: boolean,
-  ): Promise<GalleryWithRelations> {
+  private async getGalleryOrThrow(companyId: string, id: string): Promise<GalleryListRecord> {
     const gallery = await this.prisma.gallery.findFirst({
-      where: { id, companyId, archivedAt: null },
-      include: withPhotos
-        ? this.galleryInclude()
-        : {
-            client: { select: { fullName: true } },
-            booking: { select: { bookingNumber: true } },
-            photos: {
-              where: { archivedAt: null, isActive: true },
-              orderBy: { sortOrder: 'asc' as const },
-            },
-            _count: {
-              select: { photos: { where: { archivedAt: null, isActive: true } } },
-            },
-          },
+      where: { id, companyId, archivedAt: null, isActive: true },
+      include: this.galleryListInclude(),
     });
 
     if (!gallery) {
@@ -420,7 +485,7 @@ export class GalleriesService {
     return gallery;
   }
 
-  private mapGallery(gallery: GalleryWithRelations, includePhotos = false): GalleryResponseDto {
+  private mapGallery(gallery: GalleryListRecord): GalleryResponseDto {
     return {
       id: gallery.id,
       name: gallery.name,
@@ -436,7 +501,6 @@ export class GalleriesService {
       photoCount: gallery._count.photos,
       createdAt: gallery.createdAt.toISOString(),
       updatedAt: gallery.updatedAt.toISOString(),
-      photos: includePhotos ? gallery.photos.map((photo) => this.mapPhoto(photo)) : undefined,
     };
   }
 

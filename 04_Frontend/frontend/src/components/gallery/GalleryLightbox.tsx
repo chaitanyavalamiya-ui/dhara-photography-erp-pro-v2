@@ -26,17 +26,18 @@ const ZOOM_STEP = 0.25;
 const WHEEL_ZOOM_STEP = 0.12;
 const SWIPE_THRESHOLD_PX = 50;
 
-interface PanOffset {
-  x: number;
-  y: number;
-}
-
 interface GalleryLightboxProps {
   open: boolean;
   galleryId: string;
   photos: GalleryPhoto[];
   initialIndex: number;
   onClose: () => void;
+  viewOriginal?: boolean;
+}
+
+interface PanOffset {
+  x: number;
+  y: number;
 }
 
 function clampZoom(value: number) {
@@ -72,6 +73,7 @@ export function GalleryLightbox({
   photos,
   initialIndex,
   onClose,
+  viewOriginal = false,
 }: GalleryLightboxProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -427,7 +429,7 @@ export function GalleryLightbox({
               galleryId={galleryId}
               photoId={currentPhoto.id}
               alt={currentPhoto.originalName}
-              variant="original"
+              variant={viewOriginal ? 'original' : 'thumbnail'}
               objectFit="contain"
               errorMessage="Unable to load photo"
               className="max-h-[calc(100vh-9rem)] max-w-full select-none"

@@ -15,10 +15,20 @@ import { StaffPage } from './pages/StaffPage';
 import { UsersPage } from './pages/UsersPage';
 import { DeliveriesPage } from './pages/DeliveriesPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { UiPrototypePage } from './pages/UiPrototypePage';
 import { AuthSessionBootstrap } from './components/auth/AuthSessionBootstrap';
 import { PermissionRoute } from './routes/PermissionRoute';
 
 export default function App() {
+  return (
+    <Routes>
+      <Route path="/ui-prototype" element={<UiPrototypePage />} />
+      <Route path="*" element={<ErpRoutes />} />
+    </Routes>
+  );
+}
+
+function ErpRoutes() {
   return (
     <AuthSessionBootstrap>
       <Routes>

@@ -12,11 +12,12 @@ import { BookingFormModal } from '@/components/bookings/BookingFormModal';
 import { BookingViewModal } from '@/components/bookings/BookingViewModal';
 import {
   buildMonthSummary,
-  getBookingDatesInMonth,
   getCalendarGridDays,
   getMonthRange,
   getStatusLabel,
   getStatusStyles,
+  getVisibleCalendarRange,
+  groupOccupyingEventsByDate,
   isSameMonth,
   isToday,
   toDateKey,
@@ -31,6 +32,7 @@ export function CalendarPage() {
   const queryClient = useQueryClient();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canCreate = hasPermission('bookings.create');
+  const canUpdate = hasPermission('bookings.update');
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -46,13 +48,14 @@ export function CalendarPage() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const monthRange = getMonthRange(year, month);
+  const visibleRange = getVisibleCalendarRange(year, month);
 
   const calendarQuery = useQuery({
-    queryKey: ['bookings', 'calendar', monthRange.dateFrom, monthRange.dateTo],
+    queryKey: ['bookings', 'calendar', visibleRange.dateFrom, visibleRange.dateTo],
     queryFn: () =>
       bookingsService.getCalendar({
-        dateFrom: monthRange.dateFrom,
-        dateTo: monthRange.dateTo,
+        dateFrom: visibleRange.dateFrom,
+        dateTo: visibleRange.dateTo,
       }),
   });
 
@@ -114,22 +117,21 @@ export function CalendarPage() {
   });
 
   const events = calendarQuery.data ?? [];
-  const summary = useMemo(() => buildMonthSummary(events), [events]);
+  const occupyingEvents = useMemo(
+    () => events.filter((event) => event.statusCode !== 'cancelled'),
+    [events],
+  );
+  const summary = useMemo(() => buildMonthSummary(occupyingEvents), [occupyingEvents]);
+  const cancelledCount = useMemo(
+    () => events.filter((event) => event.statusCode === 'cancelled').length,
+    [events],
+  );
   const gridDays = useMemo(() => getCalendarGridDays(year, month), [year, month]);
 
-  const eventsByDate = useMemo(() => {
-    const map = new Map<string, CalendarBookingEvent[]>();
-
-    for (const event of events) {
-      for (const dateKey of getBookingDatesInMonth(event, year, month)) {
-        const existing = map.get(dateKey) ?? [];
-        existing.push(event);
-        map.set(dateKey, existing);
-      }
-    }
-
-    return map;
-  }, [events, year, month]);
+  const eventsByDate = useMemo(
+    () => groupOccupyingEventsByDate(events, visibleRange.dateFrom, visibleRange.dateTo),
+    [events, visibleRange.dateFrom, visibleRange.dateTo],
+  );
 
   const upcomingBookings = upcomingQuery.data?.items ?? [];
 
@@ -205,7 +207,7 @@ export function CalendarPage() {
           ['Confirmed', summary.confirmed],
           ['Pending', summary.pending],
           ['Completed', summary.completed],
-          ['Cancelled', summary.cancelled],
+          ['Cancelled', cancelledCount],
           ['Total Amount', formatCurrency(summary.totalAmount)],
           ['Outstanding', formatCurrency(summary.outstandingBalance)],
         ].map(([label, value]) => (
@@ -403,6 +405,7 @@ export function CalendarPage() {
       <BookingViewModal
         open={Boolean(viewBooking)}
         booking={viewBooking}
+        canEdit={canUpdate}
         onClose={() => setViewBooking(null)}
         onEdit={(booking) => {
           setViewBooking(null);

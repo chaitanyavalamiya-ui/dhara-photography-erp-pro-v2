@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { mkdir, readFile, unlink, writeFile } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
-import { resolveUploadsPath } from '../backup/app-paths';
+import { isPathInside, resolveUploadsPath } from '../backup/app-paths';
 
 export interface StoredFile {
   storageKey: string;
@@ -27,8 +27,12 @@ export class StorageService {
   }
 
   resolveAbsolutePath(storageKey: string): string {
+    if (!storageKey || storageKey.includes('\0') || storageKey.split(/[\\/]/).includes('..')) {
+      throw new Error('Invalid storage path.');
+    }
+
     const absolute = resolve(this.uploadRoot, storageKey);
-    if (!absolute.startsWith(this.uploadRoot)) {
+    if (!isPathInside(absolute, this.uploadRoot)) {
       throw new Error('Invalid storage path.');
     }
     return absolute;

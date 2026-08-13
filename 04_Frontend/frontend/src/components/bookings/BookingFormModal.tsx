@@ -10,7 +10,7 @@ import {
 import { clientsService } from '@/services/clients-service';
 import { settingsService } from '@/services/settings-service';
 import { BookingItemsEditor } from '@/components/bookings/BookingItemsEditor';
-import { calculateBookingTotals, expandPackageToBookingItems, formatCurrency } from '@/utils/booking-form';
+import { calculateBookingTotals, expandPackageToBookingItems, formatBookingCurrency, mergeBookingClientOptions, assertEventDateRange } from '@/utils/booking-form';
 
 interface BookingFormModalProps {
   open: boolean;
@@ -87,10 +87,28 @@ export function BookingFormModal({
     });
   }, [open, booking, prefillDate]);
 
-  const selectedClient = useMemo(
-    () => clientsQuery.data?.items.find((client) => client.id === form.clientId),
-    [clientsQuery.data?.items, form.clientId],
-  );
+  const clientOptions = useMemo(() => {
+    const listed = (clientsQuery.data?.items ?? []).map((client) => ({
+      id: client.id,
+      fullName: client.fullName,
+      mobile: client.mobile,
+      email: client.email,
+    }));
+
+    const current =
+      mode === 'edit' && booking
+        ? {
+            id: booking.client.id,
+            fullName: booking.client.fullName,
+            mobile: booking.client.mobile,
+            email: booking.client.email,
+          }
+        : null;
+
+    return mergeBookingClientOptions(listed, current);
+  }, [booking, clientsQuery.data?.items, mode]);
+
+  const selectedClient = clientOptions.find((client) => client.id === form.clientId);
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -111,6 +129,12 @@ export function BookingFormModal({
 
     if (!form.eventDate) {
       setFormError('Please select an event date.');
+      return;
+    }
+
+    const dateError = assertEventDateRange(form.eventDate, form.eventEndDate);
+    if (dateError) {
+      setFormError(dateError);
       return;
     }
 
@@ -153,17 +177,18 @@ export function BookingFormModal({
           )}
           <div className="grid gap-5 lg:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">
+              <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="booking-client">
                 Client <span className="text-gold">*</span>
               </label>
               <select
+                id="booking-client"
                 className="input-field"
                 value={form.clientId}
                 onChange={(event) => setForm((current) => ({ ...current, clientId: event.target.value }))}
                 required
               >
                 <option value="">Select client...</option>
-                {clientsQuery.data?.items.map((client) => (
+                {clientOptions.map((client) => (
                   <option key={client.id} value={client.id}>
                     {client.fullName} ({client.mobile})
                   </option>
@@ -228,10 +253,11 @@ export function BookingFormModal({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">
+              <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="booking-event-date">
                 Event Start Date <span className="text-gold">*</span>
               </label>
               <input
+                id="booking-event-date"
                 type="date"
                 className="input-field"
                 value={form.eventDate}
@@ -243,8 +269,11 @@ export function BookingFormModal({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">Event End Date</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-300" htmlFor="booking-event-end-date">
+                Event End Date
+              </label>
               <input
+                id="booking-event-end-date"
                 type="date"
                 className="input-field"
                 value={form.eventEndDate}
@@ -306,8 +335,8 @@ export function BookingFormModal({
                     <option key={pkg.id} value={pkg.id}>
                       {pkg.label}
                       {pkg.offerPrice !== null
-                        ? ` (${formatCurrency(pkg.offerPrice)})`
-                        : ` (${formatCurrency(pkg.defaultPrice)})`}
+                        ? ` (${formatBookingCurrency(pkg.offerPrice)})`
+                        : ` (${formatBookingCurrency(pkg.defaultPrice)})`}
                     </option>
                   ))}
                 </select>
@@ -324,7 +353,7 @@ export function BookingFormModal({
           <div className="grid gap-4 rounded-xl border border-gold/20 bg-surface-elevated p-5 sm:grid-cols-2 lg:grid-cols-5">
             <div>
               <p className="text-xs uppercase tracking-wider text-gray-500">Subtotal</p>
-              <p className="mt-1 text-lg font-semibold text-gray-100">{formatCurrency(totals.subtotal)}</p>
+              <p className="mt-1 text-lg font-semibold text-gray-100">{formatBookingCurrency(totals.subtotal)}</p>
             </div>
             <div>
               <label className="text-xs uppercase tracking-wider text-gray-500">Discount</label>
@@ -343,7 +372,7 @@ export function BookingFormModal({
             </div>
             <div>
               <p className="text-xs uppercase tracking-wider text-gray-500">Grand Total</p>
-              <p className="mt-1 text-lg font-semibold text-gold">{formatCurrency(totals.totalAmount)}</p>
+              <p className="mt-1 text-lg font-semibold text-gold">{formatBookingCurrency(totals.totalAmount)}</p>
             </div>
             <div>
               <label className="text-xs uppercase tracking-wider text-gray-500">Advance</label>
@@ -363,7 +392,7 @@ export function BookingFormModal({
             <div>
               <p className="text-xs uppercase tracking-wider text-gray-500">Balance</p>
               <p className="mt-1 text-lg font-semibold text-gray-100">
-                {formatCurrency(totals.balanceAmount)}
+                {formatBookingCurrency(totals.balanceAmount)}
               </p>
             </div>
           </div>

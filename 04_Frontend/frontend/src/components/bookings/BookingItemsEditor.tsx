@@ -1,6 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { BookingItem, ServiceRate } from '@/services/bookings-service';
-import { calculateItemAmount, formatCurrency } from '@/utils/booking-form';
+import { calculateItemAmount, formatBookingCurrency } from '@/utils/booking-form';
 
 interface BookingItemsEditorProps {
   items: BookingItem[];
@@ -75,7 +75,7 @@ export function BookingItemsEditor({ items, serviceRates, onChange }: BookingIte
             <option value="">Add service...</option>
             {serviceRates.map((rate) => (
               <option key={rate.id} value={rate.id}>
-                {rate.name} ({formatCurrency(rate.defaultRate)}
+                {rate.name} ({formatBookingCurrency(rate.defaultRate)}
                 {rate.unit === 'day' ? '/day' : ''})
               </option>
             ))}
@@ -142,7 +142,7 @@ export function BookingItemsEditor({ items, serviceRates, onChange }: BookingIte
                       }
                     />
                   </td>
-                  <td className="px-4 py-3 font-medium text-gold">{formatCurrency(item.amount)}</td>
+                  <td className="px-4 py-3 font-medium text-gold">{formatBookingCurrency(item.amount)}</td>
                   <td className="px-4 py-3 text-right">
                     <button
                       type="button"

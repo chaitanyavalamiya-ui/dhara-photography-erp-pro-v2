@@ -1,9 +1,11 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
@@ -16,12 +18,30 @@ import {
 } from 'recharts';
 import { ReportsCharts } from '@/services/reports-service';
 import { formatCurrency } from '@/utils/booking-form';
+import { useDharaTheme } from '@/theme/ThemeProvider';
 
-const CHART_COLORS = ['#b8860b', '#6b1d3a', '#2d6a4f', '#4a5568', '#c05621', '#805ad5'];
+const CHART_COLORS = [
+  'var(--dhara-accent)',
+  'var(--dhara-danger)',
+  'var(--dhara-success)',
+  'var(--dhara-warning)',
+  'var(--dhara-accent-soft)',
+  'var(--dhara-text-secondary)',
+];
 
 function formatTooltipValue(value: unknown): string {
   return formatCurrency(Number(value ?? 0));
 }
+
+const tooltipStyle: CSSProperties = {
+  background: 'var(--dhara-surface)',
+  border: '1px solid var(--dhara-border)',
+  borderRadius: 12,
+  color: 'var(--dhara-text-primary)',
+  boxShadow: 'var(--dhara-glass-shadow)',
+};
+
+const axisTick = { fill: 'var(--dhara-text-secondary)', fontSize: 11 };
 
 interface ReportChartsSectionProps {
   charts?: ReportsCharts;
@@ -29,6 +49,8 @@ interface ReportChartsSectionProps {
 }
 
 export function ReportChartsSection({ charts, loading }: ReportChartsSectionProps) {
+  const { theme } = useDharaTheme();
+
   if (loading) {
     return (
       <div className="grid gap-4 lg:grid-cols-2">
@@ -42,20 +64,37 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
   if (!charts) return null;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <ChartCard title="Monthly Income vs Expense">
+    <div key={theme} className="grid gap-4 lg:grid-cols-2">
+      <ChartCard title="Revenue Overview">
         <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={charts.monthlyIncomeExpense}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-            <XAxis dataKey="label" tick={{ fill: '#9ca3af', fontSize: 11 }} />
-            <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} />
-            <Tooltip
-              contentStyle={{ background: '#1a1a1a', border: '1px solid #333' }}
-              formatter={formatTooltipValue}
+          <ComposedChart data={charts.monthlyIncomeExpense}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
+            <XAxis dataKey="label" tick={axisTick} />
+            <YAxis tick={axisTick} />
+            <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
+            <Area type="monotone" dataKey="income" stroke="none" fill="var(--dhara-glow)" />
+            <Line
+              type="monotone"
+              dataKey="income"
+              name="Revenue"
+              stroke="var(--dhara-accent)"
+              strokeWidth={2.5}
+              dot={false}
             />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      <ChartCard title="Income vs Expenses">
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={charts.monthlyIncomeExpense} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
+            <XAxis type="number" tick={axisTick} />
+            <YAxis type="category" dataKey="label" width={72} tick={axisTick} />
+            <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
             <Legend />
-            <Bar dataKey="income" name="Income" fill="#2d6a4f" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="expenses" name="Expenses" fill="#6b1d3a" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="income" name="Income" fill="var(--dhara-success)" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="expenses" name="Expenses" fill="var(--dhara-danger)" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -63,14 +102,11 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
       <ChartCard title="Monthly Profit / Loss">
         <ResponsiveContainer width="100%" height={260}>
           <LineChart data={charts.monthlyIncomeExpense}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-            <XAxis dataKey="label" tick={{ fill: '#9ca3af', fontSize: 11 }} />
-            <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} />
-            <Tooltip
-              contentStyle={{ background: '#1a1a1a', border: '1px solid #333' }}
-              formatter={formatTooltipValue}
-            />
-            <Line type="monotone" dataKey="profit" name="Profit" stroke="#b8860b" strokeWidth={2} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
+            <XAxis dataKey="label" tick={axisTick} />
+            <YAxis tick={axisTick} />
+            <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
+            <Line type="monotone" dataKey="profit" name="Profit" stroke="var(--dhara-accent)" strokeWidth={2} />
           </LineChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -95,7 +131,7 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
                 <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={formatTooltipValue} />
+            <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
           </PieChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -103,16 +139,11 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
       <ChartCard title="Expenses by Category">
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={charts.expensesByCategory} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-            <XAxis type="number" tick={{ fill: '#9ca3af', fontSize: 11 }} />
-            <YAxis
-              type="category"
-              dataKey="label"
-              width={100}
-              tick={{ fill: '#9ca3af', fontSize: 11 }}
-            />
-            <Tooltip formatter={formatTooltipValue} />
-            <Bar dataKey="value" fill="#6b1d3a" radius={[0, 4, 4, 0]} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
+            <XAxis type="number" tick={axisTick} />
+            <YAxis type="category" dataKey="label" width={100} tick={axisTick} />
+            <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
+            <Bar dataKey="value" fill="var(--dhara-danger)" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartCard>
@@ -121,11 +152,11 @@ export function ReportChartsSection({ charts, loading }: ReportChartsSectionProp
         <ChartCard title="Booking Revenue by Event Type" className="lg:col-span-2">
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={charts.bookingRevenueByType}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-              <XAxis dataKey="label" tick={{ fill: '#9ca3af', fontSize: 11 }} />
-              <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} />
-              <Tooltip formatter={formatTooltipValue} />
-              <Bar dataKey="value" name="Revenue" fill="#b8860b" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--dhara-border)" />
+              <XAxis dataKey="label" tick={axisTick} />
+              <YAxis tick={axisTick} />
+              <Tooltip contentStyle={tooltipStyle} formatter={formatTooltipValue} />
+              <Bar dataKey="value" name="Revenue" fill="var(--dhara-accent)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -145,7 +176,9 @@ function ChartCard({
 }) {
   return (
     <div className={`card border-gold/10 p-4 ${className}`}>
-      <h3 className="mb-3 font-display text-sm font-semibold text-gold">{title}</h3>
+      <h3 className="mb-3 font-display text-lg font-semibold" style={{ color: 'var(--dhara-accent)' }}>
+        {title}
+      </h3>
       {children}
     </div>
   );

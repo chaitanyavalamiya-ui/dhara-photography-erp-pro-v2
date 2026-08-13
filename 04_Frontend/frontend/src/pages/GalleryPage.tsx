@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Image, Plus, Search } from 'lucide-react';
+import { Eye, Image, Plus, Search, Trash2 } from 'lucide-react';
 import { clientsService } from '@/services/clients-service';
 import { bookingsService } from '@/services/bookings-service';
 import {
@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from '@/stores/auth-store';
 import { CreateGalleryModal } from '@/components/gallery/CreateGalleryModal';
 import { GalleryDetailModal } from '@/components/gallery/GalleryDetailModal';
+import { ArchiveGalleryDialog } from '@/components/gallery/ArchiveGalleryDialog';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
 
@@ -51,12 +52,14 @@ export function GalleryPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [detailGalleryId, setDetailGalleryId] = useState<string | null>(null);
+  const [archiveGallery, setArchiveGallery] = useState<Gallery | null>(null);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
   );
 
   const canCreate = hasPermission('gallery.create');
   const canUpdate = hasPermission('gallery.update');
+  const canArchive = hasPermission('gallery.archive');
 
   const clientsQuery = useQuery({
     queryKey: ['clients', 'gallery-filter'],
@@ -67,6 +70,18 @@ export function GalleryPage() {
   const bookingsQuery = useQuery({
     queryKey: ['bookings', 'gallery-filter'],
     queryFn: () => bookingsService.list({ limit: 100, sortBy: 'eventDate', sortOrder: 'desc' }),
+  });
+
+  const selectedClientQuery = useQuery({
+    queryKey: ['clients', clientFilter],
+    queryFn: () => clientsService.getById(clientFilter),
+    enabled: Boolean(clientFilter),
+  });
+
+  const selectedBookingQuery = useQuery({
+    queryKey: ['bookings', bookingFilter],
+    queryFn: () => bookingsService.getById(bookingFilter),
+    enabled: Boolean(bookingFilter),
   });
 
   const listQuery = useQuery({
@@ -106,6 +121,24 @@ export function GalleryPage() {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (id: string) => galleriesService.archive(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['galleries'] });
+      setArchiveGallery(null);
+      if (detailGalleryId === id) {
+        setDetailGalleryId(null);
+      }
+      setFeedback({ type: 'success', message: 'Gallery archived successfully.' });
+    },
+    onError: (error: unknown) => {
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(error, 'Failed to archive gallery.'),
+      });
+    },
+  });
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setSearch(searchInput);
@@ -113,7 +146,20 @@ export function GalleryPage() {
   };
 
   const galleries = listQuery.data?.items ?? [];
-  const existingBookingIds = galleries.map((g) => g.bookingId);
+  const hasFilters = Boolean(
+    search || clientFilter || bookingFilter || (statusFilter && statusFilter !== 'all'),
+  );
+  const clientOptions = [...(clientsQuery.data?.items ?? [])];
+  if (selectedClientQuery.data && !clientOptions.some((client) => client.id === selectedClientQuery.data.id)) {
+    clientOptions.unshift(selectedClientQuery.data);
+  }
+  const bookingOptions = [...(bookingsQuery.data?.items ?? [])];
+  if (
+    selectedBookingQuery.data &&
+    !bookingOptions.some((booking) => booking.id === selectedBookingQuery.data.id)
+  ) {
+    bookingOptions.unshift(selectedBookingQuery.data);
+  }
 
   return (
     <div className="space-y-6">
@@ -170,7 +216,7 @@ export function GalleryPage() {
                 }}
               >
                 <option value="">All clients</option>
-                {(clientsQuery.data?.items ?? []).map((c) => (
+                {(clientOptions).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.fullName}
                   </option>
@@ -189,7 +235,7 @@ export function GalleryPage() {
                 }}
               >
                 <option value="">All bookings</option>
-                {(bookingsQuery.data?.items ?? []).map((b) => (
+                {(bookingOptions).map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.bookingNumber} — {b.client.fullName}
                   </option>
@@ -236,8 +282,10 @@ export function GalleryPage() {
       ) : galleries.length === 0 ? (
         <div className="card flex min-h-64 flex-col items-center justify-center text-center">
           <Image className="h-12 w-12 text-gray-600" />
-          <p className="mt-3 text-gray-400">No galleries found.</p>
-          {canCreate && (
+          <p className="mt-3 text-gray-400">
+            {hasFilters ? 'No galleries match your filters.' : 'No galleries yet.'}
+          </p>
+          {canCreate && !hasFilters && (
             <button type="button" className="btn-primary mt-4" onClick={() => setCreateOpen(true)}>
               Create your first gallery
             </button>
@@ -270,14 +318,26 @@ export function GalleryPage() {
                   <p>{gallery.photoCount} photo{gallery.photoCount === 1 ? '' : 's'}</p>
                 </div>
 
-                <button
-                  type="button"
-                  className="btn-secondary w-full text-xs"
-                  onClick={() => setDetailGalleryId(gallery.id)}
-                >
-                  <Eye className="mr-1.5 inline h-3.5 w-3.5" />
-                  Open Gallery
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary w-full text-xs"
+                    onClick={() => setDetailGalleryId(gallery.id)}
+                  >
+                    <Eye className="mr-1.5 inline h-3.5 w-3.5" />
+                    Open Gallery
+                  </button>
+                  {canArchive && (
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 text-xs text-red-400 hover:text-red-300"
+                      onClick={() => setArchiveGallery(gallery)}
+                      aria-label="Archive gallery"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -311,7 +371,6 @@ export function GalleryPage() {
       <CreateGalleryModal
         open={createOpen}
         isSubmitting={createMutation.isPending}
-        existingBookingIds={existingBookingIds}
         onClose={() => setCreateOpen(false)}
         onSubmit={(values) => createMutation.mutate(values)}
       />
@@ -320,7 +379,25 @@ export function GalleryPage() {
         open={!!detailGalleryId}
         gallery={detailQuery.data ?? null}
         canUpdate={canUpdate}
+        canArchive={canArchive}
         onClose={() => setDetailGalleryId(null)}
+        onArchive={() => {
+          if (detailQuery.data) {
+            setArchiveGallery(detailQuery.data);
+          }
+        }}
+      />
+
+      <ArchiveGalleryDialog
+        open={!!archiveGallery}
+        gallery={archiveGallery}
+        isArchiving={archiveMutation.isPending}
+        onClose={() => setArchiveGallery(null)}
+        onConfirm={() => {
+          if (archiveGallery) {
+            archiveMutation.mutate(archiveGallery.id);
+          }
+        }}
       />
     </div>
   );

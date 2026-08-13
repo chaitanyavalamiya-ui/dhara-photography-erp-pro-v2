@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowUpDown,
@@ -30,6 +31,7 @@ type StatusFilter = 'active' | 'inactive' | 'all';
 export function ClientsPage() {
   const queryClient = useQueryClient();
   const hasPermission = useAuthStore((s) => s.hasPermission);
+  const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -46,6 +48,15 @@ export function ClientsPage() {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
   );
+
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q) {
+      setSearchInput(q);
+      setSearch(q);
+      setPage(1);
+    }
+  }, [searchParams]);
 
   const canCreate = hasPermission('clients.create');
   const canUpdate = hasPermission('clients.update');

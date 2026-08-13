@@ -20,15 +20,21 @@ import { GalleriesService } from './galleries.service';
 import { CreateGalleryDto } from './dto/create-gallery.dto';
 import { UpdateGalleryDto } from './dto/update-gallery.dto';
 import { ListGalleriesQueryDto } from './dto/list-galleries-query.dto';
+import { ListGalleryPhotosQueryDto } from './dto/list-gallery-photos-query.dto';
 import {
   GalleryPhotoDto,
   GalleryResponseDto,
   PaginatedGalleriesResponseDto,
+  PaginatedGalleryPhotosResponseDto,
 } from './dto/gallery-response.dto';
 import { RequirePermissions } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
-import { MAX_UPLOAD_FILES, MAX_UPLOAD_FILE_SIZE_BYTES } from './utils/gallery.utils';
+import {
+  ALLOWED_IMAGE_MIME_TYPES,
+  MAX_UPLOAD_FILES,
+  MAX_UPLOAD_FILE_SIZE_BYTES,
+} from './utils/gallery.utils';
 
 @ApiTags('Galleries')
 @ApiBearerAuth()
@@ -115,8 +121,9 @@ export class GalleriesController {
   async listPhotos(
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,
-  ): Promise<GalleryPhotoDto[]> {
-    return this.galleriesService.listPhotos(user.companyId, id);
+    @Query() query: ListGalleryPhotosQueryDto,
+  ): Promise<PaginatedGalleryPhotosResponseDto> {
+    return this.galleriesService.listPhotos(user.companyId, id, query);
   }
 
   @Post(':id/photos')
@@ -127,6 +134,13 @@ export class GalleriesController {
     FilesInterceptor('files', MAX_UPLOAD_FILES, {
       storage: memoryStorage(),
       limits: { fileSize: MAX_UPLOAD_FILE_SIZE_BYTES },
+      fileFilter: (_req, file, callback) => {
+        if (!ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) {
+          callback(new Error(`Unsupported file type: ${file.originalname}`), false);
+          return;
+        }
+        callback(null, true);
+      },
     }),
   )
   async uploadPhotos(
@@ -159,11 +173,14 @@ export class GalleriesController {
       user.companyId,
       galleryId,
       photoId,
-      variant,
+      variant === 'original' ? 'original' : 'thumbnail',
+      user.permissions,
     );
 
+    const safeName = file.fileName.replace(/[\r\n"]/g, '_');
     res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     res.send(file.buffer);
   }
 

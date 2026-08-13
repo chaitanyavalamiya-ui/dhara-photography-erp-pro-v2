@@ -77,8 +77,8 @@ export function ChangePasswordModal({ open, onClose, onSuccess }: ChangePassword
     : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="card w-full max-w-md dhara-modal-enter">
         <div className="mb-6 flex items-start justify-between">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold/15">

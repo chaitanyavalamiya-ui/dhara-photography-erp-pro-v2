@@ -17,6 +17,7 @@ export interface AlbumPhoto {
   mimeType: string;
   sortOrder: number;
   notes?: string | null;
+  available: boolean;
   createdAt: string;
 }
 
@@ -29,6 +30,7 @@ export interface Album {
   bookingNumber: string;
   galleryId?: string | null;
   galleryName?: string | null;
+  galleryArchived?: boolean;
   albumType: AlbumType;
   albumPrice: number;
   pageCount: number;

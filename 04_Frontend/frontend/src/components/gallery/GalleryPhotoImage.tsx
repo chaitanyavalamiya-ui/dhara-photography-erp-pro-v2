@@ -11,6 +11,7 @@ interface GalleryPhotoImageProps {
   variant?: 'thumbnail' | 'original';
   objectFit?: 'cover' | 'contain';
   errorMessage?: string;
+  enabled?: boolean;
   onClick?: () => void;
 }
 
@@ -22,12 +23,19 @@ export function GalleryPhotoImage({
   variant = 'thumbnail',
   objectFit = 'cover',
   errorMessage = 'Failed',
+  enabled = true,
   onClick,
 }: GalleryPhotoImageProps) {
   const [src, setSrc] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (!enabled) {
+      setSrc(null);
+      setError(true);
+      return;
+    }
+
     let objectUrl: string | null = null;
     let cancelled = false;
 
@@ -59,7 +67,7 @@ export function GalleryPhotoImage({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [galleryId, photoId, variant]);
+  }, [galleryId, photoId, variant, enabled]);
 
   if (error) {
     return (

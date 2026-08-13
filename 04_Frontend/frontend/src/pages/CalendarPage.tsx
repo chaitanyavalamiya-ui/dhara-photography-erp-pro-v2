@@ -1,25 +1,31 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Cake, ChevronLeft, ChevronRight, Heart, PartyPopper, Plus, Gem } from 'lucide-react';
 import {
   Booking,
   BookingFormData,
   CalendarBookingEvent,
   bookingsService,
 } from '@/services/bookings-service';
+import { clientsService } from '@/services/clients-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { BookingFormModal } from '@/components/bookings/BookingFormModal';
 import { BookingViewModal } from '@/components/bookings/BookingViewModal';
 import {
+  CALENDAR_MONTHS,
   buildMonthSummary,
   getCalendarGridDays,
+  getCalendarYearOptions,
   getMonthRange,
   getStatusLabel,
   getStatusStyles,
   getVisibleCalendarRange,
+  groupClientMarkersByDate,
   groupOccupyingEventsByDate,
   isSameMonth,
   isToday,
+  isWeddingEventType,
+  shiftCalendarMonth,
   toDateKey,
 } from '@/utils/calendar';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
@@ -33,6 +39,7 @@ export function CalendarPage() {
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canCreate = hasPermission('bookings.create');
   const canUpdate = hasPermission('bookings.update');
+  const canReadClients = hasPermission('clients.read');
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -57,6 +64,32 @@ export function CalendarPage() {
         dateFrom: visibleRange.dateFrom,
         dateTo: visibleRange.dateTo,
       }),
+  });
+
+  const clientsQuery = useQuery({
+    queryKey: ['clients', 'calendar-markers'],
+    enabled: canReadClients,
+    queryFn: async () => {
+      const pageSize = 100;
+      const first = await clientsService.list({
+        status: 'active',
+        limit: pageSize,
+        page: 1,
+      });
+      const items = [...first.items];
+      const pages = Math.min(first.totalPages, 10);
+
+      for (let page = 2; page <= pages; page += 1) {
+        const next = await clientsService.list({
+          status: 'active',
+          limit: pageSize,
+          page,
+        });
+        items.push(...next.items);
+      }
+
+      return items;
+    },
   });
 
   const upcomingQuery = useQuery({
@@ -132,6 +165,16 @@ export function CalendarPage() {
     () => groupOccupyingEventsByDate(events, visibleRange.dateFrom, visibleRange.dateTo),
     [events, visibleRange.dateFrom, visibleRange.dateTo],
   );
+  const clientMarkersByDate = useMemo(
+    () =>
+      groupClientMarkersByDate(
+        clientsQuery.data ?? [],
+        visibleRange.dateFrom,
+        visibleRange.dateTo,
+      ),
+    [clientsQuery.data, visibleRange.dateFrom, visibleRange.dateTo],
+  );
+  const yearOptions = useMemo(() => getCalendarYearOptions(year), [year]);
 
   const upcomingBookings = upcomingQuery.data?.items ?? [];
 
@@ -150,7 +193,13 @@ export function CalendarPage() {
   };
 
   const goToMonth = (offset: number) => {
-    setCurrentDate(new Date(year, month + offset, 1));
+    const next = shiftCalendarMonth(year, month, offset);
+    setCurrentDate(new Date(next.year, next.month, 1));
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+    setSelectedDay(null);
   };
 
   return (
@@ -158,12 +207,13 @@ export function CalendarPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="font-display text-2xl font-bold text-gray-100">Calendar</h2>
+          <p className="mt-1 font-display text-3xl font-semibold text-gold">{monthRange.label}</p>
           <p className="mt-1 text-sm text-gray-500">
             Studio booking schedule, event visibility, and upcoming shoots.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="btn-secondary" onClick={() => setCurrentDate(new Date())}>
+          <button type="button" className="btn-secondary" onClick={goToToday}>
             Today
           </button>
           <button
@@ -174,9 +224,32 @@ export function CalendarPage() {
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <div className="rounded-lg border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-semibold text-gold">
-            {monthRange.label}
-          </div>
+          <select
+            id="calendar-month"
+            aria-label="Month"
+            className="input-field min-w-[10.5rem] py-2 text-sm font-semibold"
+            value={month}
+            onChange={(event) => setCurrentDate(new Date(year, Number(event.target.value), 1))}
+          >
+            {CALENDAR_MONTHS.map((label, index) => (
+              <option key={label} value={index}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            id="calendar-year"
+            aria-label="Year"
+            className="input-field min-w-[6.5rem] py-2 text-sm font-semibold"
+            value={year}
+            onChange={(event) => setCurrentDate(new Date(Number(event.target.value), month, 1))}
+          >
+            {yearOptions.map((optionYear) => (
+              <option key={optionYear} value={optionYear}>
+                {optionYear}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             aria-label="Next month"
@@ -244,8 +317,13 @@ export function CalendarPage() {
               {gridDays.map((date) => {
                 const dateKey = toDateKey(date);
                 const dayEvents = eventsByDate.get(dateKey) ?? [];
+                const clientMarkers = clientMarkersByDate.get(dateKey) ?? [];
                 const inMonth = isSameMonth(date, year, month);
                 const today = isToday(date);
+                const hasBooking = dayEvents.length > 0;
+                const hasWedding = dayEvents.some((event) => isWeddingEventType(event.eventType));
+                const birthdays = clientMarkers.filter((marker) => marker.type === 'birthday');
+                const anniversaries = clientMarkers.filter((marker) => marker.type === 'anniversary');
 
                 return (
                   <button
@@ -256,7 +334,7 @@ export function CalendarPage() {
                       'min-h-32 border-b border-r border-surface-border p-2 text-left transition hover:bg-white/[0.03]',
                       !inMonth && 'bg-black/10 text-gray-600',
                       today && 'bg-gold/5 ring-1 ring-inset ring-gold/30',
-                      dayEvents.length > 0 && inMonth && 'bg-gold/[0.03]',
+                      hasBooking && inMonth && 'bg-gold/[0.03]',
                     )}
                   >
                     <div className="mb-2 flex items-center justify-between">
@@ -268,11 +346,20 @@ export function CalendarPage() {
                       >
                         {date.getDate()}
                       </span>
-                      {dayEvents.length > 0 && (
-                        <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-medium text-gold">
-                          {dayEvents.length}
-                        </span>
-                      )}
+                      <span className="flex items-center gap-0.5" aria-hidden={!hasBooking && clientMarkers.length === 0}>
+                        {hasBooking && (
+                          <Heart className="h-3.5 w-3.5 fill-current text-rose-400" aria-label="Booked" />
+                        )}
+                        {hasWedding && (
+                          <Gem className="h-3.5 w-3.5 text-gold" aria-label="Wedding" />
+                        )}
+                        {birthdays.length > 0 && (
+                          <Cake className="h-3.5 w-3.5 text-amber-300" aria-label="Birthday" />
+                        )}
+                        {anniversaries.length > 0 && (
+                          <PartyPopper className="h-3.5 w-3.5 text-gold" aria-label="Anniversary" />
+                        )}
+                      </span>
                     </div>
 
                     <div className="space-y-1">
@@ -288,9 +375,8 @@ export function CalendarPage() {
                             getStatusStyles(event.statusCode),
                           )}
                         >
-                          <p className="font-semibold">{event.clientName}</p>
-                          <p>{event.bookingNumber}</p>
-                          <p className="opacity-80">{event.eventType}</p>
+                          <p className="truncate font-semibold">{event.clientName}</p>
+                          <p className="truncate opacity-80">{event.eventType}</p>
                         </div>
                       ))}
                       {dayEvents.length > 2 && (
@@ -380,6 +466,17 @@ export function CalendarPage() {
                     {event.bookingNumber} · {event.eventType}
                   </p>
                 </button>
+              ))}
+              {(clientMarkersByDate.get(selectedDay) ?? []).map((marker) => (
+                <div
+                  key={`${marker.clientId}-${marker.type}`}
+                  className="rounded-lg border border-surface-border bg-surface-elevated px-4 py-3"
+                >
+                  <p className="font-medium text-gray-100">{marker.clientName}</p>
+                  <p className="text-xs text-gray-400">
+                    {marker.type === 'birthday' ? 'Birthday' : 'Anniversary'}
+                  </p>
+                </div>
               ))}
             </div>
 

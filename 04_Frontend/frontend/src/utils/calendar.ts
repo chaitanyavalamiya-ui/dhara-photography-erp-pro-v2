@@ -1,5 +1,46 @@
 import { CalendarBookingEvent } from '@/services/bookings-service';
 
+export const CALENDAR_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+export function getCalendarYearOptions(selectedYear: number, now = new Date()): number[] {
+  const currentYear = now.getFullYear();
+  const start = Math.min(currentYear - 15, selectedYear);
+  const end = Math.max(currentYear + 15, selectedYear);
+  const years: number[] = [];
+
+  for (let year = start; year <= end; year += 1) {
+    years.push(year);
+  }
+
+  return years;
+}
+
+export function shiftCalendarMonth(
+  year: number,
+  month: number,
+  offset: number,
+): { year: number; month: number } {
+  const next = new Date(year, month + offset, 1);
+  return { year: next.getFullYear(), month: next.getMonth() };
+}
+
+export function isWeddingEventType(eventType: string): boolean {
+  return eventType === 'Wedding';
+}
+
 export function toDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -174,4 +215,93 @@ export function isSameMonth(date: Date, year: number, month: number): boolean {
 export function isToday(date: Date): boolean {
   const today = new Date();
   return toDateKey(date) === toDateKey(today);
+}
+
+export interface CalendarClientMarker {
+  clientId: string;
+  clientName: string;
+  type: 'birthday' | 'anniversary';
+}
+
+function monthDayKey(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.slice(0, 10).match(/^\d{4}-(\d{2}-\d{2})$/);
+  return match?.[1] ?? null;
+}
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+export function clientEventDateForYear(sourceDate: string | null | undefined, year: number): string | null {
+  const monthDay = monthDayKey(sourceDate);
+  if (!monthDay) {
+    return null;
+  }
+
+  if (monthDay === '02-29' && !isLeapYear(year)) {
+    return null;
+  }
+
+  return `${year}-${monthDay}`;
+}
+
+function yearsInRange(dateFrom: string, dateTo: string): number[] {
+  const startYear = Number(dateFrom.slice(0, 4));
+  const endYear = Number(dateTo.slice(0, 4));
+  const years: number[] = [];
+
+  for (let year = startYear; year <= endYear; year += 1) {
+    years.push(year);
+  }
+
+  return years;
+}
+
+export function groupClientMarkersByDate(
+  clients: Array<{
+    id: string;
+    fullName: string;
+    dateOfBirth?: string | null;
+    anniversaryDate?: string | null;
+  }>,
+  dateFrom: string,
+  dateTo: string,
+): Map<string, CalendarClientMarker[]> {
+  const map = new Map<string, CalendarClientMarker[]>();
+  const years = yearsInRange(dateFrom, dateTo);
+
+  const addMarker = (dateKey: string | null, marker: CalendarClientMarker) => {
+    if (!dateKey || dateKey < dateFrom || dateKey > dateTo) {
+      return;
+    }
+
+    const existing = map.get(dateKey) ?? [];
+    if (existing.some((item) => item.clientId === marker.clientId && item.type === marker.type)) {
+      return;
+    }
+
+    existing.push(marker);
+    map.set(dateKey, existing);
+  };
+
+  for (const client of clients) {
+    for (const year of years) {
+      addMarker(clientEventDateForYear(client.dateOfBirth, year), {
+        clientId: client.id,
+        clientName: client.fullName,
+        type: 'birthday',
+      });
+      addMarker(clientEventDateForYear(client.anniversaryDate, year), {
+        clientId: client.id,
+        clientName: client.fullName,
+        type: 'anniversary',
+      });
+    }
+  }
+
+  return map;
 }

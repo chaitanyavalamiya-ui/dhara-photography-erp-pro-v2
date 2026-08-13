@@ -7,6 +7,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Camera } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { authService } from '@/services/auth-service';
+import { getLoginErrorMessage } from '@/utils/api-error';
 
 const loginSchema = z.object({
   email: z
@@ -127,9 +128,7 @@ export function LoginPage() {
 
             {loginMutation.isError && (
               <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {(loginMutation.error as Error)?.message === 'Request failed with status code 401'
-                  ? 'Invalid email or password.'
-                  : 'Login failed. Please try again.'}
+                {getLoginErrorMessage(loginMutation.error)}
               </div>
             )}
 

@@ -163,8 +163,10 @@ model User {
   archivedAt      DateTime? @map("archived_at") @db.Timestamptz(6)
   archivedById    String?   @map("archived_by_id") @db.Uuid
   archivedReason  String?   @map("archived_reason")
-  lastLoginAt     DateTime? @map("last_login_at") @db.Timestamptz(6)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastLoginAt         DateTime? @map("last_login_at") @db.Timestamptz(6)
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until") @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdById     String?   @map("created_by") @db.Uuid
   updatedById     String?   @map("updated_by") @db.Uuid

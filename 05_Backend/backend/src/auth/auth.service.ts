@@ -1,4 +1,11 @@
-import { Injectable, UnauthorizedException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -10,6 +17,35 @@ import { LoginResponseDto } from './dto/auth-response.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { assertPasswordPolicy } from '../common/utils/password-policy.util';
+import { AUTH_ERROR_CODES } from './auth-error.codes';
+import {
+  formatLockMessage,
+  getLoginSecurityConfig,
+  getRetryAfterSeconds,
+} from './login-security.config';
+
+const DUMMY_PASSWORD_HASH =
+  '$2b$12$CWPJO/SufF3MKfBcaQ7QYukHNEJ8n6jWJxhnx3Ybc048ykTBNXgGG';
+
+type UserWithRoles = {
+  id: string;
+  companyId: string;
+  fullName: string;
+  email: string;
+  passwordHash: string;
+  isActive: boolean;
+  archivedAt: Date | null;
+  failedLoginAttempts: number;
+  lockedUntil: Date | null;
+  userRoles: Array<{
+    role: {
+      permissions: Array<{
+        isGranted: boolean;
+        permission: { code: string; isActive: boolean };
+      }>;
+    };
+  }>;
+};
 
 @Injectable()
 export class AuthService {
@@ -22,11 +58,11 @@ export class AuthService {
 
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string): Promise<LoginResponseDto> {
     const normalizedEmail = dto.email.toLowerCase().trim();
+    const securityConfig = getLoginSecurityConfig(this.configService);
 
-    const user = await this.prisma.user.findFirst({
+    const userRecord = await this.prisma.user.findFirst({
       where: {
         normalizedEmail,
-        isActive: true,
         archivedAt: null,
       },
       include: {
@@ -45,14 +81,51 @@ export class AuthService {
       },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid email or password.');
+    const passwordHash = userRecord?.passwordHash ?? DUMMY_PASSWORD_HASH;
+    const passwordValid = await bcrypt.compare(dto.password, passwordHash);
+
+    if (!userRecord || !userRecord.isActive) {
+      throw this.invalidCredentials();
     }
 
-    const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!passwordValid) {
-      throw new UnauthorizedException('Invalid email or password.');
+    let user = userRecord as UserWithRoles;
+    user = await this.clearExpiredLockIfNeeded(user);
+
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      if (passwordValid) {
+        const retryAfterSeconds = getRetryAfterSeconds(user.lockedUntil);
+        throw new HttpException(
+          {
+            message: formatLockMessage(retryAfterSeconds),
+            code: AUTH_ERROR_CODES.ACCOUNT_LOCKED,
+            retryAfterSeconds,
+          },
+          HttpStatus.UNAUTHORIZED,
+        );
+      }
+
+      throw this.invalidCredentials();
     }
+
+    if (!passwordValid) {
+      await this.recordFailedLogin(
+        user,
+        securityConfig.maxFailedAttempts,
+        securityConfig.lockDurationMinutes,
+        ipAddress,
+        userAgent,
+      );
+      throw this.invalidCredentials();
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLoginAt: new Date(),
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+    });
 
     const permissions = this.extractPermissions(user.userRoles);
     const payload: JwtPayload = {
@@ -69,16 +142,11 @@ export class AuthService {
 
     const refreshToken = await this.createRefreshToken(user.id);
 
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
-
     await this.auditService.log({
       companyId: user.companyId,
       actorUserId: user.id,
       module: 'auth',
-      action: 'login',
+      action: 'login_success',
       recordType: 'user',
       recordId: user.id,
       ipAddress,
@@ -132,6 +200,13 @@ export class AuthService {
 
     if (!stored || !stored.user.isActive || stored.user.archivedAt) {
       throw new UnauthorizedException('Invalid or expired refresh token.');
+    }
+
+    if (stored.user.lockedUntil && stored.user.lockedUntil > new Date()) {
+      throw new ForbiddenException({
+        message: 'Account temporarily locked.',
+        code: AUTH_ERROR_CODES.ACCOUNT_LOCKED,
+      });
     }
 
     await this.prisma.refreshToken.update({
@@ -198,7 +273,10 @@ export class AuthService {
     });
 
     if (!user || !user.isActive || user.archivedAt) {
-      throw new ForbiddenException('User account is not active.');
+      throw new ForbiddenException({
+        message: 'User account is not active.',
+        code: AUTH_ERROR_CODES.ACCOUNT_INACTIVE,
+      });
     }
 
     return {
@@ -227,7 +305,10 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new ForbiddenException('User account is not active.');
+      throw new ForbiddenException({
+        message: 'User account is not active.',
+        code: AUTH_ERROR_CODES.ACCOUNT_INACTIVE,
+      });
     }
 
     const currentPasswordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
@@ -266,6 +347,95 @@ export class AuthService {
     });
 
     return { message: 'Password changed successfully.' };
+  }
+
+  private async clearExpiredLockIfNeeded(user: UserWithRoles): Promise<UserWithRoles> {
+    if (!user.lockedUntil || user.lockedUntil > new Date()) {
+      return user;
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+      include: {
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  where: { isGranted: true },
+                  include: { permission: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return updated as UserWithRoles;
+  }
+
+  private invalidCredentials(): UnauthorizedException {
+    return new UnauthorizedException({
+      message: 'Invalid email or password.',
+      code: AUTH_ERROR_CODES.INVALID_CREDENTIALS,
+    });
+  }
+
+  private async recordFailedLogin(
+    user: UserWithRoles,
+    maxFailedAttempts: number,
+    lockDurationMinutes: number,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const incremented = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: { increment: 1 },
+        },
+        select: {
+          failedLoginAttempts: true,
+          lockedUntil: true,
+        },
+      });
+
+      if (incremented.failedLoginAttempts < maxFailedAttempts) {
+        return incremented;
+      }
+
+      const lockedUntil = new Date(Date.now() + lockDurationMinutes * 60 * 1000);
+      return tx.user.update({
+        where: { id: user.id },
+        data: { lockedUntil },
+        select: {
+          failedLoginAttempts: true,
+          lockedUntil: true,
+        },
+      });
+    });
+
+    const shouldLock = (result.failedLoginAttempts ?? 0) >= maxFailedAttempts;
+
+    await this.auditService.log({
+      companyId: user.companyId,
+      actorUserId: user.id,
+      module: 'auth',
+      action: shouldLock ? 'login_locked' : 'login_failed',
+      recordType: 'user',
+      recordId: user.id,
+      newValue: {
+        failedLoginAttempts: result.failedLoginAttempts,
+        lockedUntil: result.lockedUntil?.toISOString() ?? null,
+      },
+      ipAddress,
+      userAgent,
+    });
   }
 
   private async createRefreshToken(userId: string): Promise<string> {

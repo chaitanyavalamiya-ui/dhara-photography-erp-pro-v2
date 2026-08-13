@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
@@ -9,6 +9,7 @@ import { Public } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { IsNotEmpty, IsString } from 'class-validator';
+import { AuthRateLimit, AuthRateLimitGuard } from './auth-rate-limit.guard';
 
 class RefreshBodyDto implements RefreshTokenDto {
   @IsString()
@@ -22,6 +23,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @UseGuards(AuthRateLimitGuard)
+  @AuthRateLimit('login')
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })
   async login(@Body() dto: LoginDto, @Req() req: Request): Promise<LoginResponseDto> {
@@ -29,6 +32,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(AuthRateLimitGuard)
+  @AuthRateLimit('refresh')
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh access token' })
   async refresh(@Body() body: RefreshBodyDto): Promise<LoginResponseDto['tokens']> {

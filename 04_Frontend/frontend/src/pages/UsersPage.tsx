@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Search, Shield, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Shield, Trash2, Unlock } from 'lucide-react';
 import { AppUser, usersService } from '@/services/users-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { UserFormModal } from '@/components/users/UserFormModal';
 import { ArchiveUserDialog } from '@/components/users/ArchiveUserDialog';
+import { UnlockUserDialog } from '@/components/users/UnlockUserDialog';
 import { ConfirmPasswordResetDialog } from '@/components/users/ConfirmPasswordResetDialog';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
@@ -24,6 +25,7 @@ export function UsersPage() {
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [archiveUser, setArchiveUser] = useState<AppUser | null>(null);
+  const [unlockUser, setUnlockUser] = useState<AppUser | null>(null);
   const [passwordResetUser, setPasswordResetUser] = useState<AppUser | null>(null);
   const [pendingUpdatePayload, setPendingUpdatePayload] = useState<{
     id: string;
@@ -93,6 +95,21 @@ export function UsersPage() {
       setFeedback({
         type: 'error',
         message: getApiErrorMessage(error, 'Failed to archive user.'),
+      });
+    },
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: usersService.unlock,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setUnlockUser(null);
+      setFeedback({ type: 'success', message: 'User unlocked successfully.' });
+    },
+    onError: (error: unknown) => {
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(error, 'Failed to unlock user.'),
       });
     },
   });
@@ -211,16 +228,23 @@ export function UsersPage() {
                       {user.roles.map((role) => role.name).join(', ')}
                     </td>
                     <td className="px-3 py-4">
-                      <span
-                        className={cn(
-                          'rounded-full px-2.5 py-1 text-xs font-medium',
-                          user.isActive
-                            ? 'bg-green-500/10 text-green-400'
-                            : 'bg-gray-500/10 text-gray-400',
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={cn(
+                            'rounded-full px-2.5 py-1 text-xs font-medium',
+                            user.isActive
+                              ? 'bg-green-500/10 text-green-400'
+                              : 'bg-gray-500/10 text-gray-400',
+                          )}
+                        >
+                          {user.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        {user.isLocked && (
+                          <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-400">
+                            Locked
+                          </span>
                         )}
-                      >
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      </div>
                     </td>
                     <td className="px-3 py-4 text-xs text-gray-500">
                       {user.lastLoginAt
@@ -242,6 +266,16 @@ export function UsersPage() {
                             <Pencil className="h-3.5 w-3.5" />
                             Edit
                           </button>
+                          {user.isLocked && (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 px-2.5 py-1.5 text-xs text-amber-400 hover:bg-amber-500/10"
+                              onClick={() => setUnlockUser(user)}
+                            >
+                              <Unlock className="h-3.5 w-3.5" />
+                              Unlock
+                            </button>
+                          )}
                           {user.id !== currentUserId && (
                             <button
                               type="button"
@@ -322,6 +356,18 @@ export function UsersPage() {
         onConfirm={() => {
           if (pendingUpdatePayload) {
             updateMutation.mutate(pendingUpdatePayload);
+          }
+        }}
+      />
+
+      <UnlockUserDialog
+        open={Boolean(unlockUser)}
+        user={unlockUser}
+        isSubmitting={unlockMutation.isPending}
+        onClose={() => setUnlockUser(null)}
+        onConfirm={() => {
+          if (unlockUser) {
+            unlockMutation.mutate(unlockUser.id);
           }
         }}
       />

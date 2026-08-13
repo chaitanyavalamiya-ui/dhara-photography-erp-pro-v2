@@ -34,6 +34,15 @@ export class UserResponseDto {
   lastLoginAt!: string | null;
 
   @ApiProperty()
+  failedLoginAttempts!: number;
+
+  @ApiProperty({ nullable: true })
+  lockedUntil!: string | null;
+
+  @ApiProperty()
+  isLocked!: boolean;
+
+  @ApiProperty()
   createdAt!: string;
 }
 

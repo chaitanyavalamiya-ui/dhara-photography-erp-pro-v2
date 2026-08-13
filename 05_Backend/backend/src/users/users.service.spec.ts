@@ -19,6 +19,8 @@ describe('UsersService password reset', () => {
     archivedAt: null,
     lastLoginAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    failedLoginAttempts: 0,
+    lockedUntil: null,
     userRoles: [{ role: { id: 'role-1', code: 'staff', name: 'Staff' }, isPrimary: true }],
   };
 
@@ -89,6 +91,45 @@ describe('UsersService password reset', () => {
     expect(passwordResetAudit?.[0].newValue).not.toHaveProperty('password');
     expect(passwordResetAudit?.[0].newValue).not.toHaveProperty('passwordHash');
     expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalled();
+  });
+
+  it('unlocks a locked account, resets attempts, and audits without credentials', async () => {
+    const lockedUser = {
+      ...existingUser,
+      failedLoginAttempts: 5,
+      lockedUntil: new Date(Date.now() + 60_000),
+    };
+    mockPrisma.user.findFirst.mockResolvedValue(lockedUser);
+    mockPrisma.user.update.mockResolvedValue({
+      ...lockedUser,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    });
+
+    const result = await service.unlock('company-1', 'admin-1', 'user-2');
+
+    expect(result.failedLoginAttempts).toBe(0);
+    expect(result.lockedUntil).toBeNull();
+    expect(result.isLocked).toBe(false);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+        }),
+      }),
+    );
+    expect(mockAuditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        module: 'users',
+        action: 'account_unlock',
+        recordId: 'user-2',
+        newValue: { failedLoginAttempts: 0, lockedUntil: null },
+      }),
+    );
+    const serialized = JSON.stringify(mockAuditService.log.mock.calls);
+    expect(serialized).not.toContain('password');
+    expect(serialized).not.toMatch(/passwordHash/);
   });
 
   it('rejects admin password reset that fails policy validation', async () => {

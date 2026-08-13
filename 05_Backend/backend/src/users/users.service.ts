@@ -319,6 +319,54 @@ export class UsersService {
     return { message: 'User archived successfully.' };
   }
 
+  async unlock(
+    companyId: string,
+    actorUserId: string,
+    id: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<UserResponseDto> {
+    const existing = await this.prisma.user.findFirst({
+      where: { id, companyId, archivedAt: null },
+      include: { userRoles: { include: { role: true } } },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        updatedById: actorUserId,
+      },
+      include: { userRoles: { include: { role: true } } },
+    });
+
+    await this.auditService.log({
+      companyId,
+      actorUserId,
+      module: 'users',
+      action: 'account_unlock',
+      recordType: 'user',
+      recordId: id,
+      previousValue: {
+        failedLoginAttempts: existing.failedLoginAttempts,
+        lockedUntil: existing.lockedUntil?.toISOString() ?? null,
+      },
+      newValue: {
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+      },
+      ipAddress,
+      userAgent,
+    });
+
+    return this.mapUser(updated);
+  }
+
   private async validateRoleIds(companyId: string, roleIds: string[]): Promise<void> {
     const roles = await this.prisma.role.findMany({
       where: { companyId, id: { in: roleIds }, isActive: true, archivedAt: null },
@@ -374,6 +422,8 @@ export class UsersService {
   }
 
   private mapUser(user: UserWithRoles): UserResponseDto {
+    const isLocked = Boolean(user.lockedUntil && user.lockedUntil > new Date());
+
     return {
       id: user.id,
       fullName: user.fullName,
@@ -386,6 +436,9 @@ export class UsersService {
         isPrimary: userRole.isPrimary,
       })),
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      failedLoginAttempts: user.failedLoginAttempts,
+      lockedUntil: user.lockedUntil?.toISOString() ?? null,
+      isLocked,
       createdAt: user.createdAt.toISOString(),
     };
   }

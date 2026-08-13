@@ -111,4 +111,6 @@ export interface ApiError {
   success: false;
   message: string;
   errors?: string[];
+  code?: string;
+  retryAfterSeconds?: number;
 }

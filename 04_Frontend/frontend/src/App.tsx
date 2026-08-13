@@ -15,11 +15,13 @@ import { StaffPage } from './pages/StaffPage';
 import { UsersPage } from './pages/UsersPage';
 import { DeliveriesPage } from './pages/DeliveriesPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { AuthSessionBootstrap } from './components/auth/AuthSessionBootstrap';
 import { PermissionRoute } from './routes/PermissionRoute';
 
 export default function App() {
   return (
-    <Routes>
+    <AuthSessionBootstrap>
+      <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route
         path="/"
@@ -136,6 +138,7 @@ export default function App() {
         />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+      </Routes>
+    </AuthSessionBootstrap>
   );
 }

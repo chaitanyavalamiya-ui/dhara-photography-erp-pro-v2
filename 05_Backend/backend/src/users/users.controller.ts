@@ -93,6 +93,23 @@ export class UsersController {
     );
   }
 
+  @Post(':id/unlock')
+  @RequirePermissions('users.manage')
+  @ApiOperation({ summary: 'Unlock a locked user account' })
+  async unlock(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<UserResponseDto> {
+    return this.usersService.unlock(
+      user.companyId,
+      user.sub,
+      id,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
   @Delete(':id')
   @RequirePermissions('users.manage')
   @ApiOperation({ summary: 'Archive a user' })

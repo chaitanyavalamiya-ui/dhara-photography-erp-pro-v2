@@ -14,6 +14,9 @@ export interface AppUser {
   isActive: boolean;
   roles: UserRoleSummary[];
   lastLoginAt: string | null;
+  failedLoginAttempts?: number;
+  lockedUntil?: string | null;
+  isLocked?: boolean;
   createdAt: string;
 }
 
@@ -75,5 +78,10 @@ export const usersService = {
 
   async archive(id: string): Promise<void> {
     await apiClient.delete(`/users/${id}`);
+  },
+
+  async unlock(id: string): Promise<AppUser> {
+    const { data } = await apiClient.post<ApiResponse<AppUser>>(`/users/${id}/unlock`);
+    return data.data;
   },
 };

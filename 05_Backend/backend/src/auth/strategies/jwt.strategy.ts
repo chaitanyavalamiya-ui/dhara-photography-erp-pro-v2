@@ -1,12 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { AUTH_ERROR_CODES } from '../auth-error.codes';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(configService: ConfigService) {
+  constructor(
+    configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -14,7 +19,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload): JwtPayload {
+  async validate(payload: JwtPayload): Promise<JwtPayload> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        isActive: true,
+        archivedAt: true,
+        lockedUntil: true,
+      },
+    });
+
+    if (!user || !user.isActive || user.archivedAt) {
+      throw new UnauthorizedException({
+        message: 'User account is not active.',
+        code: AUTH_ERROR_CODES.ACCOUNT_INACTIVE,
+      });
+    }
+
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      throw new UnauthorizedException({
+        message: 'Account temporarily locked.',
+        code: AUTH_ERROR_CODES.ACCOUNT_LOCKED,
+      });
+    }
+
     return payload;
   }
 }

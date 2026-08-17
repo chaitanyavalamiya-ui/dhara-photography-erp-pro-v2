@@ -103,7 +103,13 @@ export class ClientsController {
     @Param('id') id: string,
     @Req() req: Request,
   ): Promise<{ message: string }> {
-    return { message: 'Client archived successfully.' };
+    return this.clientsService.archive(
+      user.companyId,
+      user.sub,
+      id,
+      req.ip,
+      req.headers['user-agent'],
+    );
   }
 
   @Post(':id/restore')

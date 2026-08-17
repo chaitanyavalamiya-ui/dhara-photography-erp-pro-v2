@@ -10,7 +10,8 @@ describe('ClientsController restore endpoint', () => {
     expect(source).toContain('async restore(');
   });
 
-  it('keeps archive on clients.archive and update on clients.update', () => {
+  it('delegates archive to ClientsService', () => {
+    expect(source).toContain('this.clientsService.archive(');
     expect(source).toContain("@RequirePermissions('clients.update')");
     expect(source).toContain("@RequirePermissions('clients.create')");
     expect(source).toContain("@RequirePermissions('clients.read')");

@@ -28,11 +28,8 @@ import { invoicesService } from '@/services/invoices-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { ReportChartsSection } from '@/components/reports/ReportChartsSection';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
+import { todayIso } from '@/utils/studio-date';
 import { cn } from '@/utils/cn';
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function LoadingCard({ className }: { className?: string }) {
   return <div className={cn('card animate-pulse bg-surface-elevated', className)} />;
@@ -57,7 +54,10 @@ function EmptyPanel({
       >
         <Icon className="h-5 w-5" />
       </div>
-      <p className="max-w-sm text-sm leading-relaxed" style={{ color: 'var(--dhara-text-secondary)' }}>
+      <p
+        className="max-w-sm text-sm leading-relaxed"
+        style={{ color: 'var(--dhara-text-secondary)' }}
+      >
         {message}
       </p>
     </div>
@@ -220,6 +220,7 @@ export function DashboardPage() {
       value: string;
       sub: string;
       icon: typeof Wallet;
+      roboTarget?: string;
     }[] = [];
 
     if (canBookings) {
@@ -228,6 +229,7 @@ export function DashboardPage() {
         value: String(todayBookingsQuery.data?.length ?? (todayBookingsQuery.isLoading ? '—' : 0)),
         sub: 'Shoots scheduled today',
         icon: Camera,
+        roboTarget: 'today-bookings',
       });
     }
 
@@ -250,6 +252,7 @@ export function DashboardPage() {
           value: formatCurrency(allTime.amountReceived),
           sub: 'All-time collections',
           icon: ArrowDownLeft,
+          roboTarget: 'cash-received',
         },
         {
           label: 'Outstanding',
@@ -309,7 +312,7 @@ export function DashboardPage() {
   const quickActions = [
     canCreateBooking && { label: 'New Booking', to: '/bookings', icon: CalendarDays },
     canCreatePayment && { label: 'Record Payment', to: '/accounts', icon: ArrowDownLeft },
-    canCreateExpense && { label: 'Add Expense', to: '/accounts', icon: Receipt },
+    canCreateExpense && { label: 'Add Expense', to: '/expenses', icon: Receipt },
     canReports && { label: 'Open Reports', to: '/reports', icon: TrendingUp },
   ].filter(Boolean) as { label: string; to: string; icon: typeof Plus }[];
 
@@ -333,10 +336,16 @@ export function DashboardPage() {
           <h2 className="mt-3 font-display text-5xl font-semibold leading-tight sm:text-6xl">
             Welcome, {firstName}
           </h2>
-          <p className="font-gujarati mt-4 text-2xl sm:text-3xl" style={{ color: 'var(--dhara-accent-soft)' }}>
+          <p
+            className="font-gujarati mt-4 text-2xl sm:text-3xl"
+            style={{ color: 'var(--dhara-accent-soft)' }}
+          >
             ધારા ફોટોગ્રાફી પાટણમાં આપનું સ્વાગત છે
           </p>
-          <p className="mt-4 max-w-xl text-base leading-relaxed" style={{ color: 'var(--dhara-text-secondary)' }}>
+          <p
+            className="mt-4 max-w-xl text-base leading-relaxed"
+            style={{ color: 'var(--dhara-text-secondary)' }}
+          >
             Luxury wedding studio command center — bookings, clients, invoices, and accounts in one
             cinematic workspace.
           </p>
@@ -345,9 +354,7 @@ export function DashboardPage() {
 
       {(canAccounts || canReports || canBookings) && (
         <div>
-          <p className="dhara-section-kicker mb-3">
-            Studio Snapshot
-          </p>
+          <p className="dhara-section-kicker mb-3">Studio Snapshot</p>
           {accountsDashboardQuery.isLoading && reportsDashboardQuery.isLoading && canAccounts ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -357,11 +364,9 @@ export function DashboardPage() {
           ) : kpiCards.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
               {kpiCards.map((card) => (
-                <div key={card.label} className="card dhara-kpi">
+                <div key={card.label} className="card dhara-kpi" data-robo-target={card.roboTarget}>
                   <div className="flex items-start justify-between">
-                    <p className="dhara-kpi-label">
-                      {card.label}
-                    </p>
+                    <p className="dhara-kpi-label">{card.label}</p>
                     <div
                       className="flex h-9 w-9 items-center justify-center rounded-lg"
                       style={{
@@ -372,7 +377,10 @@ export function DashboardPage() {
                       <card.icon className="h-4 w-4" style={{ color: 'var(--dhara-accent)' }} />
                     </div>
                   </div>
-                  <p className="font-display mt-4 text-4xl font-semibold leading-none" style={{ color: 'var(--dhara-text-primary)' }}>
+                  <p
+                    className="font-display mt-4 text-4xl font-semibold leading-none"
+                    style={{ color: 'var(--dhara-text-primary)' }}
+                  >
                     {card.value}
                   </p>
                   <p className="mt-2 text-sm" style={{ color: 'var(--dhara-text-secondary)' }}>
@@ -392,10 +400,17 @@ export function DashboardPage() {
           {canBookings && (
             <div className="card dhara-recent-bookings overflow-hidden p-0">
               <div className="flex items-center justify-between px-6 pt-6">
-                <h3 className="font-display text-2xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
+                <h3
+                  className="font-display text-2xl font-semibold"
+                  style={{ color: 'var(--dhara-accent-soft)' }}
+                >
                   Recent Bookings
                 </h3>
-                <Link to="/bookings" className="text-sm hover:underline" style={{ color: 'var(--dhara-accent)' }}>
+                <Link
+                  to="/bookings"
+                  className="text-sm hover:underline"
+                  style={{ color: 'var(--dhara-accent)' }}
+                >
                   View bookings →
                 </Link>
               </div>
@@ -419,7 +434,9 @@ export function DashboardPage() {
                       {recentBookingsQuery.data?.items.map((booking) => (
                         <tr key={booking.id}>
                           <td>
-                            <p className="font-medium">{booking.client?.fullName ?? booking.bookingNumber}</p>
+                            <p className="font-medium">
+                              {booking.client?.fullName ?? booking.bookingNumber}
+                            </p>
                             <p className="text-sm" style={{ color: 'var(--dhara-text-secondary)' }}>
                               {booking.bookingNumber}
                             </p>
@@ -427,9 +444,13 @@ export function DashboardPage() {
                           <td>{booking.eventType}</td>
                           <td>{booking.eventDate ? formatDate(booking.eventDate) : '—'}</td>
                           <td>
-                            <span className={bookingStatusClass(booking.statusCode)}>{booking.status}</span>
+                            <span className={bookingStatusClass(booking.statusCode)}>
+                              {booking.status}
+                            </span>
                           </td>
-                          <td className="text-right font-semibold">{formatCurrency(booking.totalAmount)}</td>
+                          <td className="text-right font-semibold">
+                            {formatCurrency(booking.totalAmount)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -442,11 +463,18 @@ export function DashboardPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-display text-xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
+                <h3
+                  className="font-display text-xl font-semibold"
+                  style={{ color: 'var(--dhara-accent-soft)' }}
+                >
                   Today&apos;s Shoots
                 </h3>
                 {canBookings && (
-                  <Link to="/calendar" className="text-sm hover:underline" style={{ color: 'var(--dhara-accent)' }}>
+                  <Link
+                    to="/calendar"
+                    className="text-sm hover:underline"
+                    style={{ color: 'var(--dhara-accent)' }}
+                  >
                     Open calendar →
                   </Link>
                 )}
@@ -475,7 +503,10 @@ export function DashboardPage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm capitalize" style={{ color: 'var(--dhara-text-secondary)' }}>
+                        <p
+                          className="text-sm capitalize"
+                          style={{ color: 'var(--dhara-text-secondary)' }}
+                        >
                           {booking.status}
                         </p>
                         <p className="font-semibold" style={{ color: 'var(--dhara-accent)' }}>
@@ -491,10 +522,17 @@ export function DashboardPage() {
             {canAccounts && (
               <div className="card">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-display text-xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
+                  <h3
+                    className="font-display text-xl font-semibold"
+                    style={{ color: 'var(--dhara-accent-soft)' }}
+                  >
                     Recent Payments
                   </h3>
-                  <Link to="/accounts" className="text-sm hover:underline" style={{ color: 'var(--dhara-accent)' }}>
+                  <Link
+                    to="/accounts"
+                    className="text-sm hover:underline"
+                    style={{ color: 'var(--dhara-accent)' }}
+                  >
                     View accounts →
                   </Link>
                 </div>
@@ -530,10 +568,12 @@ export function DashboardPage() {
           {canReports && (
             <div>
               <div className="mb-3 flex items-center justify-between">
-                <p className="dhara-section-kicker">
-                  Revenue Overview · Income vs Expenses
-                </p>
-                <Link to="/reports" className="text-sm hover:underline" style={{ color: 'var(--dhara-accent)' }}>
+                <p className="dhara-section-kicker">Revenue Overview · Income vs Expenses</p>
+                <Link
+                  to="/reports"
+                  className="text-sm hover:underline"
+                  style={{ color: 'var(--dhara-accent)' }}
+                >
                   Full reports →
                 </Link>
               </div>
@@ -545,11 +585,18 @@ export function DashboardPage() {
         <div className="space-y-6">
           <div className="card">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="font-display text-xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
+              <h3
+                className="font-display text-xl font-semibold"
+                style={{ color: 'var(--dhara-accent-soft)' }}
+              >
                 Today&apos;s Events
               </h3>
               {canClients && (
-                <Link to="/clients" className="text-sm hover:underline" style={{ color: 'var(--dhara-accent)' }}>
+                <Link
+                  to="/clients"
+                  className="text-sm hover:underline"
+                  style={{ color: 'var(--dhara-accent)' }}
+                >
                   View clients →
                 </Link>
               )}
@@ -559,7 +606,10 @@ export function DashboardPage() {
             ) : upcomingEventsQuery.isLoading ? (
               <LoadingCard className="h-40" />
             ) : (upcomingEventsQuery.data?.length ?? 0) === 0 ? (
-              <EmptyPanel message="No upcoming birthdays or anniversaries in the next 30 days." icon={Gift} />
+              <EmptyPanel
+                message="No upcoming birthdays or anniversaries in the next 30 days."
+                icon={Gift}
+              />
             ) : (
               <div className="space-y-2">
                 {upcomingEventsQuery.data?.slice(0, 6).map((event) => (
@@ -572,7 +622,10 @@ export function DashboardPage() {
                       <Gift className="h-4 w-4" style={{ color: 'var(--dhara-accent)' }} />
                       <div>
                         <p className="font-medium">{event.clientName}</p>
-                        <p className="text-sm capitalize" style={{ color: 'var(--dhara-text-secondary)' }}>
+                        <p
+                          className="text-sm capitalize"
+                          style={{ color: 'var(--dhara-text-secondary)' }}
+                        >
                           {event.eventType} · {formatDate(event.eventDate)}
                         </p>
                       </div>
@@ -588,12 +641,19 @@ export function DashboardPage() {
 
           {quickActions.length > 0 && (
             <div className="card">
-              <h3 className="mb-4 font-display text-xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
+              <h3
+                className="mb-4 font-display text-xl font-semibold"
+                style={{ color: 'var(--dhara-accent-soft)' }}
+              >
                 Quick Actions
               </h3>
               <div className="dhara-quick-actions-grid grid grid-cols-2 gap-3">
                 {quickActions.map((action) => (
-                  <Link key={action.label} to={action.to} className="btn-secondary dhara-studio-control dhara-card-hover">
+                  <Link
+                    key={action.label}
+                    to={action.to}
+                    className="btn-secondary dhara-studio-control dhara-card-hover"
+                  >
                     <action.icon className="mr-2 h-4 w-4" />
                     {action.label}
                   </Link>
@@ -604,7 +664,10 @@ export function DashboardPage() {
 
           {studioShortcuts.length > 0 && (
             <div className="card">
-              <h3 className="mb-4 font-display text-xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
+              <h3
+                className="mb-4 font-display text-xl font-semibold"
+                style={{ color: 'var(--dhara-accent-soft)' }}
+              >
                 Studio Shortcuts
               </h3>
               <div className="dhara-studio-shortcuts grid grid-cols-2 gap-3">
@@ -629,10 +692,17 @@ export function DashboardPage() {
           {canInvoices && (
             <div className="card">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-display text-xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
+                <h3
+                  className="font-display text-xl font-semibold"
+                  style={{ color: 'var(--dhara-accent-soft)' }}
+                >
                   Recent Invoices
                 </h3>
-                <Link to="/invoices" className="text-sm hover:underline" style={{ color: 'var(--dhara-accent)' }}>
+                <Link
+                  to="/invoices"
+                  className="text-sm hover:underline"
+                  style={{ color: 'var(--dhara-accent)' }}
+                >
                   View invoices →
                 </Link>
               </div>
@@ -655,7 +725,9 @@ export function DashboardPage() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className={invoiceStatusClass(invoice.status)}>{invoice.status.replace('_', ' ')}</span>
+                        <span className={invoiceStatusClass(invoice.status)}>
+                          {invoice.status.replace('_', ' ')}
+                        </span>
                         <p className="mt-1 font-semibold">{formatCurrency(invoice.totalAmount)}</p>
                       </div>
                     </div>
@@ -670,17 +742,27 @@ export function DashboardPage() {
       {canDeliveries && (
         <div className="card">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-display text-xl font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
+            <h3
+              className="font-display text-xl font-semibold"
+              style={{ color: 'var(--dhara-accent-soft)' }}
+            >
               Upcoming / Pending Deliveries
             </h3>
-            <Link to="/deliveries" className="text-sm hover:underline" style={{ color: 'var(--dhara-accent)' }}>
+            <Link
+              to="/deliveries"
+              className="text-sm hover:underline"
+              style={{ color: 'var(--dhara-accent)' }}
+            >
               View deliveries →
             </Link>
           </div>
           {upcomingDeliveriesQuery.isLoading ? (
             <LoadingCard className="h-40" />
           ) : upcomingDeliveriesQuery.isError ? (
-            <div className="rounded-lg border px-4 py-6 text-center text-sm" style={{ borderColor: 'var(--dhara-danger)', color: 'var(--dhara-danger)' }}>
+            <div
+              className="rounded-lg border px-4 py-6 text-center text-sm"
+              style={{ borderColor: 'var(--dhara-danger)', color: 'var(--dhara-danger)' }}
+            >
               Failed to load deliveries.
             </div>
           ) : (upcomingDeliveriesQuery.data?.length ?? 0) === 0 ? (
@@ -695,19 +777,27 @@ export function DashboardPage() {
                   style={{ border: '1px solid var(--dhara-border)' }}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <Package className="h-4 w-4 shrink-0" style={{ color: 'var(--dhara-accent)' }} />
+                    <Package
+                      className="h-4 w-4 shrink-0"
+                      style={{ color: 'var(--dhara-accent)' }}
+                    />
                     <div className="min-w-0">
                       <p className="truncate font-medium">
                         {delivery.clientName} · {delivery.bookingNumber}
                       </p>
-                      <p className="truncate text-sm" style={{ color: 'var(--dhara-text-secondary)' }}>
+                      <p
+                        className="truncate text-sm"
+                        style={{ color: 'var(--dhara-text-secondary)' }}
+                      >
                         {delivery.deliverableTypeLabel}
                         {delivery.title ? ` · ${delivery.title}` : ''}
                       </p>
                     </div>
                   </div>
                   <div className="ml-3 shrink-0 text-right">
-                    <span className={deliveryStatusClass(delivery.status)}>{delivery.statusLabel}</span>
+                    <span className={deliveryStatusClass(delivery.status)}>
+                      {delivery.statusLabel}
+                    </span>
                     <p className="mt-1 text-sm" style={{ color: 'var(--dhara-text-secondary)' }}>
                       {delivery.expectedDate ? formatDate(delivery.expectedDate) : 'No date'}
                     </p>

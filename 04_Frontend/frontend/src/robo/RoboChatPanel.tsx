@@ -1,12 +1,16 @@
 import { FormEvent, useState } from 'react';
-import { Minus, RotateCcw, Send, Trash2, WifiOff, X } from 'lucide-react';
+import { Mic, Minus, RotateCcw, Send, Trash2, Volume2, VolumeX, WifiOff, X } from 'lucide-react';
 import { useRobo } from './RoboProvider';
 import { RoboCharacter } from './RoboCharacter';
 import { cn } from '@/utils/cn';
+import { ROBO_QUICK_ACTIONS, roboMemoryCount } from './robo-commands';
+import { isRoboVoiceInputAvailable } from './robo-voice.browser';
 
 export function RoboChatPanel() {
   const robo = useRobo();
   const [draft, setDraft] = useState('');
+  const voiceOk = isRoboVoiceInputAvailable();
+  const learned = roboMemoryCount();
 
   if (!robo.chatOpen) return null;
 
@@ -37,6 +41,15 @@ export function RoboChatPanel() {
         <button type="button" className="btn-secondary h-9 w-9 px-0" aria-label="Minimize Robo" onClick={robo.minimize}>
           <Minus className="h-4 w-4" />
         </button>
+        <button
+          type="button"
+          className="btn-secondary h-9 w-9 px-0"
+          aria-label={robo.voiceMuted ? 'Unmute Robo' : 'Mute Robo'}
+          aria-pressed={robo.voiceMuted}
+          onClick={robo.toggleMute}
+        >
+          {robo.voiceMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
         <button type="button" className="btn-secondary h-9 w-9 px-0" aria-label="Close Robo chat" onClick={robo.closeChat}>
           <X className="h-4 w-4" />
         </button>
@@ -44,9 +57,28 @@ export function RoboChatPanel() {
 
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3" aria-live="polite">
         {robo.messages.length === 0 && (
-          <p className="text-sm" style={{ color: 'var(--dhara-text-secondary)' }}>
-            Gujarati, Hindi, અથવા English માં પૂછો.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: 'var(--dhara-text-secondary)' }}>
+              Gujarati, Hindi, અથવા English માં પૂછો. હું ફરું, બોલું, બતાવું અને શીખવું.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {ROBO_QUICK_ACTIONS.map((action) => (
+                <button
+                  key={action.prompt}
+                  type="button"
+                  className="btn-secondary px-2 py-1 text-xs"
+                  onClick={() => void robo.send(action.prompt)}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+            {learned > 0 ? (
+              <p className="text-xs" style={{ color: 'var(--dhara-text-secondary)' }}>
+                Learning: {learned} studio questions remembered on this PC.
+              </p>
+            ) : null}
+          </div>
         )}
         {robo.messages.map((message, index) => (
           <div
@@ -86,6 +118,18 @@ export function RoboChatPanel() {
         <button type="submit" className="btn-primary h-11 w-11 px-0" aria-label="Send" disabled={robo.loading}>
           <Send className="h-4 w-4" />
         </button>
+        {voiceOk ? (
+          <button
+            type="button"
+            className="btn-secondary h-11 w-11 px-0"
+            aria-label={robo.listening ? 'Stop voice input' : 'Speak to Robo'}
+            aria-pressed={robo.listening}
+            disabled={robo.loading}
+            onClick={() => (robo.listening ? robo.stopListening() : robo.startListening())}
+          >
+            <Mic className="h-4 w-4" />
+          </button>
+        ) : null}
         <button type="button" className="btn-secondary h-11 w-11 px-0" aria-label="Retry last message" onClick={() => void robo.retry()}>
           <RotateCcw className="h-4 w-4" />
         </button>

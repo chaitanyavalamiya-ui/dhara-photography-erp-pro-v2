@@ -16,14 +16,15 @@ import {
   PaginatedInvoicesResponseDto,
 } from './dto/invoice-response.dto';
 import {
+  allocateNextInvoiceNumber,
   computeInvoiceStatus,
   defaultDueDate,
-  generateInvoiceNumber,
+  isInvoiceNumberUniqueConflict,
   parseOptionalDate,
   roundMoney,
   toDateOnlyLabel,
 } from './utils/invoice.utils';
-import { getPaymentTotalForInvoice } from '../common/utils/financial.utils';
+import { getPaymentTotalForInvoice, generateReceiptNumber, getStudioDateParts, syncInvoiceAndBookingFinancials } from '../common/utils/financial.utils';
 import { toDecimal } from '../bookings/utils/booking.utils';
 
 type InvoiceWithRelations = Prisma.InvoiceGetPayload<{
@@ -145,30 +146,20 @@ export class InvoicesService {
       balanceAmount,
       dueDate,
     );
-    const invoiceNumber = await generateInvoiceNumber(() =>
-      this.prisma.invoice.count({ where: { companyId } }),
-    );
-
-    const invoice = await this.prisma.invoice.create({
-      data: {
-        companyId,
-        branchId: booking.branchId,
-        clientId: booking.clientId,
-        bookingId: booking.id,
-        invoiceNumber,
-        subtotal: toDecimal(subtotal),
-        discount: toDecimal(discount),
-        totalAmount: toDecimal(totalAmount),
-        advanceAmount: toDecimal(advanceAmount),
-        outstandingAmount: toDecimal(balanceAmount),
-        status,
-        invoiceDate: new Date(),
-        dueDate,
-        notes: dto.notes?.trim() || null,
-        createdById: userId,
-        updatedById: userId,
-      },
-      include: this.invoiceInclude(),
+    const invoice = await this.createInvoiceWithNumberRetry({
+      companyId,
+      branchId: booking.branchId,
+      clientId: booking.clientId,
+      bookingId: booking.id,
+      subtotal,
+      discount,
+      totalAmount,
+      advanceAmount,
+      outstandingAmount: balanceAmount,
+      status,
+      dueDate,
+      notes: dto.notes?.trim() || null,
+      userId,
     });
 
     await this.auditService.log({
@@ -306,6 +297,114 @@ export class InvoicesService {
     });
 
     return { message: 'Invoice archived successfully.' };
+  }
+
+  private async createInvoiceWithNumberRetry(data: {
+    companyId: string;
+    branchId: string;
+    clientId: string;
+    bookingId: string;
+    subtotal: number;
+    discount: number;
+    totalAmount: number;
+    advanceAmount: number;
+    outstandingAmount: number;
+    status: string;
+    dueDate: Date | null;
+    notes: string | null;
+    userId: string;
+  }): Promise<InvoiceWithRelations> {
+    const maxAttempts = 8;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const latest = await tx.invoice.findFirst({
+            where: { companyId: data.companyId },
+            orderBy: { invoiceNumber: 'desc' },
+            select: { invoiceNumber: true },
+          });
+
+          const studioNow = getStudioDateParts();
+          const invoiceDate = new Date(
+            Date.UTC(studioNow.year, studioNow.month - 1, studioNow.day, 12, 0, 0),
+          );
+
+          const invoice = await tx.invoice.create({
+            data: {
+              companyId: data.companyId,
+              branchId: data.branchId,
+              clientId: data.clientId,
+              bookingId: data.bookingId,
+              invoiceNumber: allocateNextInvoiceNumber(latest?.invoiceNumber),
+              subtotal: toDecimal(data.subtotal),
+              discount: toDecimal(data.discount),
+              totalAmount: toDecimal(data.totalAmount),
+              advanceAmount: toDecimal(data.advanceAmount),
+              outstandingAmount: toDecimal(data.outstandingAmount),
+              status: data.status,
+              invoiceDate,
+              dueDate: data.dueDate,
+              notes: data.notes,
+              createdById: data.userId,
+              updatedById: data.userId,
+            },
+            include: this.invoiceInclude(),
+          });
+
+          if (data.advanceAmount > 0) {
+            const cashMode = await tx.masterData.findFirst({
+              where: {
+                companyId: data.companyId,
+                category: 'payment_mode',
+                code: 'cash',
+                isActive: true,
+              },
+            });
+
+            if (!cashMode) {
+              throw new BadRequestException(
+                'Cash payment method is required to record booking advance.',
+              );
+            }
+
+            await tx.payment.create({
+              data: {
+                companyId: data.companyId,
+                branchId: data.branchId,
+                clientId: data.clientId,
+                bookingId: data.bookingId,
+                invoiceId: invoice.id,
+                paymentModeId: cashMode.id,
+                receiptNumber: await generateReceiptNumber(tx, data.companyId),
+                amount: toDecimal(data.advanceAmount),
+                paymentDate: invoiceDate,
+                notes: 'Booking advance recorded at invoice generation',
+                createdById: data.userId,
+                updatedById: data.userId,
+              },
+            });
+
+            await syncInvoiceAndBookingFinancials(tx, invoice.id);
+
+            return tx.invoice.findFirstOrThrow({
+              where: { id: invoice.id },
+              include: this.invoiceInclude(),
+            });
+          }
+
+          return invoice;
+        });
+      } catch (error) {
+        lastError = error;
+        if (!isInvoiceNumberUniqueConflict(error) || attempt === maxAttempts - 1) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
   }
 
   private invoiceInclude() {

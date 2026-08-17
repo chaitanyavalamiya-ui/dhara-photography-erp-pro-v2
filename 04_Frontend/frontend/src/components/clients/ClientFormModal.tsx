@@ -99,7 +99,7 @@ export function ClientFormModal({
               <label className="mb-1.5 block text-sm font-medium text-gray-300">
                 Client Name <span className="text-gold">*</span>
               </label>
-              <input className="input-field" {...register('fullName')} />
+              <input className="input-field" data-robo-target="client-name" {...register('fullName')} />
               {errors.fullName && (
                 <p className="mt-1 text-xs text-red-400">{errors.fullName.message}</p>
               )}
@@ -176,7 +176,7 @@ export function ClientFormModal({
             <button type="button" className="btn-secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button type="submit" className="btn-primary" data-robo-target="save-client" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : mode === 'create' ? 'Add Client' : 'Save Changes'}
             </button>
           </div>

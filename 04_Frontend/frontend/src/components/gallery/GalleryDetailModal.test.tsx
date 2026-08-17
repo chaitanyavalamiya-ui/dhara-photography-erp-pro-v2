@@ -17,6 +17,7 @@ vi.mock('@/services/galleries-service', async () => {
       uploadPhoto: vi.fn(),
       uploadPhotos: vi.fn(),
       deletePhoto: vi.fn(),
+      update: vi.fn(),
     },
   };
 });

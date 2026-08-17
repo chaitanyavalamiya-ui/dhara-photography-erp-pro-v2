@@ -11,6 +11,7 @@ vi.mock('./api-client', () => ({
   apiClient: {
     post: vi.fn(),
     get: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
   },
 }));

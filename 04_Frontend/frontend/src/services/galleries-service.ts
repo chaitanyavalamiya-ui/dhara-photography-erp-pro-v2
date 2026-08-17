@@ -104,6 +104,14 @@ export const galleriesService = {
     return data.data;
   },
 
+  async update(
+    id: string,
+    payload: { status?: GalleryStatus; allowClientDownload?: boolean },
+  ): Promise<Gallery> {
+    const { data } = await apiClient.patch<ApiResponse<Gallery>>(`/galleries/${id}`, payload);
+    return data.data;
+  },
+
   async archive(id: string): Promise<void> {
     await apiClient.delete(`/galleries/${id}`);
   },

@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth-store';
 import { authService } from '@/services/auth-service';
 import { ChangePasswordModal } from '@/components/auth/ChangePasswordModal';
+import { clearRememberedPostLoginPath } from '@/utils/post-login-path';
 
 export function Header() {
   const user = useAuthStore((s) => s.user);
@@ -20,6 +21,7 @@ export function Header() {
       // Clear local session even if API call fails
     } finally {
       clearAuth();
+      clearRememberedPostLoginPath();
       navigate('/login');
     }
   };

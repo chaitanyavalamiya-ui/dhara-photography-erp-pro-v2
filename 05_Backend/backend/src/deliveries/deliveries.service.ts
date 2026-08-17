@@ -180,8 +180,8 @@ export class DeliveriesService {
       deliveredDate = null;
     }
 
-    if (deliveredDate && status !== 'delivered') {
-      status = 'delivered';
+    if (status !== 'delivered') {
+      deliveredDate = null;
     }
 
     const updated = await this.prisma.delivery.update({

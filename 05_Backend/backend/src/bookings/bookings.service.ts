@@ -323,6 +323,16 @@ export class BookingsService {
       select: { id: true },
     });
 
+    if (
+      activeInvoice &&
+      dto.advanceAmount !== undefined &&
+      roundMoney(dto.advanceAmount) !== roundMoney(Number(existing.advanceAmount))
+    ) {
+      throw new BadRequestException(
+        'Advance is managed by invoice payments. Add or update a payment instead of editing booking advance.',
+      );
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       if (dto.items) {
         await tx.bookingItem.deleteMany({ where: { bookingId: id } });

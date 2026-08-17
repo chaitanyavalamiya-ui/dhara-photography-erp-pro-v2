@@ -79,7 +79,7 @@ export class CreateBookingDto {
 
   @ApiPropertyOptional({ example: '2026-12-17' })
   @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsDateString()
   eventEndDate?: string;
 

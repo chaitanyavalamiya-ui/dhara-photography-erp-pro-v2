@@ -1,18 +1,13 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { MasterData, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
+import { CreateStaffPaymentDto } from './dto/create-staff-payment.dto';
+import { UpdateStaffPaymentDto } from './dto/update-staff-payment.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ListExpensesQueryDto } from './dto/list-expenses-query.dto';
-import {
-  ExpenseResponseDto,
-  PaginatedExpensesResponseDto,
-} from './dto/expense-response.dto';
+import { ExpenseResponseDto, PaginatedExpensesResponseDto } from './dto/expense-response.dto';
 import { parseOptionalDate } from '../invoices/utils/invoice.utils';
 import { roundMoney, toDecimal } from '../bookings/utils/booking.utils';
 
@@ -42,7 +37,7 @@ export class ExpensesService {
     const limit = query.limit ?? 20;
     const where = await this.buildWhereClause(companyId, query);
 
-    const [expenses, total] = await Promise.all([
+    const [expenses, total, amountAgg] = await Promise.all([
       this.prisma.expense.findMany({
         where,
         include: this.expenseInclude(),
@@ -51,11 +46,16 @@ export class ExpensesService {
         take: limit,
       }),
       this.prisma.expense.count({ where }),
+      this.prisma.expense.aggregate({
+        where,
+        _sum: { amount: true },
+      }),
     ]);
 
     return {
       items: expenses.map((expense) => this.mapExpense(expense)),
       total,
+      totalAmount: roundMoney(Number(amountAgg._sum.amount ?? 0)),
       page,
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
@@ -119,6 +119,59 @@ export class ExpensesService {
     return this.mapExpense(expense);
   }
 
+  async createStaffPayment(
+    companyId: string,
+    userId: string,
+    dto: CreateStaffPaymentDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<ExpenseResponseDto> {
+    const payload = await this.buildStaffPaymentExpensePayload(companyId, dto);
+    return this.create(companyId, userId, payload, ipAddress, userAgent);
+  }
+
+  async updateStaffPayment(
+    companyId: string,
+    userId: string,
+    id: string,
+    dto: UpdateStaffPaymentDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<ExpenseResponseDto> {
+    const existing = await this.getExpenseOrThrow(companyId, id);
+    if (existing.category.code !== 'staff') {
+      throw new BadRequestException('This expense is not a staff payment.');
+    }
+
+    const payload = await this.buildStaffPaymentExpensePayload(companyId, {
+      staffId: dto.staffId ?? existing.staffId ?? '',
+      amount: dto.amount ?? Number(existing.amount),
+      paymentDate: dto.paymentDate ?? existing.expenseDate.toISOString().slice(0, 10),
+      paymentModeCode:
+        dto.paymentModeCode ?? existing.paymentMode?.code ?? 'cash',
+      bookingId: dto.bookingId !== undefined ? dto.bookingId : existing.bookingId ?? undefined,
+      referenceNumber:
+        dto.referenceNumber !== undefined
+          ? dto.referenceNumber
+          : existing.referenceNumber ?? undefined,
+      notes: dto.notes !== undefined ? dto.notes : existing.notes ?? undefined,
+    });
+
+    return this.update(
+      companyId,
+      userId,
+      id,
+      {
+        ...payload,
+        bookingId: payload.bookingId ?? null,
+        clientId: payload.clientId ?? null,
+        staffId: payload.staffId ?? null,
+      },
+      ipAddress,
+      userAgent,
+    );
+  }
+
   async update(
     companyId: string,
     userId: string,
@@ -139,7 +192,12 @@ export class ExpensesService {
           : null
         : undefined;
 
-    if (dto.clientId !== undefined || dto.bookingId !== undefined || dto.invoiceId !== undefined || dto.staffId !== undefined) {
+    if (
+      dto.clientId !== undefined ||
+      dto.bookingId !== undefined ||
+      dto.invoiceId !== undefined ||
+      dto.staffId !== undefined
+    ) {
       await this.validateLinks(
         companyId,
         dto.clientId ?? existing.clientId ?? undefined,
@@ -226,7 +284,14 @@ export class ExpensesService {
     return { message: 'Expense archived successfully.' };
   }
 
-  private expenseInclude() {
+  private expenseInclude(): {
+    category: { select: { code: true; label: true } };
+    paymentMode: { select: { code: true; label: true } };
+    client: { select: { fullName: true } };
+    booking: { select: { bookingNumber: true } };
+    staff: { select: { fullName: true } };
+    invoice: { select: { invoiceNumber: true } };
+  } {
     return {
       category: { select: { code: true, label: true } },
       paymentMode: { select: { code: true, label: true } },
@@ -237,10 +302,7 @@ export class ExpensesService {
     };
   }
 
-  private async getExpenseOrThrow(
-    companyId: string,
-    id: string,
-  ): Promise<ExpenseWithRelations> {
+  private async getExpenseOrThrow(companyId: string, id: string): Promise<ExpenseWithRelations> {
     const expense = await this.prisma.expense.findFirst({
       where: { id, companyId, archivedAt: null },
       include: this.expenseInclude(),
@@ -305,9 +367,18 @@ export class ExpensesService {
       where.categoryId = category.id;
     }
 
+    if (query.paymentModeCode) {
+      const paymentMode = await this.resolvePaymentMode(companyId, query.paymentModeCode);
+      where.paymentModeId = paymentMode.id;
+    }
+
+    if (query.dateFrom && query.dateTo && query.dateFrom > query.dateTo) {
+      throw new BadRequestException('Start date must be on or before end date.');
+    }
+
     if (query.dateFrom || query.dateTo) {
       where.expenseDate = {
-        ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
+        ...(query.dateFrom ? { gte: new Date(`${query.dateFrom}T00:00:00.000Z`) } : {}),
         ...(query.dateTo ? { lte: new Date(`${query.dateTo}T23:59:59.999Z`) } : {}),
       };
     }
@@ -340,7 +411,7 @@ export class ExpensesService {
     }
   }
 
-  private async resolveCategory(companyId: string, code: string) {
+  private async resolveCategory(companyId: string, code: string): Promise<MasterData> {
     const category = await this.prisma.masterData.findFirst({
       where: { companyId, category: 'expense_category', code, isActive: true },
     });
@@ -352,7 +423,7 @@ export class ExpensesService {
     return category;
   }
 
-  private async resolvePaymentMode(companyId: string, code: string) {
+  private async resolvePaymentMode(companyId: string, code: string): Promise<MasterData> {
     const mode = await this.prisma.masterData.findFirst({
       where: { companyId, category: 'payment_mode', code, isActive: true },
     });
@@ -368,7 +439,7 @@ export class ExpensesService {
     companyId: string,
     bookingId?: string,
     clientId?: string,
-  ) {
+  ): Promise<{ id: string }> {
     if (bookingId) {
       const booking = await this.prisma.booking.findFirst({
         where: { id: bookingId, companyId },
@@ -409,7 +480,7 @@ export class ExpensesService {
     bookingId?: string,
     invoiceId?: string,
     staffId?: string,
-  ) {
+  ): Promise<void> {
     if (clientId) {
       const client = await this.prisma.client.findFirst({
         where: { id: clientId, companyId, archivedAt: null },
@@ -437,5 +508,51 @@ export class ExpensesService {
       });
       if (!staffMember) throw new NotFoundException('Staff member not found.');
     }
+  }
+
+  private async buildStaffPaymentExpensePayload(
+    companyId: string,
+    dto: CreateStaffPaymentDto,
+  ): Promise<CreateExpenseDto> {
+    if (!dto.staffId) {
+      throw new BadRequestException('Select an active staff member.');
+    }
+
+    const staffMember = await this.prisma.staff.findFirst({
+      where: { id: dto.staffId, companyId, archivedAt: null, isActive: true },
+    });
+
+    if (!staffMember) {
+      throw new BadRequestException('Select an active staff member.');
+    }
+
+    let booking: { id: string; bookingNumber: string; clientId: string } | null = null;
+    if (dto.bookingId) {
+      booking = await this.prisma.booking.findFirst({
+        where: { id: dto.bookingId, companyId, archivedAt: null },
+        select: { id: true, bookingNumber: true, clientId: true },
+      });
+      if (!booking) {
+        throw new NotFoundException('Booking not found.');
+      }
+    }
+
+    const description = booking
+      ? `Staff Payment — ${staffMember.fullName} (${booking.bookingNumber})`
+      : `Staff Payment — ${staffMember.fullName}`;
+
+    return {
+      categoryCode: 'staff',
+      amount: dto.amount,
+      expenseDate: dto.paymentDate,
+      description,
+      vendorPerson: staffMember.fullName,
+      paymentModeCode: dto.paymentModeCode,
+      referenceNumber: dto.referenceNumber,
+      bookingId: booking?.id,
+      clientId: booking?.clientId,
+      staffId: staffMember.id,
+      notes: dto.notes,
+    };
   }
 }

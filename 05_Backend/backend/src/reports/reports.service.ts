@@ -7,6 +7,7 @@ import {
   buildBookingEventDateWhere,
   REPORT_BOOKING_FILTER,
   getMonthRange,
+  getStudioDateParts,
   ReportDateRange,
   ReportDatePreset,
   resolveReportDateRange,
@@ -517,10 +518,11 @@ export class ReportsService {
 
     const safeMonths = Math.min(Math.max(query.months ?? 12, 1), 24);
     const now = new Date();
+    const studioNow = getStudioDateParts(now);
     const rows: MonthlySummaryRowDto[] = [];
 
     for (let offset = safeMonths - 1; offset >= 0; offset -= 1) {
-      const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+      const date = new Date(Date.UTC(studioNow.year, studioNow.month - 1 - offset, 1));
       rows.push(await this.buildMonthlyRow(companyId, date.getUTCFullYear(), date.getUTCMonth() + 1));
     }
 

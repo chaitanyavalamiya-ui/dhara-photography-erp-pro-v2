@@ -1,4 +1,4 @@
-import { allocateNextClientNumber, isClientMobileUniqueConflict, isClientNumberUniqueConflict } from './client.utils';
+import { allocateNextClientNumber, isClientMobileUniqueConflict, isClientNumberUniqueConflict, toDateOnlyString } from './client.utils';
 import { Prisma } from '@prisma/client';
 
 describe('client.utils numbers', () => {
@@ -22,5 +22,10 @@ describe('client.utils numbers', () => {
     expect(isClientNumberUniqueConflict(numberError)).toBe(true);
     expect(isClientMobileUniqueConflict(mobileError)).toBe(true);
     expect(isClientMobileUniqueConflict(numberError)).toBe(false);
+  });
+
+  it('formats calendar dates from local date parts instead of UTC ISO', () => {
+    const local = new Date(2026, 7, 17, 0, 0, 0);
+    expect(toDateOnlyString(local)).toBe('2026-08-17');
   });
 });

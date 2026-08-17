@@ -13,6 +13,12 @@ vi.mock('@/services/clients-service', () => ({
   },
 }));
 
+vi.mock('@/services/invoices-service', () => ({
+  invoicesService: {
+    list: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20, totalPages: 1 }),
+  },
+}));
+
 vi.mock('@/services/settings-service', () => ({
   settingsService: {
     getPackages: vi.fn(),

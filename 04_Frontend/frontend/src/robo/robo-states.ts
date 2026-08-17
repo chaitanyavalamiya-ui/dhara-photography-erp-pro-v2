@@ -12,7 +12,16 @@ export const ROBO_STATES = [
   'teaching',
   'alert',
   'celebrating',
+  'wink',
+  'shy',
   'offline',
+  'walking',
+  'listening',
+  'speaking',
+  'success',
+  'error',
+  'inspect',
+  'hidden',
 ] as const;
 
 export type RoboState = (typeof ROBO_STATES)[number];

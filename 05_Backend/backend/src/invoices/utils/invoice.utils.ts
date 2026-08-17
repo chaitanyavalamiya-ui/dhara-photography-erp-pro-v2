@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 export const INVOICE_STATUS_CODES = ['unpaid', 'partially_paid', 'paid', 'overdue'] as const;
 export type InvoiceStatusCode = (typeof INVOICE_STATUS_CODES)[number];
@@ -35,11 +36,20 @@ export function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-export async function generateInvoiceNumber(
-  countFn: () => Promise<number>,
-): Promise<string> {
-  const count = await countFn();
-  return `INV-${String(count + 1).padStart(6, '0')}`;
+export function allocateNextInvoiceNumber(latestNumber?: string | null): string {
+  const match = latestNumber?.match(/^INV-(\d+)$/);
+  const next = (match ? Number(match[1]) : 0) + 1;
+  return `INV-${String(next).padStart(6, '0')}`;
+}
+
+export function isInvoiceNumberUniqueConflict(error: unknown): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+    return false;
+  }
+
+  const target = error.meta?.target;
+  const haystack = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  return /invoice[_]?number/i.test(haystack) || haystack.includes('company_id_invoice_number');
 }
 
 export function parseOptionalDate(value?: string | null): Date | null {

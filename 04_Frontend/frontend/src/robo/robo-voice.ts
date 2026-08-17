@@ -6,4 +6,5 @@ export interface RoboVoiceInput {
 export interface RoboVoiceOutput {
   speak(text: string, language: 'gu' | 'hi' | 'en'): Promise<void>;
   stop(): Promise<void>;
+  replay?(): Promise<void>;
 }

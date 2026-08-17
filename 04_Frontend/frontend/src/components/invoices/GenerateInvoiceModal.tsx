@@ -30,10 +30,11 @@ export function GenerateInvoiceModal({
   });
 
   const bookingsQuery = useQuery({
-    queryKey: ['bookings', 'invoice-generate'],
+    queryKey: ['bookings', 'invoice-generate', search],
     queryFn: () =>
       bookingsService.list({
-        limit: 50,
+        limit: 100,
+        search: search.trim() || undefined,
         sortBy: 'createdAt',
         sortOrder: 'desc',
       }),

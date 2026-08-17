@@ -43,7 +43,9 @@ export function ExpenseViewModal({
       <div className="card max-h-[90vh] w-full max-w-lg overflow-y-auto">
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wider text-gray-500">{expense.categoryLabel}</p>
+            <p className="text-xs uppercase tracking-wider text-gray-500">
+              {expense.categoryLabel}
+            </p>
             <h2 className="font-display text-2xl font-semibold text-gold">
               {formatCurrency(expense.amount)}
             </h2>
@@ -68,14 +70,16 @@ export function ExpenseViewModal({
           )}
         >
           <p className="font-medium">{getExpenseSourceLabel(source)}</p>
-          {sourceDescription && <p className="mt-1 text-xs text-amber-100/80">{sourceDescription}</p>}
+          {sourceDescription && (
+            <p className="mt-1 text-xs text-amber-100/80">{sourceDescription}</p>
+          )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <DetailRow label="Description" value={expense.description || '—'} />
           <DetailRow label="Vendor / Person" value={expense.vendorPerson || '—'} />
           <DetailRow label="Payment Method" value={expense.paymentModeLabel || '—'} />
-          <DetailRow label="Reference" value={expense.referenceNumber || '—'} />
+          <DetailRow label="Receipt / Reference" value={expense.referenceNumber || '—'} />
           <DetailRow label="Booking" value={expense.bookingNumber || '—'} />
           <DetailRow label="Client" value={expense.clientName || '—'} />
           <DetailRow label="Staff" value={expense.staffName || '—'} />

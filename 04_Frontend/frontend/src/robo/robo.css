@@ -1,29 +1,39 @@
 .robo-overlay {
+  --robo-eye-x: 0;
+  --robo-eye-y: 0;
+  --robo-face: 0;
   position: fixed;
-  z-index: 45;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.75rem;
+  z-index: 46;
   pointer-events: none;
-  transition: top 420ms ease, right 420ms ease, bottom 420ms ease, left 420ms ease, transform 420ms ease;
+  transition: left 420ms ease, top 420ms ease;
+}
+
+.robo-overlay.is-dragging,
+.robo-overlay.is-walking,
+.robo-overlay.is-inspect {
+  transition: none;
 }
 
 .robo-overlay > * {
   pointer-events: auto;
 }
 
-.robo-overlay.is-bottom-right { right: 1.25rem; bottom: 1.25rem; }
-.robo-overlay.is-bottom-left { left: 1.25rem; bottom: 1.25rem; align-items: flex-start; }
-.robo-overlay.is-top-right { right: 1.25rem; top: 5.5rem; }
-.robo-overlay.is-top-left { left: 1.25rem; top: 5.5rem; align-items: flex-start; }
-.robo-overlay.is-center-right { right: 1.25rem; top: 42%; }
-.robo-overlay.is-center-left { left: 17.5rem; top: 42%; align-items: flex-start; }
-
 .robo-character {
   position: relative;
-  width: 104px;
-  height: 132px;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.robo-character.is-sm {
+  width: 3rem;
+  height: 3.75rem;
+}
+
+.robo-character-motion {
+  position: relative;
+  width: 100%;
+  height: 100%;
   transform-origin: 50% 90%;
 }
 
@@ -31,53 +41,179 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.35));
+  background: transparent;
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.38));
   user-select: none;
+  pointer-events: none;
+}
+
+.robo-3d-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
+  pointer-events: none;
+}
+
+.robo-inspect-stage {
+  width: 100%;
+  height: 100%;
+}
+
+.robo-character.is-inspect .robo-3d-canvas {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.robo-character[data-robo-visual='3d'] .robo-character-motion,
+.robo-character[data-robo-visual='3d'] .robo-character-motion.is-idle .robo-lids {
+  animation: none !important;
+}
+
+.robo-inspect-bar {
+  position: absolute;
+  left: 0.2rem;
+  top: 0.15rem;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  max-width: calc(100% - 0.4rem);
+}
+
+.robo-voice-bar {
+  position: absolute;
+  left: 0.2rem;
+  bottom: 0.15rem;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  max-width: calc(100% - 5.5rem);
+}
+
+.robo-overlay.is-listening .robo-character {
+  filter: drop-shadow(0 0 18px rgba(94, 228, 242, 0.5));
+}
+
+.robo-overlay.is-speaking .robo-character {
+  filter: drop-shadow(0 0 14px rgba(251, 146, 60, 0.35));
 }
 
 .robo-lids {
   position: absolute;
-  left: 28%;
-  top: 18%;
-  width: 44%;
-  height: 10%;
+  left: 30%;
+  top: 27%;
+  width: 40%;
+  height: 11%;
   background: #111;
   border-radius: 999px;
   opacity: 0;
   pointer-events: none;
+  z-index: 3;
 }
 
-.robo-character.is-idle {
+.robo-eye-stage {
+  position: absolute;
+  left: 30%;
+  top: 27.2%;
+  width: 40%;
+  height: 11%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #07080c;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.robo-eye {
+  position: absolute;
+  top: 50%;
+  width: 24%;
+  aspect-ratio: 1;
+  border: 2px solid #5ee4f2;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #5ee4f2, inset 0 0 6px #7af6ff;
+  transform: translate(-50%, -50%) translate(calc(var(--robo-eye-x) * 18px), calc(var(--robo-eye-y) * 10px));
+  will-change: transform;
+}
+
+.robo-eye.is-left { left: 34%; }
+.robo-eye.is-right { left: 66%; }
+
+.robo-character-motion.is-idle {
   animation: robo-breathe 3.6s ease-in-out infinite, robo-sway 5.4s ease-in-out infinite;
 }
 
-.robo-character.is-idle .robo-lids {
+.robo-character-motion.is-idle .robo-lids {
   animation: robo-blink 4.8s ease-in-out infinite;
 }
 
-.robo-character.is-greeting { animation: robo-wave 900ms ease; }
-.robo-character.is-thinking { animation: robo-think 1.4s ease-in-out infinite; }
-.robo-character.is-talking { animation: robo-talk 0.7s ease-in-out infinite; }
-.robo-character.is-happy { animation: robo-bounce 700ms ease; }
-.robo-character.is-sad { animation: robo-droop 900ms ease; }
-.robo-character.is-angry { animation: robo-wiggle 600ms ease; }
-.robo-character.is-confused { animation: robo-tilt 800ms ease; }
-.robo-character.is-surprised { animation: robo-pop 500ms ease; }
-.robo-character.is-celebrating { animation: robo-dance 900ms ease; }
-.robo-character.is-offline { filter: grayscale(0.7); }
+.robo-character-motion.is-greeting { animation: robo-wave 900ms ease; }
+.robo-character-motion.is-thinking { animation: robo-think 1.4s ease-in-out infinite; }
+.robo-character-motion.is-talking { animation: robo-talk 0.7s ease-in-out infinite; }
+.robo-character-motion.is-happy { animation: robo-bounce 700ms ease; }
+.robo-character-motion.is-sad { animation: robo-droop 900ms ease; }
+.robo-character-motion.is-angry { animation: robo-wiggle 600ms ease; }
+.robo-character-motion.is-confused { animation: robo-tilt 800ms ease; }
+.robo-character-motion.is-surprised { animation: robo-pop 500ms ease; }
+.robo-character-motion.is-celebrating { animation: robo-dance 900ms ease; }
+.robo-character-motion.is-wink { animation: robo-tilt 500ms ease; }
+.robo-character-motion.is-shy { animation: robo-droop 800ms ease; }
+.robo-character-motion.is-offline,
+.robo-character-motion.is-hidden { filter: grayscale(0.7); }
+.robo-character-motion.is-listening { animation: robo-think 1.2s ease-in-out infinite; }
+.robo-character-motion.is-speaking { animation: robo-talk 0.7s ease-in-out infinite; }
+.robo-character-motion.is-walking { animation: robo-breathe 2.4s ease-in-out infinite; }
+.robo-character-motion.is-success { animation: robo-bounce 700ms ease; }
+.robo-character-motion.is-error { animation: robo-wiggle 600ms ease; }
 
 .robo-launcher {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+}
+
+.robo-drag-handle {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+
+.robo-overlay.is-dragging .robo-drag-handle {
+  cursor: grabbing;
+}
+
+.robo-hide {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.15rem;
+  z-index: 3;
 }
 
 .robo-chat {
+  position: absolute;
+  z-index: 1;
   width: min(380px, calc(100vw - 2rem));
   max-height: min(560px, calc(100vh - 8rem));
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  bottom: 46%;
+}
+
+.robo-overlay.is-chat-left .robo-chat {
+  right: calc(100% - 56px);
+}
+
+.robo-overlay.is-chat-right .robo-chat {
+  left: calc(100% - 56px);
 }
 
 .robo-highlight {
@@ -152,13 +288,35 @@
   75% { transform: translateX(6px) rotate(8deg); }
 }
 
+@media (max-width: 1023px) {
+  .robo-overlay {
+    max-width: min(240px, 42vw);
+  }
+}
+
+@media (max-width: 767px) {
+  .robo-overlay {
+    max-width: min(200px, 46vw);
+  }
+
+  .robo-chat {
+    width: min(320px, calc(100vw - 1.25rem));
+    max-height: min(420px, calc(100vh - 7rem));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .robo-overlay,
-  .robo-character,
-  .robo-character.is-idle .robo-lids,
+  .robo-character-motion,
+  .robo-character-motion.is-idle .robo-lids,
+  .robo-eye,
   .robo-highlight {
     animation: none !important;
     transition: none !important;
+  }
+
+  .robo-character-motion,
+  .robo-eye {
     transform: none !important;
   }
 }

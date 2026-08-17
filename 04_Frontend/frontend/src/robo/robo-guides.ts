@@ -35,6 +35,22 @@ export const ROBO_GUIDES: RoboGuide[] = [
         position: 'top-right',
         state: 'teaching',
       },
+      {
+        id: 'client-name',
+        message: 'અહીં Client Name લખો.',
+        target: 'client-name',
+        route: '/clients',
+        position: 'center-right',
+        state: 'teaching',
+      },
+      {
+        id: 'save-client',
+        message: 'Save / Add Client દબાવો.',
+        target: 'save-client',
+        route: '/clients',
+        position: 'top-right',
+        state: 'teaching',
+      },
     ],
   },
   {

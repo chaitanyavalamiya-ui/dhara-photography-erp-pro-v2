@@ -13,6 +13,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
+import { CreateStaffPaymentDto } from './dto/create-staff-payment.dto';
+import { UpdateStaffPaymentDto } from './dto/update-staff-payment.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { ListExpensesQueryDto } from './dto/list-expenses-query.dto';
 import {
@@ -60,6 +62,42 @@ export class ExpensesController {
     return this.expensesService.create(
       user.companyId,
       user.sub,
+      dto,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  @Post('staff-payments')
+  @RequirePermissions('expenses.create')
+  @ApiOperation({ summary: 'Record a staff payment as a single expense ledger entry' })
+  async createStaffPayment(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateStaffPaymentDto,
+    @Req() req: Request,
+  ): Promise<ExpenseResponseDto> {
+    return this.expensesService.createStaffPayment(
+      user.companyId,
+      user.sub,
+      dto,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
+
+  @Patch('staff-payments/:id')
+  @RequirePermissions('expenses.update')
+  @ApiOperation({ summary: 'Update a staff payment expense' })
+  async updateStaffPayment(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateStaffPaymentDto,
+    @Req() req: Request,
+  ): Promise<ExpenseResponseDto> {
+    return this.expensesService.updateStaffPayment(
+      user.companyId,
+      user.sub,
+      id,
       dto,
       req.ip,
       req.headers['user-agent'],

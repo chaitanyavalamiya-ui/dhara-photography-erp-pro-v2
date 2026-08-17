@@ -30,6 +30,11 @@ export class ListExpensesQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  paymentModeCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsUUID()
   bookingId?: string;
 

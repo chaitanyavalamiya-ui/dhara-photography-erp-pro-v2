@@ -14,6 +14,7 @@ import { BookingViewModal } from '@/components/bookings/BookingViewModal';
 import {
   CALENDAR_MONTHS,
   buildMonthSummary,
+  getBookingDatesInRange,
   getCalendarGridDays,
   getCalendarYearOptions,
   getMonthRange,
@@ -154,7 +155,15 @@ export function CalendarPage() {
     () => events.filter((event) => event.statusCode !== 'cancelled'),
     [events],
   );
-  const summary = useMemo(() => buildMonthSummary(occupyingEvents), [occupyingEvents]);
+  const summary = useMemo(
+    () =>
+      buildMonthSummary(
+        occupyingEvents.filter(
+          (event) => getBookingDatesInRange(event, monthRange.dateFrom, monthRange.dateTo).length > 0,
+        ),
+      ),
+    [occupyingEvents, monthRange.dateFrom, monthRange.dateTo],
+  );
   const cancelledCount = useMemo(
     () => events.filter((event) => event.statusCode === 'cancelled').length,
     [events],

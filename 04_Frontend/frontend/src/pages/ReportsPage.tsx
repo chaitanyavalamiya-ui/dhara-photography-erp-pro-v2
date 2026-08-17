@@ -22,6 +22,7 @@ import { ReportChartsSection } from '@/components/reports/ReportChartsSection';
 import { ReportExportBar } from '@/components/reports/ReportExportBar';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
+import { firstOfMonthIso, getStudioDateParts, todayIso } from '@/utils/studio-date';
 import { cn } from '@/utils/cn';
 
 type ReportTab =
@@ -34,15 +35,6 @@ type ReportTab =
   | 'staff'
   | 'monthly'
   | 'transactions';
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function firstOfMonthIso() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
-}
 
 export function ReportsPage() {
   const [tab, setTab] = useState<ReportTab>('dashboard');
@@ -58,7 +50,7 @@ export function ReportsPage() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [txnType, setTxnType] = useState<'all' | 'income' | 'expense'>('all');
-  const [monthlyYear, setMonthlyYear] = useState(new Date().getUTCFullYear());
+  const [monthlyYear, setMonthlyYear] = useState(getStudioDateParts().year);
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
 
   const queryParams = useMemo(() => {
@@ -212,7 +204,7 @@ export function ReportsPage() {
         { label: 'Total Invoice Value', value: dashboard.totalInvoiceValue, icon: TrendingUp, color: 'text-gold' },
         { label: 'Total Received', value: dashboard.totalPaymentsReceived, icon: ArrowDownLeft, color: 'text-green-400' },
         { label: 'Total Expenses', value: dashboard.totalExpenses, icon: ArrowUpRight, color: 'text-red-400' },
-        { label: 'Outstanding', value: dashboard.totalOutstanding, icon: Wallet, color: 'text-orange-400' },
+        { label: 'Outstanding (period invoices)', value: dashboard.totalOutstanding, icon: Wallet, color: 'text-orange-400' },
         {
           label: 'Net Profit',
           value: dashboard.netProfit,
@@ -227,7 +219,7 @@ export function ReportsPage() {
     ? [
         { label: 'Total Invoice Value', value: dashboard.totalInvoiceValue, icon: TrendingUp, color: 'text-gold' },
         { label: 'Payments Received', value: dashboard.totalPaymentsReceived, icon: ArrowDownLeft, color: 'text-green-400' },
-        { label: 'Outstanding', value: dashboard.totalOutstanding, icon: Wallet, color: 'text-orange-400' },
+        { label: 'Outstanding (period invoices)', value: dashboard.totalOutstanding, icon: Wallet, color: 'text-orange-400' },
         { label: 'Total Expenses', value: dashboard.totalExpenses, icon: ArrowUpRight, color: 'text-red-400' },
         {
           label: 'Net Profit / Loss',
@@ -430,7 +422,7 @@ export function ReportsPage() {
             onChange={(e) => setMonthlyYear(Number(e.target.value))}
           >
             {Array.from({ length: 5 }).map((_, i) => {
-              const year = new Date().getUTCFullYear() - i;
+              const year = getStudioDateParts().year - i;
               return (
                 <option key={year} value={year}>
                   {year}

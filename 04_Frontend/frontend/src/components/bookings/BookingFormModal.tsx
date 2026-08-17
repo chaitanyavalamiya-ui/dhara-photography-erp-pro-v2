@@ -7,6 +7,7 @@ import {
   Booking,
   BookingFormData,
 } from '@/services/bookings-service';
+import { invoicesService } from '@/services/invoices-service';
 import { clientsService } from '@/services/clients-service';
 import { settingsService } from '@/services/settings-service';
 import { BookingItemsEditor } from '@/components/bookings/BookingItemsEditor';
@@ -55,6 +56,21 @@ export function BookingFormModal({
     queryFn: () => settingsService.getPackages(),
     enabled: open,
   });
+
+  const invoiceLockQuery = useQuery({
+    queryKey: ['invoices', 'booking-lock', booking?.id],
+    enabled: open && mode === 'edit' && Boolean(booking?.bookingNumber),
+    queryFn: () =>
+      invoicesService.list({
+        search: booking!.bookingNumber,
+        limit: 20,
+        status: 'all',
+      }),
+  });
+
+  const advanceLocked =
+    mode === 'edit' &&
+    Boolean(invoiceLockQuery.data?.items.some((invoice) => invoice.bookingId === booking?.id));
 
   useEffect(() => {
     if (!open) return;
@@ -252,7 +268,7 @@ export function BookingFormModal({
                 id="booking-event-end-date"
                 type="date"
                 className="input-field"
-                value={form.eventEndDate}
+                value={form.eventEndDate ?? ''}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, eventEndDate: event.target.value }))
                 }
@@ -263,7 +279,7 @@ export function BookingFormModal({
               <label className="mb-1.5 block text-sm font-medium text-gray-300">Venue</label>
               <input
                 className="input-field"
-                value={form.venue}
+                value={form.venue ?? ''}
                 onChange={(event) => setForm((current) => ({ ...current, venue: event.target.value }))}
               />
             </div>
@@ -272,7 +288,7 @@ export function BookingFormModal({
               <label className="mb-1.5 block text-sm font-medium text-gray-300">City</label>
               <input
                 className="input-field"
-                value={form.city}
+                value={form.city ?? ''}
                 onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))}
               />
             </div>
@@ -281,7 +297,7 @@ export function BookingFormModal({
               <label className="mb-1.5 block text-sm font-medium text-gray-300">Notes</label>
               <textarea
                 className="input-field min-h-24 resize-y"
-                value={form.notes}
+                value={form.notes ?? ''}
                 onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
               />
             </div>
@@ -357,6 +373,7 @@ export function BookingFormModal({
                 min="0"
                 className="input-field mt-1"
                 value={form.advanceAmount}
+                disabled={advanceLocked}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -364,6 +381,11 @@ export function BookingFormModal({
                   }))
                 }
               />
+              {advanceLocked && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Advance is managed from invoice payments.
+                </p>
+              )}
             </div>
             <div>
               <p className="text-xs uppercase tracking-wider text-gray-500">Balance</p>

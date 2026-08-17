@@ -16,13 +16,23 @@ interface PaymentReceiptModalProps {
 
 export function PaymentReceiptModal({ open, payment, onClose }: PaymentReceiptModalProps) {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   if (!open || !payment) return null;
 
   const handleDownloadPdf = async () => {
+    setPdfError(null);
     setIsDownloadingPdf(true);
     try {
-      await downloadPaymentReceiptPdf('payment-receipt-document', payment.receiptNumber);
+      await downloadPaymentReceiptPdf(
+        'payment-receipt-document',
+        payment.receiptNumber,
+        payment.clientName,
+      );
+    } catch (error) {
+      setPdfError(
+        error instanceof Error ? error.message : 'Failed to generate the receipt PDF.',
+      );
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -54,6 +64,11 @@ export function PaymentReceiptModal({ open, payment, onClose }: PaymentReceiptMo
             </button>
           </div>
         </div>
+        {pdfError && (
+          <div className="border-b border-red-500/30 bg-red-500/10 px-6 py-2 text-sm text-red-400">
+            {pdfError}
+          </div>
+        )}
         <div className="overflow-y-auto bg-gray-200/10 p-6">
           <PaymentReceiptDocument payment={payment} />
         </div>

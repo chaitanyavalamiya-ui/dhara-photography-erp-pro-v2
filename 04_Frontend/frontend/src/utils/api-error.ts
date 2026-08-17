@@ -33,7 +33,30 @@ export function getApiRetryAfterSeconds(error: unknown): number | undefined {
   return typeof value === 'number' && value > 0 ? value : undefined;
 }
 
+function isUnreachableApiError(error: unknown): boolean {
+  if (!(error instanceof AxiosError)) {
+    return false;
+  }
+
+  if (error.response) {
+    return false;
+  }
+
+  const code = error.code ?? '';
+  return (
+    code === 'ERR_NETWORK' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ECONNABORTED' ||
+    code === 'ETIMEDOUT' ||
+    error.message.toLowerCase().includes('network')
+  );
+}
+
 export function getLoginErrorMessage(error: unknown): string {
+  if (isUnreachableApiError(error)) {
+    return 'Cannot reach the ERP API. Confirm the backend is running on the configured API URL.';
+  }
+
   const code = getApiErrorCode(error);
   const retryAfterSeconds = getApiRetryAfterSeconds(error);
   const apiMessage = getApiErrorMessage(error, 'Invalid email or password.');

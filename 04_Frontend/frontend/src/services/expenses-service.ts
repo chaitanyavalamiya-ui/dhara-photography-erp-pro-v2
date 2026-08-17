@@ -28,9 +28,25 @@ export interface Expense {
 export interface PaginatedExpenses {
   items: Expense[];
   total: number;
+  totalAmount?: number;
   page: number;
   limit: number;
   totalPages: number;
+}
+
+export interface ListExpensesParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoryCode?: string;
+  paymentModeCode?: string;
+  bookingId?: string;
+  clientId?: string;
+  staffId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  sortBy?: 'expenseDate' | 'amount' | 'createdAt';
+  sortOrder?: 'asc' | 'desc';
 }
 
 export interface CreateExpensePayload {
@@ -44,10 +60,37 @@ export interface CreateExpensePayload {
   clientId?: string;
   bookingId?: string;
   invoiceId?: string;
+  staffId?: string;
   notes?: string;
 }
 
 export type UpdateExpensePayload = Partial<CreateExpensePayload>;
+
+export function toExpensePayload(values: {
+  categoryCode: string;
+  amount: number;
+  expenseDate: string;
+  description?: string;
+  vendorPerson?: string;
+  paymentModeCode?: string;
+  referenceNumber?: string;
+  bookingId?: string;
+  notes?: string;
+  staffId?: string;
+}): CreateExpensePayload {
+  return {
+    categoryCode: values.categoryCode,
+    amount: values.amount,
+    expenseDate: values.expenseDate,
+    description: values.description?.trim() || undefined,
+    vendorPerson: values.vendorPerson?.trim() || undefined,
+    paymentModeCode: values.paymentModeCode?.trim() || undefined,
+    referenceNumber: values.referenceNumber?.trim() || undefined,
+    bookingId: values.bookingId?.trim() || undefined,
+    staffId: values.staffId?.trim() || undefined,
+    notes: values.notes?.trim() || undefined,
+  };
+}
 
 export const EXPENSE_CATEGORY_OPTIONS = [
   { value: 'staff', label: 'Staff' },
@@ -88,7 +131,10 @@ export function getExpenseSource(
     return 'booking_staff_sync';
   }
 
-  if (expense.categoryCode === 'album_printing' && expense.description?.startsWith('Album printing:')) {
+  if (
+    expense.categoryCode === 'album_printing' &&
+    expense.description?.startsWith('Album printing:')
+  ) {
     return 'album_sync';
   }
 
@@ -121,8 +167,27 @@ export function getExpenseSourceDescription(source: ExpenseSource): string | nul
   }
 }
 
+export const STAFF_PAYMENT_METHOD_OPTIONS = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'upi', label: 'UPI' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+export interface CreateStaffPaymentPayload {
+  staffId: string;
+  amount: number;
+  paymentDate: string;
+  paymentModeCode: string;
+  bookingId?: string;
+  referenceNumber?: string;
+  notes?: string;
+}
+
+export type UpdateStaffPaymentPayload = Partial<CreateStaffPaymentPayload>;
+
 export const expensesService = {
-  async list(params: Record<string, unknown> = {}): Promise<PaginatedExpenses> {
+  async list(params: ListExpensesParams = {}): Promise<PaginatedExpenses> {
     const { data } = await apiClient.get<ApiResponse<PaginatedExpenses>>('/expenses', { params });
     return data.data;
   },
@@ -134,6 +199,19 @@ export const expensesService = {
 
   async create(payload: CreateExpensePayload): Promise<Expense> {
     const { data } = await apiClient.post<ApiResponse<Expense>>('/expenses', payload);
+    return data.data;
+  },
+
+  async createStaffPayment(payload: CreateStaffPaymentPayload): Promise<Expense> {
+    const { data } = await apiClient.post<ApiResponse<Expense>>('/expenses/staff-payments', payload);
+    return data.data;
+  },
+
+  async updateStaffPayment(id: string, payload: UpdateStaffPaymentPayload): Promise<Expense> {
+    const { data } = await apiClient.patch<ApiResponse<Expense>>(
+      `/expenses/staff-payments/${id}`,
+      payload,
+    );
     return data.data;
   },
 

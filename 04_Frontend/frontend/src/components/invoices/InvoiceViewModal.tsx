@@ -32,6 +32,7 @@ export function InvoiceViewModal({
   onAddPayment,
 }: InvoiceViewModalProps) {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const paymentsQuery = useQuery({
     queryKey: ['payments', 'invoice', invoice?.id],
@@ -48,9 +49,18 @@ export function InvoiceViewModal({
 
   const handleDownloadPdf = async () => {
     if (!invoice) return;
+    setPdfError(null);
     setIsDownloadingPdf(true);
     try {
-      await downloadInvoicePdf('invoice-document-print', invoice.invoiceNumber);
+      await downloadInvoicePdf(
+        'invoice-document-print',
+        invoice.invoiceNumber,
+        invoice.client.fullName,
+      );
+    } catch (error) {
+      setPdfError(
+        error instanceof Error ? error.message : 'Failed to generate the invoice PDF.',
+      );
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -160,6 +170,11 @@ export function InvoiceViewModal({
             </button>
           </div>
         </div>
+        {pdfError && (
+          <div className="border-b border-red-500/30 bg-red-500/10 px-6 py-2 text-sm text-red-400">
+            {pdfError}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto bg-gray-200/10 p-6">
           {loading && (

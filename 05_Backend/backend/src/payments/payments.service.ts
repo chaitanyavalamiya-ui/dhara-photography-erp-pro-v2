@@ -271,6 +271,14 @@ export class PaymentsService {
       const cashMode = await this.resolvePaymentMode(companyId, 'cash');
 
       await this.prisma.$transaction(async (tx) => {
+        const existingPayments = await tx.payment.count({
+          where: { invoiceId: invoice.id, archivedAt: null, isActive: true },
+        });
+
+        if (existingPayments > 0) {
+          return;
+        }
+
         const receiptNumber = await generateReceiptNumber(tx, companyId);
 
         await tx.payment.create({

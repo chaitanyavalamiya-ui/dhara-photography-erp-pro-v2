@@ -61,10 +61,10 @@ export interface BookingFormData {
   clientId: string;
   eventType: string;
   eventDate: string;
-  eventEndDate?: string;
-  venue?: string;
-  city?: string;
-  notes?: string;
+  eventEndDate?: string | null;
+  venue?: string | null;
+  city?: string | null;
+  notes?: string | null;
   statusCode?: string;
   items: BookingItem[];
   discount: number;
@@ -134,16 +134,16 @@ export const BOOKING_STATUS_OPTIONS = [
 function sanitizeBookingPayload<T extends BookingFormData | Partial<BookingFormData>>(payload: T): T {
   const sanitized = { ...payload };
   if (sanitized.eventEndDate === '') {
-    delete sanitized.eventEndDate;
+    (sanitized as { eventEndDate?: string | null }).eventEndDate = null;
   }
   if (sanitized.venue === '') {
-    delete sanitized.venue;
+    (sanitized as { venue?: string | null }).venue = null;
   }
   if (sanitized.city === '') {
-    delete sanitized.city;
+    (sanitized as { city?: string | null }).city = null;
   }
   if (sanitized.notes === '') {
-    delete sanitized.notes;
+    (sanitized as { notes?: string | null }).notes = null;
   }
   if (sanitized.items) {
     sanitized.items = sanitized.items.map(({ id: _id, ...item }) => item) as T['items'];

@@ -13,6 +13,13 @@ function axiosError(status: number, data: Record<string, unknown>) {
 }
 
 describe('getLoginErrorMessage', () => {
+  it('explains when the ERP API cannot be reached', () => {
+    const error = new AxiosError('Network Error', 'ERR_NETWORK');
+    expect(getLoginErrorMessage(error)).toBe(
+      'Cannot reach the ERP API. Confirm the backend is running on the configured API URL.',
+    );
+  });
+
   it('shows a generic message for invalid credentials', () => {
     const error = axiosError(401, {
       success: false,

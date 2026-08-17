@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,6 +8,11 @@ import { Camera } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { authService } from '@/services/auth-service';
 import { getLoginErrorMessage } from '@/utils/api-error';
+import {
+  resolvePostLoginPath,
+  peekRememberedPostLoginPath,
+  clearRememberedPostLoginPath,
+} from '@/utils/post-login-path';
 
 const loginSchema = z.object({
   email: z
@@ -22,8 +27,13 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const setAuth = useAuthStore((s) => s.setAuth);
+  const postLoginPath = resolvePostLoginPath(
+    (location.state as { from?: { pathname?: string; search?: string } } | null)?.from ??
+      peekRememberedPostLoginPath(),
+  );
 
   const {
     register,
@@ -35,15 +45,16 @@ export function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      navigate(postLoginPath, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, postLoginPath]);
 
   const loginMutation = useMutation({
     mutationFn: authService.login,
     onSuccess: (data) => {
       setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
-      navigate('/dashboard', { replace: true });
+      clearRememberedPostLoginPath();
+      navigate(postLoginPath, { replace: true });
     },
   });
 

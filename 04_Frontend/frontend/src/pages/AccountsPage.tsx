@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownLeft,
@@ -21,35 +22,27 @@ import {
 } from '@/services/accounts-service';
 import { paymentsService, Payment } from '@/services/payments-service';
 import { invoicesService } from '@/services/invoices-service';
-import { expensesService, Expense, isSystemLinkedExpense, getExpenseSourceLabel, getExpenseSource } from '@/services/expenses-service';
+import {
+  expensesService,
+  Expense,
+  isSystemLinkedExpense,
+  getExpenseSourceLabel,
+  getExpenseSource,
+} from '@/services/expenses-service';
 import { bookingsService } from '@/services/bookings-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { AddPaymentModal } from '@/components/accounts/AddPaymentModal';
 import { AddExpenseModal } from '@/components/accounts/AddExpenseModal';
+import { AddStaffPaymentModal, StaffPaymentFormValues } from '@/components/accounts/AddStaffPaymentModal';
 import { ExpenseViewModal } from '@/components/accounts/ExpenseViewModal';
 import { ArchiveExpenseDialog } from '@/components/accounts/ArchiveExpenseDialog';
 import { PaymentReceiptModal } from '@/components/accounts/PaymentReceiptModal';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
+import { firstOfMonthIso, todayIso } from '@/utils/studio-date';
 import { cn } from '@/utils/cn';
 
-type Tab =
-  | 'overview'
-  | 'income'
-  | 'expenses'
-  | 'staff'
-  | 'profit'
-  | 'monthly'
-  | 'transactions';
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function firstOfMonthIso() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
-}
+type Tab = 'overview' | 'income' | 'expenses' | 'staff' | 'profit' | 'monthly' | 'transactions';
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -112,6 +105,9 @@ export function AccountsPage() {
   const [viewExpense, setViewExpense] = useState<Expense | null>(null);
   const [archiveExpense, setArchiveExpense] = useState<Expense | null>(null);
   const [receiptPayment, setReceiptPayment] = useState<Payment | null>(null);
+  const [staffPaymentOpen, setStaffPaymentOpen] = useState(false);
+  const [staffPaymentMode, setStaffPaymentMode] = useState<'create' | 'edit'>('create');
+  const [staffPaymentExpense, setStaffPaymentExpense] = useState<Expense | null>(null);
   const [profitBookingId, setProfitBookingId] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
@@ -269,8 +265,13 @@ export function AccountsPage() {
   });
 
   const updateExpenseMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof expensesService.update>[1] }) =>
-      expensesService.update(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Parameters<typeof expensesService.update>[1];
+    }) => expensesService.update(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
@@ -296,19 +297,46 @@ export function AccountsPage() {
       setFeedback({ type: 'error', message: getApiErrorMessage(e, 'Failed to archive expense.') }),
   });
 
+  const staffPaymentMutation = useMutation({
+    mutationFn: (values: StaffPaymentFormValues) => {
+      const payload = {
+        staffId: values.staffId,
+        amount: values.amount,
+        paymentDate: values.paymentDate,
+        paymentModeCode: values.paymentModeCode,
+        bookingId: values.bookingId?.trim() || undefined,
+        referenceNumber: values.referenceNumber?.trim() || undefined,
+        notes: values.notes?.trim() || undefined,
+      };
+      if (staffPaymentMode === 'edit' && staffPaymentExpense) {
+        return expensesService.updateStaffPayment(staffPaymentExpense.id, payload);
+      }
+      return expensesService.createStaffPayment(payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      setStaffPaymentOpen(false);
+      setStaffPaymentExpense(null);
+      setViewExpense(null);
+      setFeedback({
+        type: 'success',
+        message:
+          staffPaymentMode === 'edit'
+            ? 'Staff payment updated successfully.'
+            : 'Staff payment recorded successfully.',
+      });
+    },
+    onError: (e: unknown) =>
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(e, 'Failed to save staff payment.'),
+      }),
+  });
+
   const openCreateExpense = () => {
     setExpenseModalMode('create');
     setSelectedExpense(null);
-    setExpenseOpen(true);
-  };
-
-  const openEditExpense = (expense: Expense) => {
-    if (isSystemLinkedExpense(expense)) {
-      setViewExpense(expense);
-      return;
-    }
-    setExpenseModalMode('edit');
-    setSelectedExpense(expense);
     setExpenseOpen(true);
   };
 
@@ -316,11 +344,48 @@ export function AccountsPage() {
     if (isSystemLinkedExpense(expense)) {
       setFeedback({
         type: 'error',
-        message: 'System-linked expenses cannot be archived here. Update or remove them from the booking or album record.',
+        message:
+          'System-linked expenses cannot be archived here. Update or remove them from the booking or album record.',
       });
       return;
     }
     setArchiveExpense(expense);
+  };
+
+  const openEditExpense = (expense: Expense) => {
+    if (isSystemLinkedExpense(expense)) {
+      setViewExpense(expense);
+      return;
+    }
+    if (expense.categoryCode === 'staff') {
+      setStaffPaymentMode('edit');
+      setStaffPaymentExpense(expense);
+      setStaffPaymentOpen(true);
+      return;
+    }
+    setExpenseModalMode('edit');
+    setSelectedExpense(expense);
+    setExpenseOpen(true);
+  };
+
+  const openStaffPaymentRow = async (id: string, action: 'view' | 'edit' | 'archive') => {
+    try {
+      const expense = await expensesService.getById(id);
+      if (action === 'view') {
+        setViewExpense(expense);
+        return;
+      }
+      if (action === 'edit') {
+        openEditExpense(expense);
+        return;
+      }
+      openArchiveExpense(expense);
+    } catch (e: unknown) {
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(e, 'Failed to load staff payment.'),
+      });
+    }
   };
 
   const buildExpensePayload = (values: {
@@ -350,21 +415,64 @@ export function AccountsPage() {
 
   const allTimeCards = dash
     ? [
-        { label: 'Total Invoice Value', value: dash.totalRevenue, icon: TrendingUp, color: 'text-gold' },
-        { label: 'Cash Received', value: dash.amountReceived, icon: ArrowDownLeft, color: 'text-green-400' },
-        { label: 'Outstanding', value: dash.outstandingAmount, icon: Wallet, color: 'text-orange-400' },
-        { label: 'Total Expenses', value: dash.totalExpenses, icon: ArrowUpRight, color: 'text-red-400' },
+        {
+          label: 'Total Invoice Value',
+          value: dash.totalRevenue,
+          icon: TrendingUp,
+          color: 'text-gold',
+        },
+        {
+          label: 'Cash Received',
+          value: dash.amountReceived,
+          icon: ArrowDownLeft,
+          color: 'text-green-400',
+        },
+        {
+          label: 'Outstanding',
+          value: dash.outstandingAmount,
+          icon: Wallet,
+          color: 'text-orange-400',
+        },
+        {
+          label: 'Total Expenses',
+          value: dash.totalExpenses,
+          icon: ArrowUpRight,
+          color: 'text-red-400',
+        },
         { label: 'Net Profit (Cash)', value: dash.netProfit, icon: TrendingUp, color: 'text-gold' },
-        { label: 'Staff Payments', value: dash.totalStaffPayments, icon: UserCog, color: 'text-red-400' },
-        { label: 'Album Order Value', value: dash.totalAlbumOrderValue, icon: BookImage, color: 'text-gold' },
-        { label: 'Album Profit (Info)', value: dash.totalAlbumProfit, icon: TrendingUp, color: 'text-green-400' },
+        {
+          label: 'Staff Payments',
+          value: dash.totalStaffPayments,
+          icon: UserCog,
+          color: 'text-red-400',
+        },
+        {
+          label: 'Album Order Value',
+          value: dash.totalAlbumOrderValue,
+          icon: BookImage,
+          color: 'text-gold',
+        },
+        {
+          label: 'Album Profit (Info)',
+          value: dash.totalAlbumProfit,
+          icon: TrendingUp,
+          color: 'text-green-400',
+        },
       ]
     : [];
 
   const periodCards = period
     ? [
-        { label: `${period.period.label} Received`, value: period.amountReceived, color: 'text-green-400' },
-        { label: `${period.period.label} Expenses`, value: period.totalExpenses, color: 'text-red-400' },
+        {
+          label: `${period.period.label} Received`,
+          value: period.amountReceived,
+          color: 'text-green-400',
+        },
+        {
+          label: `${period.period.label} Expenses`,
+          value: period.totalExpenses,
+          color: 'text-red-400',
+        },
         { label: 'Staff Payments', value: period.staffPayments, color: 'text-red-400' },
         { label: 'Net Profit', value: period.netProfit, color: 'text-gold' },
         { label: 'Invoice Value', value: period.totalInvoiceValue, color: 'text-gold' },
@@ -393,8 +501,8 @@ export function AccountsPage() {
         <div>
           <h2 className="font-display text-2xl font-bold text-gray-100">Accounts</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Income, expenses, staff payments, profit &amp; loss — integrated with bookings, invoices,
-            albums and staff.
+            Income, expenses, staff payments, profit &amp; loss — integrated with bookings,
+            invoices, albums and staff.
           </p>
         </div>
         <div className="flex gap-2">
@@ -408,6 +516,20 @@ export function AccountsPage() {
             <button type="button" className="btn-secondary" onClick={openCreateExpense}>
               <Plus className="mr-2 h-4 w-4" />
               Add Expense
+            </button>
+          )}
+          {canCreateExpense && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setStaffPaymentMode('create');
+                setStaffPaymentExpense(null);
+                setStaffPaymentOpen(true);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Staff Payment
             </button>
           )}
         </div>
@@ -476,7 +598,8 @@ export function AccountsPage() {
         {filterError && <p className="mt-3 text-sm text-red-400">{filterError}</p>}
         {period && (
           <p className="mt-3 text-xs text-gray-500">
-            Showing period: {period.period.label} ({period.period.dateFrom} to {period.period.dateTo})
+            Showing period: {period.period.label} ({period.period.dateFrom} to{' '}
+            {period.period.dateTo})
           </p>
         )}
       </div>
@@ -484,7 +607,9 @@ export function AccountsPage() {
       <div>
         <p className="mb-3 text-xs uppercase tracking-wider text-gray-500">All-Time Snapshot</p>
         {dashboardQuery.isError ? (
-          <ErrorState message={getApiErrorMessage(dashboardQuery.error, 'Failed to load dashboard.')} />
+          <ErrorState
+            message={getApiErrorMessage(dashboardQuery.error, 'Failed to load dashboard.')}
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {dashboardQuery.isLoading
@@ -563,7 +688,11 @@ export function AccountsPage() {
             {incomeQuery.isLoading ? (
               <LoadingRows rows={4} />
             ) : (incomeQuery.data?.items.length ?? 0) === 0 ? (
-              <EmptyState message={search ? 'No payments match your search.' : 'No payments received in this period.'} />
+              <EmptyState
+                message={
+                  search ? 'No payments match your search.' : 'No payments received in this period.'
+                }
+              />
             ) : (
               <div className="space-y-2">
                 {incomeQuery.data?.items.map((p) => (
@@ -591,7 +720,9 @@ export function AccountsPage() {
             )}
           </div>
           <div className="card">
-            <h3 className="mb-4 font-display text-lg font-semibold text-gold">Booking Profitability</h3>
+            <h3 className="mb-4 font-display text-lg font-semibold text-gold">
+              Booking Profitability
+            </h3>
             <select
               className="input-field mb-4"
               value={profitBookingId}
@@ -639,12 +770,16 @@ export function AccountsPage() {
           ) : incomeQuery.isError ? (
             <ErrorState message={getApiErrorMessage(incomeQuery.error, 'Failed to load income.')} />
           ) : (incomeQuery.data?.items.length ?? 0) === 0 ? (
-            <EmptyState message={search ? 'No payments match your search.' : 'No payments received in this period.'} />
+            <EmptyState
+              message={
+                search ? 'No payments match your search.' : 'No payments received in this period.'
+              }
+            />
           ) : (
             <>
               <p className="mb-4 text-sm text-gray-400">
-                Total: {formatCurrency(incomeQuery.data?.totalAmount ?? 0)} ({incomeQuery.data?.total}{' '}
-                payments)
+                Total: {formatCurrency(incomeQuery.data?.totalAmount ?? 0)} (
+                {incomeQuery.data?.total} payments)
               </p>
               <table className="min-w-full text-left text-sm">
                 <thead>
@@ -685,7 +820,10 @@ export function AccountsPage() {
             <LoadingRows />
           ) : expenseBreakdownQuery.isError ? (
             <ErrorState
-              message={getApiErrorMessage(expenseBreakdownQuery.error, 'Failed to load expense breakdown.')}
+              message={getApiErrorMessage(
+                expenseBreakdownQuery.error,
+                'Failed to load expense breakdown.',
+              )}
             />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -714,11 +852,18 @@ export function AccountsPage() {
           )}
 
           <div className="card overflow-x-auto">
-            <h3 className="mb-4 font-display text-lg font-semibold text-gold">Expense Entries</h3>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="font-display text-lg font-semibold text-gold">Expense Entries</h3>
+              <Link to="/expenses" className="text-sm text-gold hover:underline">
+                Open expense ledger →
+              </Link>
+            </div>
             {expensesListQuery.isLoading ? (
               <LoadingRows />
             ) : (expensesListQuery.data?.items.length ?? 0) === 0 ? (
-              <EmptyState message={search ? 'No expenses match your search.' : 'No expenses in this period.'} />
+              <EmptyState
+                message={search ? 'No expenses match your search.' : 'No expenses in this period.'}
+              />
             ) : (
               <table className="min-w-full text-left text-sm">
                 <thead>
@@ -793,7 +938,9 @@ export function AccountsPage() {
           {staffQuery.isLoading ? (
             <LoadingRows />
           ) : staffQuery.isError ? (
-            <ErrorState message={getApiErrorMessage(staffQuery.error, 'Failed to load staff payments.')} />
+            <ErrorState
+              message={getApiErrorMessage(staffQuery.error, 'Failed to load staff payments.')}
+            />
           ) : (staffQuery.data?.items.length ?? 0) === 0 ? (
             <EmptyState message="No staff payments in this period." />
           ) : (
@@ -810,6 +957,7 @@ export function AccountsPage() {
                     <th className="px-3 py-3">Source</th>
                     <th className="px-3 py-3">Description</th>
                     <th className="px-3 py-3">Amount</th>
+                    <th className="px-3 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -827,6 +975,38 @@ export function AccountsPage() {
                       <td className="px-3 py-3">{row.description || '—'}</td>
                       <td className="px-3 py-3 font-semibold text-red-400">
                         {formatCurrency(row.amount)}
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex justify-end gap-1">
+                          <button
+                            type="button"
+                            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
+                            onClick={() => void openStaffPaymentRow(row.id, 'view')}
+                            aria-label="View staff payment"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          {canUpdateExpense && row.source === 'manual' && (
+                            <button
+                              type="button"
+                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
+                              onClick={() => void openStaffPaymentRow(row.id, 'edit')}
+                              aria-label="Edit staff payment"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                          {canUpdateExpense && row.source === 'manual' && (
+                            <button
+                              type="button"
+                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-red-400"
+                              onClick={() => void openStaffPaymentRow(row.id, 'archive')}
+                              aria-label="Archive staff payment"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -846,7 +1026,9 @@ export function AccountsPage() {
           ) : profitQuery.data ? (
             <div className="space-y-6">
               <div className="rounded-lg border border-gold/20 bg-gold/5 p-4">
-                <p className="text-xs uppercase tracking-wider text-gray-500">Net Profit (Cash Basis)</p>
+                <p className="text-xs uppercase tracking-wider text-gray-500">
+                  Net Profit (Cash Basis)
+                </p>
                 <p className="mt-1 font-display text-3xl font-bold text-gold">
                   {formatCurrency(profitQuery.data.netProfit)}
                 </p>
@@ -857,12 +1039,36 @@ export function AccountsPage() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {(
                   [
-                    { label: 'Invoice Revenue (Accrual)', value: profitQuery.data.invoiceRevenue, color: 'text-gold' },
-                    { label: 'Cash Received', value: profitQuery.data.cashReceived, color: 'text-green-400' },
-                    { label: 'Total Expenses', value: profitQuery.data.totalExpenses, color: 'text-red-400' },
-                    { label: 'Staff Payments', value: profitQuery.data.staffPayments, color: 'text-red-400' },
-                    { label: 'Album Value (Info)', value: profitQuery.data.albumOrderValue, color: 'text-gray-300' },
-                    { label: 'Album Vendor Expense', value: profitQuery.data.albumVendorExpense, color: 'text-gray-400' },
+                    {
+                      label: 'Invoice Revenue (Accrual)',
+                      value: profitQuery.data.invoiceRevenue,
+                      color: 'text-gold',
+                    },
+                    {
+                      label: 'Cash Received',
+                      value: profitQuery.data.cashReceived,
+                      color: 'text-green-400',
+                    },
+                    {
+                      label: 'Total Expenses',
+                      value: profitQuery.data.totalExpenses,
+                      color: 'text-red-400',
+                    },
+                    {
+                      label: 'Staff Payments',
+                      value: profitQuery.data.staffPayments,
+                      color: 'text-red-400',
+                    },
+                    {
+                      label: 'Album Value (Info)',
+                      value: profitQuery.data.albumOrderValue,
+                      color: 'text-gray-300',
+                    },
+                    {
+                      label: 'Album Vendor Expense',
+                      value: profitQuery.data.albumVendorExpense,
+                      color: 'text-gray-400',
+                    },
                   ] as const
                 ).map((row) => (
                   <div
@@ -877,9 +1083,9 @@ export function AccountsPage() {
                 ))}
               </div>
               <p className="text-xs text-gray-500">
-                Profit = Cash Received − Total Expenses. Album selling price is shown for reference only
-                and is not added to invoice revenue. Staff and album vendor costs are included in
-                expenses when synced.
+                Profit = Cash Received − Total Expenses. Album selling price is shown for reference
+                only and is not added to invoice revenue. Staff and album vendor costs are included
+                in expenses when synced.
               </p>
             </div>
           ) : null}
@@ -891,7 +1097,9 @@ export function AccountsPage() {
           {monthlyQuery.isLoading ? (
             <LoadingRows rows={6} />
           ) : monthlyQuery.isError ? (
-            <ErrorState message={getApiErrorMessage(monthlyQuery.error, 'Failed to load monthly summary.')} />
+            <ErrorState
+              message={getApiErrorMessage(monthlyQuery.error, 'Failed to load monthly summary.')}
+            />
           ) : (monthlyQuery.data?.length ?? 0) === 0 ? (
             <EmptyState message="No monthly data available." />
           ) : (
@@ -909,13 +1117,20 @@ export function AccountsPage() {
               </thead>
               <tbody>
                 {monthlyQuery.data?.map((row) => (
-                  <tr key={`${row.year}-${row.month}`} className="border-b border-surface-border/70">
+                  <tr
+                    key={`${row.year}-${row.month}`}
+                    className="border-b border-surface-border/70"
+                  >
                     <td className="px-3 py-3 font-medium text-gray-200">{row.label}</td>
-                    <td className="px-3 py-3 text-gray-300">{formatCurrency(row.invoiceRevenue)}</td>
+                    <td className="px-3 py-3 text-gray-300">
+                      {formatCurrency(row.invoiceRevenue)}
+                    </td>
                     <td className="px-3 py-3 text-green-400">{formatCurrency(row.cashReceived)}</td>
                     <td className="px-3 py-3 text-red-400">{formatCurrency(row.expenses)}</td>
                     <td className="px-3 py-3 text-red-400">{formatCurrency(row.staffPayments)}</td>
-                    <td className="px-3 py-3 font-semibold text-gold">{formatCurrency(row.profit)}</td>
+                    <td className="px-3 py-3 font-semibold text-gold">
+                      {formatCurrency(row.profit)}
+                    </td>
                     <td className="px-3 py-3 text-gray-400">{row.bookingsCount}</td>
                   </tr>
                 ))}
@@ -1017,6 +1232,18 @@ export function AccountsPage() {
           }
           expenseMutation.mutate(payload);
         }}
+      />
+
+      <AddStaffPaymentModal
+        open={staffPaymentOpen}
+        mode={staffPaymentMode}
+        expense={staffPaymentExpense}
+        isSubmitting={staffPaymentMutation.isPending}
+        onClose={() => {
+          setStaffPaymentOpen(false);
+          setStaffPaymentExpense(null);
+        }}
+        onSubmit={(values) => staffPaymentMutation.mutate(values)}
       />
 
       <ExpenseViewModal

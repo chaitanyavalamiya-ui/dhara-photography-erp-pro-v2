@@ -84,32 +84,98 @@ export async function generateReceiptNumber(
   return allocateNextReceiptNumber(latest?.receiptNumber);
 }
 
+export type AccountLedgerSortKey = {
+  id: string;
+  date: Date;
+  createdAt: Date;
+  type: 'income' | 'expense';
+};
+
+/**
+ * Newest-first display order, deterministic for same-day rows:
+ * business date desc → createdAt desc → income before expense → id desc.
+ */
+export function compareAccountLedgerNewestFirst(
+  a: AccountLedgerSortKey,
+  b: AccountLedgerSortKey,
+): number {
+  const byDate = b.date.getTime() - a.date.getTime();
+  if (byDate !== 0) {
+    return byDate;
+  }
+
+  const byCreated = b.createdAt.getTime() - a.createdAt.getTime();
+  if (byCreated !== 0) {
+    return byCreated;
+  }
+
+  if (a.type !== b.type) {
+    return a.type === 'income' ? -1 : 1;
+  }
+
+  return b.id.localeCompare(a.id);
+}
+
+export function sortAccountLedgerNewestFirst<T extends AccountLedgerSortKey>(entries: T[]): T[] {
+  return [...entries].sort(compareAccountLedgerNewestFirst);
+}
+
+/**
+ * Running balance after each transaction in chronological order:
+ * previous + income − expense, starting at 0 for the selected period.
+ * `entries` must already be newest-first; returned balances align to that order.
+ */
+export function computeNewestFirstRunningBalances(
+  entries: Array<{ income: number; expense: number }>,
+): number[] {
+  const balances = new Array<number>(entries.length);
+  let previous = 0;
+
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    previous = roundMoney(previous + entry.income - entry.expense);
+    balances[index] = previous;
+  }
+
+  return balances;
+}
+
 export function paginateNewestFirstRunningBalances(
   entries: Array<{ income: number; expense: number }>,
   page: number,
   limit: number,
 ): number[] {
-  const periodNet = roundMoney(
-    entries.reduce((sum, row) => sum + row.income - row.expense, 0),
-  );
   const start = (page - 1) * limit;
-  const skippedNet = roundMoney(
-    entries.slice(0, start).reduce((sum, row) => sum + row.income - row.expense, 0),
-  );
-  let cursor = roundMoney(periodNet - skippedNet);
-  const pageEntries = entries.slice(start, start + limit);
-
-  return pageEntries.map((entry) => {
-    const runningBalance = cursor;
-    cursor = roundMoney(cursor - (entry.income - entry.expense));
-    return runningBalance;
-  });
+  return computeNewestFirstRunningBalances(entries).slice(start, start + limit);
 }
 
 export function getMonthRange(year: number, month: number): { start: Date; end: Date } {
   const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
   const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
   return { start, end };
+}
+
+export const STUDIO_TIME_ZONE = 'Asia/Kolkata';
+
+export function getStudioDateParts(now = new Date()): {
+  year: number;
+  month: number;
+  day: number;
+} {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: STUDIO_TIME_ZONE,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(now);
+
+  const read = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+
+  return {
+    year: read('year'),
+    month: read('month'),
+    day: read('day'),
+  };
 }
 
 /** Active bookings only — archived excluded, isActive required. */
@@ -162,11 +228,9 @@ export function resolveReportDateRange(
   preset: ReportDatePreset = 'this_month',
   dateFrom?: string,
   dateTo?: string,
+  now = new Date(),
 ): ReportDateRange {
-  const now = new Date();
-  const utcYear = now.getUTCFullYear();
-  const utcMonth = now.getUTCMonth();
-  const utcDate = now.getUTCDate();
+  const { year, month, day } = getStudioDateParts(now);
 
   const toDateLabel = (date: Date) => date.toISOString().slice(0, 10);
 
@@ -193,17 +257,17 @@ export function resolveReportDateRange(
   }
 
   if (preset === 'today') {
-    const start = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0, 0));
-    const end = new Date(Date.UTC(utcYear, utcMonth, utcDate, 23, 59, 59, 999));
+    const start = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
     const label = toDateLabel(start);
     return { preset, label: 'Today', start, end, dateFrom: label, dateTo: label };
   }
 
   if (preset === 'this_week') {
-    const day = now.getUTCDay();
-    const diffToMonday = day === 0 ? 6 : day - 1;
-    const start = new Date(Date.UTC(utcYear, utcMonth, utcDate - diffToMonday, 0, 0, 0, 0));
-    const end = new Date(Date.UTC(utcYear, utcMonth, utcDate, 23, 59, 59, 999));
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    const diffToMonday = weekday === 0 ? 6 : weekday - 1;
+    const start = new Date(Date.UTC(year, month - 1, day - diffToMonday, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
     return {
       preset,
       label: 'This Week',
@@ -215,9 +279,9 @@ export function resolveReportDateRange(
   }
 
   if (preset === 'last_month') {
-    const month = utcMonth === 0 ? 12 : utcMonth;
-    const year = utcMonth === 0 ? utcYear - 1 : utcYear;
-    const { start, end } = getMonthRange(year, month);
+    const lastMonth = month === 1 ? 12 : month - 1;
+    const lastMonthYear = month === 1 ? year - 1 : year;
+    const { start, end } = getMonthRange(lastMonthYear, lastMonth);
     return {
       preset,
       label: 'Last Month',
@@ -229,8 +293,8 @@ export function resolveReportDateRange(
   }
 
   if (preset === 'this_year') {
-    const start = new Date(Date.UTC(utcYear, 0, 1, 0, 0, 0, 0));
-    const end = new Date(Date.UTC(utcYear, utcMonth, utcDate, 23, 59, 59, 999));
+    const start = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
     return {
       preset,
       label: 'This Year',
@@ -241,7 +305,7 @@ export function resolveReportDateRange(
     };
   }
 
-  const { start, end } = getMonthRange(utcYear, utcMonth + 1);
+  const { start, end } = getMonthRange(year, month);
   return {
     preset: 'this_month',
     label: 'This Month',

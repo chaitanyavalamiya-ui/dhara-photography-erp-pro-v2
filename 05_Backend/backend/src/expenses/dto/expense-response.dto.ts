@@ -70,6 +70,9 @@ export class PaginatedExpensesResponseDto {
   total!: number;
 
   @ApiProperty()
+  totalAmount!: number;
+
+  @ApiProperty()
   page!: number;
 
   @ApiProperty()

@@ -119,7 +119,11 @@ export function AddExpenseModal({
               {isEdit ? 'Update expense details' : 'Record a studio expense'}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-400 hover:text-gold"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -142,23 +146,31 @@ export function AddExpenseModal({
                   </option>
                 ))}
               </select>
+              {errors.categoryCode && (
+                <p className="mt-1 text-xs text-red-400">{errors.categoryCode.message}</p>
+              )}
             </div>
 
             <div>
               <label className="mb-1.5 block text-sm text-gray-300">Amount (₹)</label>
               <input
                 type="number"
-                min="1"
-                step="1"
+                min="0.01"
+                step="0.01"
                 className="input-field"
                 {...register('amount', { valueAsNumber: true })}
               />
-              {errors.amount && <p className="mt-1 text-xs text-red-400">{errors.amount.message}</p>}
+              {errors.amount && (
+                <p className="mt-1 text-xs text-red-400">{errors.amount.message}</p>
+              )}
             </div>
 
             <div>
               <label className="mb-1.5 block text-sm text-gray-300">Date</label>
               <input type="date" className="input-field" {...register('expenseDate')} />
+              {errors.expenseDate && (
+                <p className="mt-1 text-xs text-red-400">{errors.expenseDate.message}</p>
+              )}
             </div>
 
             <div>
@@ -196,8 +208,12 @@ export function AddExpenseModal({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Reference</label>
-              <input className="input-field" {...register('referenceNumber')} />
+              <label className="mb-1.5 block text-sm text-gray-300">Receipt / Reference</label>
+              <input
+                className="input-field"
+                placeholder="Bill no., UTR, or receipt number"
+                {...register('referenceNumber')}
+              />
             </div>
 
             <div>

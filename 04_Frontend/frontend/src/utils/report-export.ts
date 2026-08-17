@@ -1,10 +1,7 @@
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
-
-const A4_WIDTH_MM = 210;
-const A4_HEIGHT_MM = 297;
-const PAGE_MARGIN_MM = 12;
+import { addPaginatedCanvasToPdf } from '@/utils/invoice-pdf';
 
 export async function downloadReportPdf(
   elementId: string,
@@ -27,26 +24,7 @@ export async function downloadReportPdf(
   });
 
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const contentWidth = A4_WIDTH_MM - PAGE_MARGIN_MM * 2;
-  const contentHeight = A4_HEIGHT_MM - PAGE_MARGIN_MM * 2;
-
-  let renderWidth = contentWidth;
-  let renderHeight = (canvas.height * renderWidth) / canvas.width;
-
-  if (renderHeight > contentHeight) {
-    renderHeight = contentHeight;
-    renderWidth = (canvas.width * renderHeight) / canvas.height;
-  }
-
-  const offsetX = (A4_WIDTH_MM - renderWidth) / 2;
-  pdf.addImage(
-    canvas.toDataURL('image/png'),
-    'PNG',
-    offsetX,
-    PAGE_MARGIN_MM,
-    renderWidth,
-    renderHeight,
-  );
+  addPaginatedCanvasToPdf(pdf, canvas);
 
   const safeName = filename.replace(/[\\/:*?"<>|]/g, '-');
   pdf.save(`${safeName}.pdf`);

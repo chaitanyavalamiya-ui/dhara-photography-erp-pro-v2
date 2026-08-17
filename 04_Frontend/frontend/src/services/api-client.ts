@@ -1,8 +1,8 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/stores/auth-store';
+import { rememberPostLoginPath } from '@/utils/post-login-path';
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:3000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:3000/api/v1';
 
 type RetryableRequest = InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -15,9 +15,12 @@ interface AuthTokensPayload {
 let refreshPromise: Promise<string> | null = null;
 
 function redirectToLogin() {
-  if (window.location.pathname !== '/login') {
-    window.location.href = '/login';
+  if (window.location.pathname === '/login') {
+    return;
   }
+
+  rememberPostLoginPath(window.location.pathname, window.location.search);
+  window.location.assign('/login');
 }
 
 function clearSession() {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ImagePlus, RotateCcw, Trash2, Upload, X, ZoomIn } from 'lucide-react';
 import {
+  GALLERY_STATUS_OPTIONS,
   Gallery,
   GalleryPhoto,
   canViewOriginalPhoto,
@@ -179,6 +180,18 @@ export function GalleryDetailModal({
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (payload: { status?: Gallery['status']; allowClientDownload?: boolean }) =>
+      galleriesService.update(gallery!.id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['galleries'] });
+      setFeedback({ type: 'success', message: 'Gallery settings saved.' });
+    },
+    onError: (error: unknown) => {
+      setFeedback({ type: 'error', message: getApiErrorMessage(error, 'Failed to update gallery.') });
+    },
+  });
+
   if (!open) return null;
 
   if (!gallery) {
@@ -215,6 +228,40 @@ export function GalleryDetailModal({
             <p className="text-sm text-gray-400">
               {gallery.clientName} · {gallery.eventType} · {totalPhotos} photos
             </p>
+            {canUpdate && (
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className="text-xs text-gray-400">
+                  Status
+                  <select
+                    className="input-field ml-2 w-40 py-1 text-sm"
+                    value={gallery.status}
+                    disabled={updateMutation.isPending}
+                    onChange={(event) =>
+                      updateMutation.mutate({
+                        status: event.target.value as Gallery['status'],
+                      })
+                    }
+                  >
+                    {GALLERY_STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-xs text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={gallery.allowClientDownload}
+                    disabled={updateMutation.isPending}
+                    onChange={(event) =>
+                      updateMutation.mutate({ allowClientDownload: event.target.checked })
+                    }
+                  />
+                  Allow client download
+                </label>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {canUpdate && (

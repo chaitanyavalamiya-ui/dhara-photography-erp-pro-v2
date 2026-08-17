@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CalendarBookingEvent } from '@/services/bookings-service';
 import {
+  buildMonthSummary,
   clientEventDateForYear,
+  getBookingDatesInRange,
   getCalendarYearOptions,
   getVisibleCalendarRange,
   groupClientMarkersByDate,
@@ -72,6 +74,27 @@ describe('calendar occupancy', () => {
     );
 
     expect(grouped.get(previousMonthDay)?.[0].id).toBe('spillover');
+  });
+
+  it('excludes adjacent-month spillover from month summary totals', () => {
+    const julyEvent = event({
+      id: 'july',
+      eventDate: '2026-07-31T00:00:00.000Z',
+      totalAmount: 50000,
+    });
+    const augustEvent = event({
+      id: 'august',
+      eventDate: '2026-08-15T00:00:00.000Z',
+      totalAmount: 10000,
+    });
+    const inMonth = [julyEvent, augustEvent].filter(
+      (item) => getBookingDatesInRange(item, '2026-08-01', '2026-08-31').length > 0,
+    );
+
+    expect(buildMonthSummary(inMonth)).toMatchObject({
+      totalBookings: 1,
+      totalAmount: 10000,
+    });
   });
 
   it('keeps local date keys without UTC shifting for calendar cells', () => {

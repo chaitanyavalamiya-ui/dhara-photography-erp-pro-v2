@@ -7,7 +7,9 @@ import {
   buildBookingEventDateWhere,
   REPORT_BOOKING_FILTER,
   paginateNewestFirstRunningBalances,
+  sortAccountLedgerNewestFirst,
   getMonthRange,
+  getStudioDateParts,
   ReportDateRange,
   ReportDatePreset,
   resolveReportDateRange,
@@ -51,10 +53,8 @@ export class AccountsService {
     await this.paymentsService.backfillAdvancePayments(companyId, userId);
 
     const now = new Date();
-    const { start: monthStart, end: monthEnd } = getMonthRange(
-      now.getUTCFullYear(),
-      now.getUTCMonth() + 1,
-    );
+    const studioNow = getStudioDateParts(now);
+    const { start: monthStart, end: monthEnd } = getMonthRange(studioNow.year, studioNow.month);
 
     const [
       invoiceAgg,
@@ -368,6 +368,7 @@ export class AccountsService {
           staff: { select: { id: true, fullName: true, staffCode: true } },
           booking: { select: { id: true, bookingNumber: true } },
           bookingStaffAssignment: { select: { id: true } },
+          staffPayment: { select: { id: true } },
         },
         orderBy: { expenseDate: 'desc' },
         skip: (page - 1) * limit,
@@ -389,7 +390,10 @@ export class AccountsService {
         bookingNumber: expense.booking?.bookingNumber ?? null,
         description: expense.description,
         amount: roundMoney(Number(expense.amount)),
-        source: expense.bookingStaffAssignment ? 'staff_assignment' : 'manual',
+        source:
+          expense.bookingStaffAssignment || expense.staffPayment
+            ? 'staff_assignment'
+            : 'manual',
       })),
       total,
       page,
@@ -431,8 +435,9 @@ export class AccountsService {
     const now = new Date();
     const rows: MonthlyFinancialRowDto[] = [];
 
+    const studioNow = getStudioDateParts(now);
     for (let offset = safeMonths - 1; offset >= 0; offset -= 1) {
-      const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+      const date = new Date(Date.UTC(studioNow.year, studioNow.month - 1 - offset, 1));
       const year = date.getUTCFullYear();
       const month = date.getUTCMonth() + 1;
       const { start, end } = getMonthRange(year, month);
@@ -501,8 +506,9 @@ export class AccountsService {
     query: MonthlyReportQueryDto,
   ): Promise<MonthlyReportDto> {
     const now = new Date();
-    const year = query.year ?? now.getUTCFullYear();
-    const month = query.month ?? now.getUTCMonth() + 1;
+    const studioNow = getStudioDateParts(now);
+    const year = query.year ?? studioNow.year;
+    const month = query.month ?? studioNow.month;
     const { start, end } = getMonthRange(year, month);
 
     const [invoiceAgg, paymentAgg, expenseAgg, bookingsCount, invoiceStatusCounts] =
@@ -612,6 +618,7 @@ export class AccountsService {
         ? Promise.resolve([])
         : this.prisma.payment.findMany({
             where: paymentWhere,
+            orderBy: [{ paymentDate: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
             include: {
               client: { select: { fullName: true } },
               booking: { select: { bookingNumber: true } },
@@ -622,30 +629,22 @@ export class AccountsService {
         ? Promise.resolve([])
         : this.prisma.expense.findMany({
             where: expenseWhere,
+            orderBy: [{ expenseDate: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
             include: {
               client: { select: { fullName: true } },
               booking: { select: { bookingNumber: true } },
-              category: { select: { label: true } },
+              category: { select: { code: true, label: true } },
               paymentMode: { select: { label: true } },
+              staff: { select: { fullName: true } },
             },
           }),
     ]);
 
-    const entries: Array<{
-      id: string;
-      date: Date;
-      type: 'income' | 'expense';
-      description: string;
-      bookingNumber?: string | null;
-      clientName?: string | null;
-      income: number;
-      expense: number;
-      paymentMethod?: string | null;
-      amount: number;
-    }> = [
+    const entries = sortAccountLedgerNewestFirst([
       ...payments.map((payment) => ({
         id: payment.id,
         date: payment.paymentDate,
+        createdAt: payment.createdAt,
         type: 'income' as const,
         description: `Payment ${payment.receiptNumber ?? ''}`.trim(),
         bookingNumber: payment.booking.bookingNumber,
@@ -658,8 +657,14 @@ export class AccountsService {
       ...expenses.map((expense) => ({
         id: expense.id,
         date: expense.expenseDate,
+        createdAt: expense.createdAt,
         type: 'expense' as const,
-        description: expense.description ?? expense.category.label,
+        description:
+          expense.category.code === 'staff'
+            ? ['Staff Payment', expense.staff?.fullName ?? expense.vendorPerson, expense.booking?.bookingNumber]
+                .filter(Boolean)
+                .join(' — ')
+            : (expense.description ?? expense.category.label),
         bookingNumber: expense.booking?.bookingNumber ?? null,
         clientName: expense.client?.fullName ?? null,
         income: 0,
@@ -667,9 +672,7 @@ export class AccountsService {
         paymentMethod: expense.paymentMode?.label ?? null,
         amount: roundMoney(Number(expense.amount)),
       })),
-    ];
-
-    entries.sort((a, b) => b.date.getTime() - a.date.getTime());
+    ]);
 
     const total = entries.length;
     const totalIncome = roundMoney(entries.reduce((sum, row) => sum + row.income, 0));
@@ -745,11 +748,9 @@ export class AccountsService {
     const balance = invoice
       ? Number(invoice.outstandingAmount)
       : roundMoney(totalBookingAmount - totalReceived);
-    const netProfit = roundMoney(totalBookingAmount - totalExpenses);
+    const netProfit = roundMoney(totalReceived - totalExpenses);
     const profitMarginPercent =
-      totalBookingAmount > 0
-        ? roundMoney((netProfit / totalBookingAmount) * 100)
-        : 0;
+      totalReceived > 0 ? roundMoney((netProfit / totalReceived) * 100) : 0;
 
     return {
       bookingId: booking.id,

@@ -1,16 +1,22 @@
-import { Payment } from '@/services/payments-service';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
+import { Payment } from '@/services/payments-service';
 
 interface InvoicePaymentHistoryProps {
   payments: Payment[];
   isLoading?: boolean;
   isError?: boolean;
+  canVoid?: boolean;
+  isVoidingId?: string | null;
+  onVoid?: (payment: Payment) => void;
 }
 
 export function InvoicePaymentHistory({
   payments,
   isLoading,
   isError,
+  canVoid,
+  isVoidingId,
+  onVoid,
 }: InvoicePaymentHistoryProps) {
   if (isLoading) {
     return (
@@ -36,7 +42,9 @@ export function InvoicePaymentHistory({
     );
   }
 
-  const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const totalPaid = payments
+    .filter((payment) => !payment.isVoided)
+    .reduce((sum, payment) => sum + payment.amount, 0);
 
   return (
     <div className="rounded-lg border border-surface-border bg-surface-elevated">
@@ -56,18 +64,46 @@ export function InvoicePaymentHistory({
               <th className="px-4 py-2.5">Method</th>
               <th className="px-4 py-2.5">Reference</th>
               <th className="px-4 py-2.5 text-right">Amount</th>
+              {canVoid && <th className="px-4 py-2.5 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {payments.map((payment) => (
               <tr key={payment.id} className="border-b border-surface-border/60 text-gray-300">
                 <td className="px-4 py-2.5">{formatDate(payment.paymentDate)}</td>
-                <td className="px-4 py-2.5">{payment.receiptNumber ?? '—'}</td>
+                <td className="px-4 py-2.5">
+                  {payment.receiptNumber ?? '—'}
+                  {payment.isVoided && (
+                    <span className="ml-2 rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] uppercase text-red-400">
+                      Voided
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-2.5">{payment.paymentModeLabel}</td>
                 <td className="px-4 py-2.5">{payment.transactionReference ?? '—'}</td>
-                <td className="px-4 py-2.5 text-right font-medium text-green-400">
+                <td
+                  className={
+                    payment.isVoided
+                      ? 'px-4 py-2.5 text-right font-medium text-gray-500 line-through'
+                      : 'px-4 py-2.5 text-right font-medium text-green-400'
+                  }
+                >
                   {formatCurrency(payment.amount)}
                 </td>
+                {canVoid && (
+                  <td className="px-4 py-2.5 text-right">
+                    {!payment.isVoided && onVoid && (
+                      <button
+                        type="button"
+                        className="text-xs text-red-400 hover:text-red-300"
+                        disabled={isVoidingId === payment.id}
+                        onClick={() => onVoid(payment)}
+                      >
+                        {isVoidingId === payment.id ? 'Voiding…' : 'Void'}
+                      </button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

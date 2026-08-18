@@ -19,6 +19,8 @@ export interface Payment {
   previousBalance?: number;
   remainingBalance?: number;
   createdAt: string;
+  isVoided?: boolean;
+  voidedAt?: string | null;
 }
 
 export interface PaginatedPayments {
@@ -60,6 +62,11 @@ export const paymentsService = {
 
   async create(payload: CreatePaymentPayload): Promise<Payment> {
     const { data } = await apiClient.post<ApiResponse<Payment>>('/payments', payload);
+    return data.data;
+  },
+
+  async void(id: string): Promise<Payment> {
+    const { data } = await apiClient.post<ApiResponse<Payment>>(`/payments/${id}/void`);
     return data.data;
   },
 };

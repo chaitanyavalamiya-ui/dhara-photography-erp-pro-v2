@@ -57,6 +57,12 @@ export class PaymentResponseDto {
 
   @ApiProperty()
   createdAt!: string;
+
+  @ApiProperty()
+  isVoided!: boolean;
+
+  @ApiPropertyOptional()
+  voidedAt?: string | null;
 }
 
 export class PaginatedPaymentsResponseDto {

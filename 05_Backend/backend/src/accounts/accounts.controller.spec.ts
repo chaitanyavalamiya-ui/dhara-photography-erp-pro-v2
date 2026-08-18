@@ -15,6 +15,7 @@ describe('Accounts and expenses permission guards', () => {
     expect(expenses).toContain("@RequirePermissions('expenses.update')");
     expect(payments).toContain("@RequirePermissions('payments.create')");
     expect(payments).toContain("@RequirePermissions('payments.update')");
+    expect(payments).toContain("@Post(':id/void')");
   });
 
   it('requires reports.read on reports endpoints', () => {

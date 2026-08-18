@@ -74,4 +74,21 @@ export class PaymentsController {
       req.headers['user-agent'],
     );
   }
+
+  @Post(':id/void')
+  @RequirePermissions('payments.update')
+  @ApiOperation({ summary: 'Void a payment without deleting the original receipt' })
+  async void(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ): Promise<PaymentResponseDto> {
+    return this.paymentsService.void(
+      user.companyId,
+      user.sub,
+      id,
+      req.ip,
+      req.headers['user-agent'],
+    );
+  }
 }

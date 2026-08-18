@@ -19,8 +19,9 @@ import {
   Camera,
   HardDrive,
   Bot,
+  X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/auth-store';
@@ -144,6 +145,7 @@ const navItems = [
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const location = useLocation();
 
@@ -151,13 +153,39 @@ export function AppLayout() {
     (item) => !item.permission || hasPermission(item.permission),
   );
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileNavOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileNavOpen]);
+
   return (
     <RoboProvider>
-      <div className="dhara-erp-shell flex min-h-screen">
+      <div className="dhara-erp-shell flex min-h-screen overflow-x-hidden">
+        {mobileNavOpen && (
+          <button
+            type="button"
+            className="fixed inset-0 z-30 bg-black/60 md:hidden"
+            aria-label="Close navigation overlay"
+            onClick={() => setMobileNavOpen(false)}
+          />
+        )}
         <aside
           className={cn(
-            'dhara-erp-sidebar fixed inset-y-0 left-0 z-30 flex flex-col border-r transition-all duration-300',
+            'dhara-erp-sidebar fixed inset-y-0 left-0 z-40 flex flex-col border-r transition-transform duration-300 md:z-30 md:translate-x-0 md:transition-all',
             collapsed ? 'w-[72px]' : 'w-64',
+            mobileNavOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           )}
           style={{
             background:
@@ -180,7 +208,7 @@ export function AppLayout() {
               D
             </div>
             {!collapsed && (
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p
                   className="truncate font-display text-lg font-semibold"
                   style={{ color: 'var(--dhara-accent-soft)' }}
@@ -195,6 +223,14 @@ export function AppLayout() {
                 </p>
               </div>
             )}
+            <button
+              type="button"
+              className="btn-secondary ml-auto h-10 w-10 px-0 md:hidden"
+              aria-label="Close navigation"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
           <nav className="flex-1 space-y-2 overflow-y-auto p-3">
@@ -241,7 +277,7 @@ export function AppLayout() {
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className="dhara-nav-item flex h-12 items-center justify-center rounded-none"
+            className="dhara-nav-item hidden h-12 items-center justify-center rounded-none md:flex"
             style={{
               borderTop: '1px solid var(--dhara-border)',
               color: 'var(--dhara-text-secondary)',
@@ -254,11 +290,11 @@ export function AppLayout() {
 
         <div
           className={cn(
-            'flex flex-1 flex-col transition-all duration-300',
-            collapsed ? 'ml-[72px]' : 'ml-64',
+            'flex min-w-0 flex-1 flex-col transition-all duration-300',
+            collapsed ? 'md:ml-[72px]' : 'md:ml-64',
           )}
         >
-          <Header />
+          <Header onOpenMobileNav={() => setMobileNavOpen(true)} />
           <main className="dhara-page flex-1 p-4 sm:p-6">
             <Outlet />
           </main>

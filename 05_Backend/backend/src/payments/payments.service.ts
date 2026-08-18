@@ -244,6 +244,76 @@ export class PaymentsService {
     return this.mapPayment(updated);
   }
 
+  async void(
+    companyId: string,
+    userId: string,
+    id: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<PaymentResponseDto> {
+    const existing = await this.prisma.payment.findFirst({
+      where: { id, companyId },
+      include: this.paymentInclude(),
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Payment not found.');
+    }
+
+    if (existing.archivedAt || !existing.isActive) {
+      throw new BadRequestException('This payment has already been voided.');
+    }
+
+    const voided = await this.prisma.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id },
+        data: {
+          isActive: false,
+          archivedAt: new Date(),
+          archivedById: userId,
+          archivedReason: 'voided',
+          updatedById: userId,
+        },
+      });
+
+      await syncInvoiceAndBookingFinancials(tx, existing.invoiceId);
+
+      const payment = await tx.payment.findFirst({
+        where: { id, companyId },
+        include: this.paymentInclude(),
+      });
+
+      if (!payment) {
+        throw new NotFoundException('Payment not found.');
+      }
+
+      return payment;
+    });
+
+    await this.auditService.log({
+      companyId,
+      actorUserId: userId,
+      module: 'payments',
+      action: 'void',
+      recordType: 'payment',
+      recordId: id,
+      previousValue: {
+        amount: Number(existing.amount),
+        receiptNumber: existing.receiptNumber,
+        isActive: true,
+      },
+      newValue: {
+        isActive: false,
+        archivedReason: 'voided',
+        outstandingAmount: Number(voided.invoice.outstandingAmount),
+      },
+      ipAddress,
+      userAgent,
+    });
+
+    return this.mapPayment(voided);
+  }
+
   async backfillAdvancePayments(companyId: string, userId: string): Promise<void> {
     const invoices = await this.prisma.invoice.findMany({
       where: {
@@ -349,6 +419,8 @@ export class PaymentsService {
       notes: payment.notes,
       remainingBalance: Number(payment.invoice.outstandingAmount),
       createdAt: payment.createdAt.toISOString(),
+      isVoided: Boolean(payment.archivedAt) || payment.isActive === false,
+      voidedAt: payment.archivedAt?.toISOString() ?? null,
     };
   }
 
@@ -358,8 +430,6 @@ export class PaymentsService {
   ): Promise<Prisma.PaymentWhereInput> {
     const where: Prisma.PaymentWhereInput = {
       companyId,
-      archivedAt: null,
-      isActive: true,
     };
 
     if (query.clientId) {

@@ -20,6 +20,13 @@ describe('ReportsService uses accounts calculations', () => {
     expect(source).toContain('REPORT_BOOKING_FILTER');
     expect(source).not.toContain('ACTIVE_BOOKING_FILTER');
   });
+
+  it('reuses accounts payment queries that already exclude inactive/voided receipts', () => {
+    const accounts = readFileSync(join(__dirname, '../accounts/accounts.service.ts'), 'utf8');
+    expect(accounts).toContain('...ACTIVE_FILTER');
+    expect(source).toContain('this.accountsService.getIncome');
+    expect(source).toContain('this.accountsService.getTransactions');
+  });
 });
 
 describe('ReportsService.getOverview', () => {

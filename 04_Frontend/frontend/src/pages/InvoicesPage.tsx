@@ -37,6 +37,7 @@ export function InvoicesPage() {
   const canCreate = hasPermission('invoices.create');
   const canUpdate = hasPermission('invoices.update');
   const canCreatePayment = hasPermission('payments.create');
+  const canVoidPayment = hasPermission('payments.update');
 
   const listQuery = useQuery({
     queryKey: ['invoices', page, search, statusFilter, dateFrom, dateTo],
@@ -364,6 +365,7 @@ export function InvoicesPage() {
         error={viewQuery.isError}
         canUpdate={canUpdate}
         canCreatePayment={canCreatePayment}
+        canVoidPayment={canVoidPayment}
         onClose={() => setViewInvoiceId(null)}
         onEdit={(invoice) => {
           setViewInvoiceId(null);

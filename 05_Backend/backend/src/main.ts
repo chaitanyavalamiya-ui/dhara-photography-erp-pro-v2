@@ -1,10 +1,17 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import {
+  createHelmetOptions,
+  isCorsOriginAllowed,
+  parseCorsOrigins,
+  payloadContainsPrototypePollution,
+} from './common/http-security';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
@@ -12,16 +19,32 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('BACKEND_PORT', 3000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
-  const corsOrigin = configService.get<string>('CORS_ORIGIN', 'http://localhost:5173');
-  const allowedOrigins = corsOrigin
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  const allowedOrigins = parseCorsOrigins(configService.get<string>('CORS_ORIGIN'));
 
   app.setGlobalPrefix(apiPrefix);
+  app.use(helmet(createHelmetOptions()));
+  app.use((req: { body?: unknown; query?: unknown; params?: unknown }, _res: unknown, next: (error?: unknown) => void) => {
+    if (
+      payloadContainsPrototypePollution(req.body) ||
+      payloadContainsPrototypePollution(req.query) ||
+      payloadContainsPrototypePollution(req.params)
+    ) {
+      next(new BadRequestException('Invalid request payload.'));
+      return;
+    }
+    next();
+  });
   app.enableCors({
-    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
+    origin: (origin, callback) => {
+      if (isCorsOriginAllowed(origin, allowedOrigins)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   app.useGlobalPipes(

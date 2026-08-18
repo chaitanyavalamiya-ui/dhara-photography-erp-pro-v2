@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Pencil, Plus, Search, Tags } from 'lucide-react';
+import { Archive, Camera, Eye, Pencil, Plus, Search, Tags } from 'lucide-react';
 import {
   EQUIPMENT_CONDITIONS,
   EQUIPMENT_TRACKING_TYPES,
@@ -12,6 +12,8 @@ import {
   UpdateEquipmentPayload,
   equipmentService,
 } from '@/services/equipment-service';
+import { bookingsService } from '@/services/bookings-service';
+import { EquipmentIssueModal } from '@/components/equipment/EquipmentIssueModal';
 import { useAuthStore } from '@/stores/auth-store';
 import { formatDate } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
@@ -26,6 +28,7 @@ export function EquipmentPage() {
   const queryClient = useQueryClient();
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const canWrite = hasPermission('equipment.write');
+  const canIssue = hasPermission('equipment.issue');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [category, setCategory] = useState('');
@@ -34,6 +37,9 @@ export function EquipmentPage() {
   const [editItem, setEditItem] = useState<EquipmentItem | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueBookingId, setIssueBookingId] = useState<string | null>(null);
+  const [archiveItem, setArchiveItem] = useState<EquipmentItem | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const listQuery = useQuery({
@@ -81,10 +87,21 @@ export function EquipmentPage() {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (id: string) => equipmentService.archive(id),
+    onSuccess: () => {
+      invalidateEquipment();
+      setArchiveItem(null);
+      setFeedback('Equipment archived.');
+    },
+  });
+
   const items = listQuery.data?.items ?? [];
+  const totalPages = listQuery.data?.totalPages ?? 1;
   const categories = categoriesQuery.data ?? [];
   const activeCategories = categories.filter((item) => item.isActive);
-  const mutationError = createMutation.error ?? updateMutation.error;
+  const mutationError = createMutation.error ?? updateMutation.error ?? archiveMutation.error;
+  const hasFilters = Boolean(search || category);
 
   return (
     <div className="space-y-6">
@@ -109,6 +126,14 @@ export function EquipmentPage() {
           </div>
         )}
       </div>
+      {canIssue && (
+        <div className="flex justify-end">
+          <button type="button" className="btn-secondary" onClick={() => setIssueOpen(true)}>
+            <Camera className="mr-2 inline h-4 w-4" />
+            Issue to booking
+          </button>
+        </div>
+      )}
 
       <div className="card flex flex-wrap items-center gap-3">
         <div className="relative min-w-[220px] flex-1">
@@ -149,58 +174,118 @@ export function EquipmentPage() {
       )}
 
       <div className="card overflow-x-auto">
-        <table className="min-w-full text-left text-sm">
-          <thead>
-            <tr className="text-xs uppercase tracking-wider text-gray-500">
-              <th className="px-3 py-3">Equipment</th>
-              <th className="px-3 py-3">Category</th>
-              <th className="px-3 py-3">Tracking</th>
-              <th className="px-3 py-3">Available</th>
-              <th className="px-3 py-3">On Shoot</th>
-              <th className="px-3 py-3">Missing</th>
-              <th className="px-3 py-3">Under Repair</th>
-              <th className="px-3 py-3">Status</th>
-              <th className="px-3 py-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-t border-surface-border/60">
-                <td className="px-3 py-3">
-                  <p className="text-gray-100">{item.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {item.code}
-                    {item.serialNumber ? ` · ${item.serialNumber}` : ''}
-                  </p>
-                </td>
-                <td className="px-3 py-3 text-gray-300">{item.category}</td>
-                <td className="px-3 py-3 capitalize text-gray-300">{item.trackingType}</td>
-                <td className="px-3 py-3">{item.availableQuantity}</td>
-                <td className="px-3 py-3">{item.onShootQuantity}</td>
-                <td className="px-3 py-3">{item.missingQuantity}</td>
-                <td className="px-3 py-3">{item.underRepairQuantity}</td>
-                <td className="px-3 py-3">
-                  <span className={cn('rounded-full px-2 py-0.5 text-xs', statusClass(item.status))}>{item.status}</span>
-                </td>
-                <td className="px-3 py-3 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button type="button" className="btn-secondary px-3 py-1 text-xs" onClick={() => setDetailId(item.id)}>
-                      <Eye className="mr-1 inline h-3.5 w-3.5" />
-                      History
-                    </button>
-                    {canWrite && (
-                      <button type="button" className="btn-secondary px-3 py-1 text-xs" onClick={() => setEditItem(item)}>
-                        <Pencil className="mr-1 inline h-3.5 w-3.5" />
-                        Edit
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {items.length === 0 && <p className="py-8 text-center text-sm text-gray-400">No equipment in inventory yet.</p>}
+        {listQuery.isLoading ? (
+          <p className="py-12 text-center text-sm text-gray-400">Loading equipment...</p>
+        ) : listQuery.isError ? (
+          <div className="px-4 py-10 text-center">
+            <p className="text-sm text-red-400">
+              {getApiErrorMessage(listQuery.error, 'Failed to load equipment. Please try again.')}
+            </p>
+            <button type="button" className="btn-secondary mt-4" onClick={() => void listQuery.refetch()}>
+              Retry
+            </button>
+          </div>
+        ) : items.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <h3 className="font-display text-lg font-semibold text-gray-200">
+              {hasFilters ? 'No equipment matches your search.' : 'No equipment in inventory yet.'}
+            </h3>
+            <p className="mt-2 text-sm text-gray-500">
+              {hasFilters
+                ? 'Try a different name, code, serial, or category.'
+                : 'Add your first camera, lens, or accessory to start tracking inventory.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <table className="min-w-full text-left text-sm">
+              <thead>
+                <tr className="text-xs uppercase tracking-wider text-gray-500">
+                  <th className="px-3 py-3">Equipment</th>
+                  <th className="px-3 py-3">Category</th>
+                  <th className="px-3 py-3">Tracking</th>
+                  <th className="px-3 py-3">Available</th>
+                  <th className="px-3 py-3">On Shoot</th>
+                  <th className="px-3 py-3">Missing</th>
+                  <th className="px-3 py-3">Under Repair</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id} className="border-t border-surface-border/60">
+                    <td className="px-3 py-3">
+                      <p className="text-gray-100">{item.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {item.code}
+                        {item.serialNumber ? ` · ${item.serialNumber}` : ''}
+                      </p>
+                    </td>
+                    <td className="px-3 py-3 text-gray-300">{item.category}</td>
+                    <td className="px-3 py-3 capitalize text-gray-300">{item.trackingType}</td>
+                    <td className="px-3 py-3">{item.availableQuantity}</td>
+                    <td className="px-3 py-3">{item.onShootQuantity}</td>
+                    <td className="px-3 py-3">{item.missingQuantity}</td>
+                    <td className="px-3 py-3">{item.underRepairQuantity}</td>
+                    <td className="px-3 py-3">
+                      <span className={cn('rounded-full px-2 py-0.5 text-xs', statusClass(item.status))}>{item.status}</span>
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button type="button" className="btn-secondary px-3 py-1 text-xs" onClick={() => setDetailId(item.id)}>
+                          <Eye className="mr-1 inline h-3.5 w-3.5" />
+                          History
+                        </button>
+                        {canWrite && (
+                          <button type="button" className="btn-secondary px-3 py-1 text-xs" onClick={() => setEditItem(item)}>
+                            <Pencil className="mr-1 inline h-3.5 w-3.5" />
+                            Edit
+                          </button>
+                        )}
+                        {canWrite && (
+                          <button
+                            type="button"
+                            className="btn-secondary px-3 py-1 text-xs"
+                            onClick={() => setArchiveItem(item)}
+                          >
+                            <Archive className="mr-1 inline h-3.5 w-3.5" />
+                            Archive
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {totalPages > 1 && (
+              <div className="mt-5 flex items-center justify-between px-3 pb-3 text-sm text-gray-400">
+                <p>
+                  Page {page} of {totalPages} · {listQuery.data?.total ?? 0} items
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={page <= 1}
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {formOpen && (
@@ -239,6 +324,117 @@ export function EquipmentPage() {
           onClose={() => setDetailId(null)}
         />
       )}
+
+      {issueOpen && !issueBookingId && (
+        <IssueBookingPicker
+          onClose={() => setIssueOpen(false)}
+          onSelect={(bookingId) => setIssueBookingId(bookingId)}
+        />
+      )}
+
+      <EquipmentIssueModal
+        open={Boolean(issueBookingId)}
+        bookingId={issueBookingId ?? ''}
+        onClose={() => {
+          setIssueBookingId(null);
+          setIssueOpen(false);
+        }}
+        onIssued={() => {
+          invalidateEquipment();
+          setIssueBookingId(null);
+          setIssueOpen(false);
+          setFeedback('Equipment issued to booking.');
+        }}
+      />
+
+      {archiveItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="card w-full max-w-md">
+            <h2 className="font-display text-xl font-semibold text-gold">Archive equipment</h2>
+            <p className="mt-2 text-sm text-gray-400">
+              Archive {archiveItem.name}? It will leave the active inventory list. Items currently on shoot cannot be archived.
+            </p>
+            {archiveMutation.error && (
+              <p className="mt-3 text-sm text-red-400">
+                {getApiErrorMessage(archiveMutation.error, 'Failed to archive equipment.')}
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" className="btn-secondary" onClick={() => setArchiveItem(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={archiveMutation.isPending}
+                onClick={() => archiveMutation.mutate(archiveItem.id)}
+              >
+                Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IssueBookingPicker({
+  onClose,
+  onSelect,
+}: {
+  onClose: () => void;
+  onSelect: (bookingId: string) => void;
+}) {
+  const [bookingSearch, setBookingSearch] = useState('');
+  const bookingsQuery = useQuery({
+    queryKey: ['bookings', 'equipment-issue', bookingSearch],
+    queryFn: () => bookingsService.list({ page: 1, limit: 20, search: bookingSearch || undefined }),
+  });
+  const bookings = bookingsQuery.data?.items ?? [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+      <div className="card max-h-[92vh] w-full max-w-lg overflow-y-auto">
+        <h2 className="font-display text-xl font-semibold text-gold">Select booking</h2>
+        <p className="mt-1 text-sm text-gray-400">Equipment can only be issued against an existing booking.</p>
+        <input
+          className="input-field mt-4"
+          placeholder="Search booking number or client"
+          value={bookingSearch}
+          onChange={(e) => setBookingSearch(e.target.value)}
+        />
+        {bookingsQuery.isLoading && <p className="mt-4 text-sm text-gray-400">Loading bookings...</p>}
+        {bookingsQuery.isError && (
+          <p className="mt-4 text-sm text-red-400">
+            {getApiErrorMessage(bookingsQuery.error, 'Failed to load bookings.')}
+          </p>
+        )}
+        <ul className="mt-4 space-y-2">
+          {bookings.map((booking) => (
+            <li key={booking.id}>
+              <button
+                type="button"
+                className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm hover:border-gold/40"
+                onClick={() => onSelect(booking.id)}
+              >
+                <p className="text-gray-100">{booking.bookingNumber}</p>
+                <p className="text-xs text-gray-500">
+                  {booking.client.fullName} · {booking.eventType}
+                </p>
+              </button>
+            </li>
+          ))}
+        </ul>
+        {!bookingsQuery.isLoading && bookings.length === 0 && (
+          <p className="mt-4 text-sm text-gray-400">No bookings found.</p>
+        )}
+        <div className="mt-5 flex justify-end">
+          <button type="button" className="btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

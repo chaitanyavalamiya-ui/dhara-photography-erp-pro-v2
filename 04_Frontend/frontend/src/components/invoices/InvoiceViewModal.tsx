@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Download, MessageCircle, Pencil, Plus, Printer, Share2, X } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Invoice } from '@/services/invoices-service';
-import { paymentsService } from '@/services/payments-service';
+import { Payment, paymentsService } from '@/services/payments-service';
 import { InvoiceDocument } from '@/components/invoices/InvoiceDocument';
 import { InvoicePaymentHistory } from '@/components/invoices/InvoicePaymentHistory';
 import { buildWhatsAppShareUrl, printInvoice } from '@/utils/invoice';
 import { downloadInvoicePdf } from '@/utils/invoice-pdf';
+import { getApiErrorMessage } from '@/utils/api-error';
 
 interface InvoiceViewModalProps {
   open: boolean;
@@ -15,6 +16,7 @@ interface InvoiceViewModalProps {
   error?: boolean;
   canUpdate?: boolean;
   canCreatePayment?: boolean;
+  canVoidPayment?: boolean;
   onClose: () => void;
   onEdit: (invoice: Invoice) => void;
   onAddPayment?: (invoice: Invoice) => void;
@@ -27,17 +29,36 @@ export function InvoiceViewModal({
   error,
   canUpdate,
   canCreatePayment,
+  canVoidPayment,
   onClose,
   onEdit,
   onAddPayment,
 }: InvoiceViewModalProps) {
+  const queryClient = useQueryClient();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [voidTarget, setVoidTarget] = useState<Payment | null>(null);
+  const [voidError, setVoidError] = useState<string | null>(null);
 
   const paymentsQuery = useQuery({
     queryKey: ['payments', 'invoice', invoice?.id],
     queryFn: () => paymentsService.list({ invoiceId: invoice!.id, limit: 100 }),
     enabled: open && Boolean(invoice?.id),
+  });
+
+  const voidMutation = useMutation({
+    mutationFn: (paymentId: string) => paymentsService.void(paymentId),
+    onSuccess: () => {
+      setVoidTarget(null);
+      setVoidError(null);
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+    onError: (error: unknown) => {
+      setVoidError(getApiErrorMessage(error, 'Failed to void payment.'));
+    },
   });
 
   if (!open) return null;
@@ -194,7 +215,46 @@ export function InvoiceViewModal({
                 payments={paymentsQuery.data?.items ?? []}
                 isLoading={paymentsQuery.isLoading}
                 isError={paymentsQuery.isError}
+                canVoid={canVoidPayment}
+                isVoidingId={voidMutation.isPending ? voidTarget?.id ?? null : null}
+                onVoid={
+                  canVoidPayment
+                    ? (payment) => {
+                        setVoidError(null);
+                        setVoidTarget(payment);
+                      }
+                    : undefined
+                }
               />
+              {voidTarget && canVoidPayment && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  <p>
+                    Void receipt {voidTarget.receiptNumber ?? voidTarget.id}? The original record is
+                    kept, but it will no longer count as income.
+                  </p>
+                  {voidError && <p className="mt-2 text-red-400">{voidError}</p>}
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary px-3 py-1.5 text-xs"
+                      onClick={() => {
+                        setVoidTarget(null);
+                        setVoidError(null);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg bg-red-500/80 px-3 py-1.5 text-xs font-medium text-white"
+                      disabled={voidMutation.isPending}
+                      onClick={() => voidMutation.mutate(voidTarget.id)}
+                    >
+                      Confirm void
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

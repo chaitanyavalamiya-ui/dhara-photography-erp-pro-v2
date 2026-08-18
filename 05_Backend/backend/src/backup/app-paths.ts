@@ -1,6 +1,6 @@
-import { existsSync } from 'fs';
+import { existsSync, lstatSync, realpathSync, statSync } from 'fs';
 import { homedir } from 'os';
-import { join, resolve } from 'path';
+import { extname, isAbsolute, join, resolve } from 'path';
 
 export const DHARA_APP_FOLDER = 'DharaPhotographyERP';
 export const RESTORE_CONFIRM_PHRASE = 'REPLACE';
@@ -40,6 +40,69 @@ export function isPathInside(child: string, parent: string): boolean {
   const fullChild = resolve(child).replace(/[\\/]+$/, '').toLowerCase();
   const fullParent = resolve(parent).replace(/[\\/]+$/, '').toLowerCase();
   return fullChild === fullParent || fullChild.startsWith(`${fullParent}\\`) || fullChild.startsWith(`${fullParent}/`);
+}
+
+export const BACKUP_FILE_REQUIRED_MESSAGE = 'A valid Dhara ERP .zip backup is required.';
+export const BACKUP_FILE_OUTSIDE_DIR_MESSAGE =
+  'Backup file must be inside the configured backup folder.';
+
+function canonicalizeExistingPath(pathValue: string): string {
+  return realpathSync(pathValue);
+}
+
+/**
+ * Restore/preview may only target a .zip whose resolved real path stays inside BACKUP_DIR.
+ * Relative names are resolved against the backup folder, not process.cwd().
+ */
+export function resolveSafeBackupZip(backupFile: string, backupDir: string): string {
+  const trimmed = backupFile?.trim() ?? '';
+  if (!trimmed || trimmed.includes('\0')) {
+    throw new Error(BACKUP_FILE_REQUIRED_MESSAGE);
+  }
+
+  const backupRoot = resolve(backupDir);
+  const candidate = isAbsolute(trimmed) ? resolve(trimmed) : resolve(backupRoot, trimmed);
+
+  if (extname(candidate).toLowerCase() !== '.zip') {
+    throw new Error(BACKUP_FILE_REQUIRED_MESSAGE);
+  }
+
+  if (!isPathInside(candidate, backupRoot)) {
+    throw new Error(BACKUP_FILE_OUTSIDE_DIR_MESSAGE);
+  }
+
+  if (!existsSync(candidate)) {
+    throw new Error(BACKUP_FILE_REQUIRED_MESSAGE);
+  }
+
+  const candidateStat = lstatSync(candidate);
+  if (!candidateStat.isFile() && !candidateStat.isSymbolicLink()) {
+    throw new Error(BACKUP_FILE_REQUIRED_MESSAGE);
+  }
+
+  const realRoot = existsSync(backupRoot) ? canonicalizeExistingPath(backupRoot) : backupRoot;
+  const realFile = canonicalizeExistingPath(candidate);
+
+  if (!isPathInside(realFile, realRoot)) {
+    throw new Error(BACKUP_FILE_OUTSIDE_DIR_MESSAGE);
+  }
+
+  if (!statSync(realFile).isFile() || extname(realFile).toLowerCase() !== '.zip') {
+    throw new Error(BACKUP_FILE_REQUIRED_MESSAGE);
+  }
+
+  return realFile;
+}
+
+/** File-picker results must use the same BACKUP_DIR confinement as preview/restore. */
+export function confineBackupBrowsePath(
+  backupFile: string | null | undefined,
+  backupDir: string,
+): string | null {
+  if (!backupFile?.trim()) {
+    return null;
+  }
+  return resolveSafeBackupZip(backupFile, backupDir);
 }
 
 export function assertBackupDirOutsideApp(backupDir: string, repoRoot: string): void {

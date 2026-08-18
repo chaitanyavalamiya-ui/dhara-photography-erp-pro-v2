@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
-import { dirname, extname, join, resolve } from 'path';
+import { dirname, join, resolve } from 'path';
 import { AuditService } from '../audit/audit.service';
 import {
   assertBackupDirOutsideApp,
@@ -11,6 +11,8 @@ import {
   getPathsConfigFile,
   RESTORE_CONFIRM_PHRASE,
   resolveRepoRoot,
+  confineBackupBrowsePath,
+  resolveSafeBackupZip,
 } from './app-paths';
 import { isSuccessfulRestore, restoreFailureUserMessage } from './restore-outcomes';
 
@@ -77,18 +79,22 @@ export class BackupService {
     }
 
     return readdirSync(backupDir)
-      .filter((name) => name.toLowerCase().endsWith('.zip'))
       .map((fileName) => {
-        const path = join(backupDir, fileName);
-        const stat = statSync(path);
-        return {
-          fileName,
-          path,
-          sizeBytes: stat.size,
-          modifiedAt: stat.mtime.toISOString(),
-          status: 'available',
-        };
+        try {
+          const path = resolveSafeBackupZip(join(backupDir, fileName), backupDir);
+          const stat = statSync(path);
+          return {
+            fileName,
+            path,
+            sizeBytes: stat.size,
+            modifiedAt: stat.mtime.toISOString(),
+            status: 'available',
+          };
+        } catch {
+          return null;
+        }
       })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
       .sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
   }
 
@@ -183,7 +189,16 @@ export class BackupService {
       throw new BadRequestException('Backup file picker is not available.');
     }
     const result = await this.runScript('select-backup.ps1', ['-JsonOutput']);
-    return { path: result.backupFile ?? null };
+    try {
+      return {
+        path: confineBackupBrowsePath(
+          result.backupFile ?? null,
+          this.resolveBackupDir(resolveRepoRoot()),
+        ),
+      };
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
+    }
   }
 
   private resolveBackupDir(repoRoot: string): string {
@@ -214,11 +229,11 @@ export class BackupService {
   }
 
   private assertBackupFile(backupFile: string): string {
-    const resolved = resolve(backupFile);
-    if (!existsSync(resolved) || extname(resolved).toLowerCase() !== '.zip') {
-      throw new BadRequestException('A valid Dhara ERP .zip backup is required.');
+    try {
+      return resolveSafeBackupZip(backupFile, this.resolveBackupDir(resolveRepoRoot()));
+    } catch (error) {
+      throw new BadRequestException((error as Error).message);
     }
-    return resolved;
   }
 
   private runScript(scriptName: string, args: string[]): Promise<BackupScriptResult> {

@@ -1,18 +1,28 @@
-import { Bell, KeyRound, LogOut, Search, Settings, User } from 'lucide-react';
+import { Bell, KeyRound, LogOut, Menu, Search, Settings, User } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth-store';
 import { authService } from '@/services/auth-service';
+import { settingsService } from '@/services/settings-service';
 import { ChangePasswordModal } from '@/components/auth/ChangePasswordModal';
 import { clearRememberedPostLoginPath } from '@/utils/post-login-path';
 
-export function Header() {
+export const DEFAULT_STUDIO_HEADER_NAME = 'Dhara Photography Patan';
+
+export function Header({ onOpenMobileNav }: { onOpenMobileNav?: () => void }) {
   const user = useAuthStore((s) => s.user);
   const hasPermission = useAuthStore((s) => s.hasPermission);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const navigate = useNavigate();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const companyQuery = useQuery({
+    queryKey: ['settings', 'company'],
+    queryFn: settingsService.getCompanyProfile,
+    retry: false,
+  });
+  const studioName = companyQuery.data?.name?.trim() || DEFAULT_STUDIO_HEADER_NAME;
 
   const handleLogout = async () => {
     try {
@@ -58,13 +68,25 @@ export function Header() {
         backdropFilter: 'blur(var(--dhara-glass-blur))',
       }}
     >
-      <div className="min-w-0">
-        <h1 className="text-[14px] uppercase tracking-[0.16em]" style={{ color: 'var(--dhara-text-secondary)' }}>
-          Studio Management
-        </h1>
-        <p className="truncate font-display text-[20px] font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
-          Dhara Photography Patan
-        </p>
+      <div className="flex min-w-0 items-center gap-3">
+        {onOpenMobileNav && (
+          <button
+            type="button"
+            className="btn-secondary h-11 w-11 px-0 md:hidden"
+            aria-label="Open navigation"
+            onClick={onOpenMobileNav}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
+        <div className="min-w-0">
+          <h1 className="text-[14px] uppercase tracking-[0.16em]" style={{ color: 'var(--dhara-text-secondary)' }}>
+            Studio Management
+          </h1>
+          <p className="truncate font-display text-[20px] font-semibold" style={{ color: 'var(--dhara-accent-soft)' }}>
+            {studioName}
+          </p>
+        </div>
       </div>
 
       <form onSubmit={handleSearch} className="hidden max-w-xl flex-1 md:block">

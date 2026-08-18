@@ -175,6 +175,15 @@ describe('chronological running balance for displayed transactions', () => {
     expect(attachChronologicalRunningBalances(incomeOnly)).toEqual([1200, 1000]);
   });
 
+  it('recalculates running balance after a voided income is removed from the list', () => {
+    const remaining = sortLedgerNewestFirst([
+      row('i1', '2026-08-01T09:00:00.000Z', 'income', 40000),
+      row('e1', '2026-08-04T11:00:00.000Z', 'expense', 20000),
+    ]);
+    const balances = attachChronologicalRunningBalances(remaining);
+    expect(balances[0]).toBe(20000);
+  });
+
   it('reconciles the current dataset to Total Income − Total Expenses', () => {
     const dataset = [
       row('i1', '2026-08-01T09:00:00.000Z', 'income', 40000),

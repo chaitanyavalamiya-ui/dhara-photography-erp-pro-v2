@@ -22,6 +22,7 @@ import { StorageModule } from './storage/storage.module';
 import { AuditModule } from './audit/audit.module';
 import { BackupModule } from './backup/backup.module';
 import { RoboModule } from './robo/robo.module';
+import { EquipmentModule } from './equipment/equipment.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { RoboModule } from './robo/robo.module';
     DeliveriesModule,
     RolesModule,
     RoboModule,
+    EquipmentModule,
   ],
 })
 export class AppModule {}

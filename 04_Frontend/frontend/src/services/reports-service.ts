@@ -163,6 +163,23 @@ export interface ReportsTransactionsParams extends ReportsSearchParams {
   type?: 'all' | 'income' | 'expense';
 }
 
+export interface AlbumOverviewMetric {
+  key: 'albumSales' | 'albumVendorCost' | 'albumProfit';
+  label: string;
+  value: number;
+}
+
+/** Display mapping for GET /reports/overview album fields. Profit is passed through, not recomputed. */
+export function getAlbumOverviewMetrics(
+  overview: Pick<ReportsOverview, 'albumSales' | 'albumVendorExpenses' | 'albumProfit'>,
+): AlbumOverviewMetric[] {
+  return [
+    { key: 'albumSales', label: 'Album Sales', value: overview.albumSales },
+    { key: 'albumVendorCost', label: 'Album Vendor Cost', value: overview.albumVendorExpenses },
+    { key: 'albumProfit', label: 'Album Profit', value: overview.albumProfit },
+  ];
+}
+
 export const REPORT_DATE_PRESETS: { value: ReportDatePreset; label: string }[] = [
   { value: 'today', label: 'Today' },
   { value: 'this_week', label: 'This Week' },

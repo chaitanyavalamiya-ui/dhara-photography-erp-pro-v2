@@ -20,10 +20,11 @@ import {
   Wallet,
 } from 'lucide-react';
 import { accountsService } from '@/services/accounts-service';
-import { reportsService } from '@/services/reports-service';
+import { getAlbumOverviewMetrics, reportsService } from '@/services/reports-service';
 import { bookingsService } from '@/services/bookings-service';
 import { clientsService } from '@/services/clients-service';
 import { deliveriesService, DeliveryItem } from '@/services/deliveries-service';
+import { equipmentService } from '@/services/equipment-service';
 import { invoicesService } from '@/services/invoices-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { ReportChartsSection } from '@/components/reports/ReportChartsSection';
@@ -129,6 +130,7 @@ export function DashboardPage() {
   const canGallery = hasPermission('gallery.read');
   const canAlbums = hasPermission('album.read');
   const canSettings = hasPermission('settings.read');
+  const canEquipment = hasPermission('equipment.read');
 
   const today = todayIso();
   const firstName = user?.fullName?.split(' ')[0] ?? 'there';
@@ -149,6 +151,18 @@ export function DashboardPage() {
     queryKey: ['reports', 'dashboard', 'this_month'],
     queryFn: () => reportsService.getDashboard({ preset: 'this_month' }),
     enabled: canReports,
+  });
+
+  const reportsOverviewQuery = useQuery({
+    queryKey: ['reports', 'overview', 'this_month'],
+    queryFn: () => reportsService.getOverview({ preset: 'this_month' }),
+    enabled: canReports,
+  });
+
+  const equipmentDashboardQuery = useQuery({
+    queryKey: ['equipment', 'dashboard'],
+    queryFn: equipmentService.getDashboard,
+    enabled: canEquipment,
   });
 
   const chartsQuery = useQuery({
@@ -321,6 +335,7 @@ export function DashboardPage() {
     canBookings && { label: 'Calendar', to: '/calendar', icon: CalendarDays },
     canGallery && { label: 'Gallery', to: '/gallery', icon: Image },
     canAlbums && { label: 'Albums', to: '/albums', icon: BookImage },
+    canEquipment && { label: 'Equipment', to: '/equipment', icon: Camera },
     canInvoices && { label: 'Invoices', to: '/invoices', icon: Receipt },
     canDeliveries && { label: 'Delivery', to: '/deliveries', icon: Package },
     canSettings && { label: 'Settings', to: '/settings', icon: Settings },
@@ -565,6 +580,32 @@ export function DashboardPage() {
             )}
           </div>
 
+          {canEquipment && equipmentDashboardQuery.data && (
+            <div>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="dhara-section-kicker">Equipment Snapshot</p>
+                <Link to="/equipment" className="text-sm hover:underline" style={{ color: 'var(--dhara-accent)' }}>
+                  Inventory →
+                </Link>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                {[
+                  ['On Shoot', equipmentDashboardQuery.data.onShoot],
+                  ['With Staff', equipmentDashboardQuery.data.withStaff],
+                  ['Missing', equipmentDashboardQuery.data.missing],
+                  ['Damaged', equipmentDashboardQuery.data.damaged],
+                  ['Under Repair', equipmentDashboardQuery.data.underRepair],
+                  ['Available', equipmentDashboardQuery.data.available],
+                ].map(([label, value]) => (
+                  <div key={String(label)} className="card dhara-kpi">
+                    <p className="dhara-kpi-label">{label}</p>
+                    <p className="font-display mt-4 text-4xl font-semibold leading-none">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {canReports && (
             <div>
               <div className="mb-3 flex items-center justify-between">
@@ -577,6 +618,24 @@ export function DashboardPage() {
                   Full reports →
                 </Link>
               </div>
+              {reportsOverviewQuery.data && (
+                <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {getAlbumOverviewMetrics(reportsOverviewQuery.data).map((metric) => (
+                    <div key={metric.key} className="card dhara-kpi">
+                      <p className="dhara-kpi-label">{metric.label}</p>
+                      <p
+                        className="font-display mt-4 text-4xl font-semibold leading-none"
+                        style={{ color: 'var(--dhara-text-primary)' }}
+                      >
+                        {formatCurrency(metric.value)}
+                      </p>
+                      <p className="mt-2 text-sm" style={{ color: 'var(--dhara-text-secondary)' }}>
+                        This month
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <ReportChartsSection charts={chartsQuery.data} loading={chartsQuery.isLoading} />
             </div>
           )}

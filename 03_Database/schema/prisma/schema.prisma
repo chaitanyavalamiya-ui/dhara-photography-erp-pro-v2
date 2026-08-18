@@ -42,6 +42,10 @@ model Company {
   bookingStaffPayments BookingStaffPayment[]
   bookingActivities    BookingActivity[]
   deliveries           Delivery[]
+  equipment            Equipment[]
+  equipmentIssues      EquipmentIssue[]
+  equipmentReturns     EquipmentReturn[]
+  equipmentHistory     EquipmentHistory[]
 
   @@unique([code])
   @@map("companies")
@@ -354,8 +358,10 @@ model Staff {
 
   company     Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   branch      CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  assignments BookingStaff[]
-  expenses    Expense[]
+  assignments        BookingStaff[]
+  expenses           Expense[]
+  equipmentIssues    EquipmentIssue[]
+  equipmentHistory   EquipmentHistory[]
 
   @@unique([companyId, staffCode])
   @@index([companyId, role])
@@ -408,6 +414,8 @@ model Booking {
   staffPayments    BookingStaffPayment[]
   reminders        Reminder[]
   deliveries       Delivery[]
+  equipmentIssues  EquipmentIssue[]
+  equipmentHistory EquipmentHistory[]
 
   @@unique([companyId, bookingNumber])
   @@index([branchId, eventDate])
@@ -911,5 +919,175 @@ model Delivery {
   @@index([clientId, isActive])
   @@index([companyId, expectedDate])
   @@map("deliveries")
+  @@schema("transaction")
+}
+
+model Equipment {
+  id                   String    @id @default(uuid()) @db.Uuid
+  companyId            String    @map("company_id") @db.Uuid
+  code                 String
+  name                 String
+  category             String
+  trackingType         String    @default("bulk") @map("tracking_type")
+  serialNumber         String?   @map("serial_number")
+  totalQuantity        Int       @default(1) @map("total_quantity")
+  availableQuantity    Int       @default(1) @map("available_quantity")
+  onShootQuantity      Int       @default(0) @map("on_shoot_quantity")
+  missingQuantity      Int       @default(0) @map("missing_quantity")
+  underRepairQuantity  Int       @default(0) @map("under_repair_quantity")
+  status               String    @default("AVAILABLE")
+  condition            String    @default("GOOD")
+  notes                String?   @db.Text
+  specifications       Json?
+  isActive             Boolean   @default(true) @map("is_active")
+  archivedAt           DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById         String?   @map("archived_by_id") @db.Uuid
+  archivedReason       String?   @map("archived_reason")
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById          String?   @map("created_by") @db.Uuid
+  updatedById          String?   @map("updated_by") @db.Uuid
+
+  company     Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  issueItems  EquipmentIssueItem[]
+  history     EquipmentHistory[]
+
+  @@unique([companyId, code])
+  @@index([companyId, category])
+  @@index([companyId, status])
+  @@index([companyId, isActive])
+  @@index([companyId, serialNumber])
+  @@map("equipment")
+  @@schema("transaction")
+}
+
+model EquipmentIssue {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  bookingId    String    @map("booking_id") @db.Uuid
+  staffId      String    @map("staff_id") @db.Uuid
+  issueNumber  String    @map("issue_number")
+  issuedAt     DateTime  @map("issued_at") @db.Timestamptz(6)
+  status       String    @default("OPEN")
+  notes        String?   @db.Text
+  isActive     Boolean   @default(true) @map("is_active")
+  archivedAt   DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdById  String?   @map("created_by") @db.Uuid
+  updatedById  String?   @map("updated_by") @db.Uuid
+
+  company Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  booking Booking              @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  staff   Staff                @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  items   EquipmentIssueItem[]
+  returns EquipmentReturn[]
+  history EquipmentHistory[]
+
+  @@unique([companyId, issueNumber])
+  @@index([bookingId, status])
+  @@index([staffId, issuedAt])
+  @@index([companyId, status])
+  @@map("equipment_issues")
+  @@schema("transaction")
+}
+
+model EquipmentIssueItem {
+  id               String    @id @default(uuid()) @db.Uuid
+  issueId          String    @map("issue_id") @db.Uuid
+  equipmentId      String    @map("equipment_id") @db.Uuid
+  quantityIssued   Int       @map("quantity_issued")
+  quantityReturned Int       @default(0) @map("quantity_returned")
+  missingQuantity  Int       @default(0) @map("missing_quantity")
+  damagedQuantity  Int       @default(0) @map("damaged_quantity")
+  serialNumber     String?   @map("serial_number")
+  conditionOut     String    @map("condition_out")
+  conditionIn      String?   @map("condition_in")
+  returnStatus     String    @default("OUT") @map("return_status")
+  notes            String?   @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  issue      EquipmentIssue        @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  equipment  Equipment             @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  returnItems EquipmentReturnItem[]
+
+  @@index([issueId])
+  @@index([equipmentId])
+  @@map("equipment_issue_items")
+  @@schema("transaction")
+}
+
+model EquipmentReturn {
+  id          String   @id @default(uuid()) @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  issueId     String   @map("issue_id") @db.Uuid
+  returnedAt  DateTime @map("returned_at") @db.Timestamptz(6)
+  status      String
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdById String?  @map("created_by") @db.Uuid
+
+  company Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  issue   EquipmentIssue        @relation(fields: [issueId], references: [id], onDelete: Restrict)
+  items   EquipmentReturnItem[]
+  history EquipmentHistory[]
+
+  @@index([issueId, returnedAt])
+  @@index([companyId, returnedAt])
+  @@map("equipment_returns")
+  @@schema("transaction")
+}
+
+model EquipmentReturnItem {
+  id               String  @id @default(uuid()) @db.Uuid
+  returnId         String  @map("return_id") @db.Uuid
+  issueItemId      String  @map("issue_item_id") @db.Uuid
+  quantityReturned Int     @map("quantity_returned")
+  missingQuantity  Int     @default(0) @map("missing_quantity")
+  damagedQuantity  Int     @default(0) @map("damaged_quantity")
+  conditionIn      String  @map("condition_in")
+  returnStatus     String  @map("return_status")
+  notes            String? @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  return    EquipmentReturn    @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  issueItem EquipmentIssueItem @relation(fields: [issueItemId], references: [id], onDelete: Restrict)
+
+  @@index([returnId])
+  @@index([issueItemId])
+  @@map("equipment_return_items")
+  @@schema("transaction")
+}
+
+model EquipmentHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  equipmentId  String   @map("equipment_id") @db.Uuid
+  issueId      String?  @map("issue_id") @db.Uuid
+  returnId     String?  @map("return_id") @db.Uuid
+  bookingId    String?  @map("booking_id") @db.Uuid
+  staffId      String?  @map("staff_id") @db.Uuid
+  action       String
+  quantity     Int      @default(1)
+  conditionOut String?  @map("condition_out")
+  conditionIn  String?  @map("condition_in")
+  notes        String?  @db.Text
+  occurredAt   DateTime @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  createdById  String?  @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  equipment Equipment       @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
+  issue     EquipmentIssue? @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  return    EquipmentReturn? @relation(fields: [returnId], references: [id], onDelete: SetNull)
+  booking   Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  staff     Staff?          @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  @@index([equipmentId, occurredAt])
+  @@index([bookingId, occurredAt])
+  @@index([staffId, occurredAt])
+  @@index([companyId, action])
+  @@map("equipment_history")
   @@schema("transaction")
 }

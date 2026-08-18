@@ -16,6 +16,7 @@ import {
   Shield,
   Package,
   Receipt,
+  Camera,
   HardDrive,
   Bot,
 } from 'lucide-react';
@@ -96,6 +97,13 @@ const navItems = [
     icon: Package,
     permission: 'delivery.read',
     roboTarget: 'delivery-nav',
+  },
+  {
+    to: '/equipment',
+    label: 'Equipment',
+    icon: Camera,
+    permission: 'equipment.read',
+    roboTarget: 'equipment-nav',
   },
   {
     to: '/reports',

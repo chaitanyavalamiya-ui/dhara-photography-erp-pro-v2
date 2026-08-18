@@ -26,6 +26,7 @@ export class MasterDataItemDto {
 export const MANAGEABLE_MASTER_DATA_CATEGORIES = [
   'expense_category',
   'payment_mode',
+  'equipment_category',
 ] as const;
 
 export type ManageableMasterDataCategory =

@@ -52,6 +52,11 @@ const PERMISSIONS = [
   { code: 'staff.update', module: 'staff', action: 'update' },
   { code: 'staff.archive', module: 'staff', action: 'archive' },
   { code: 'staff.assign', module: 'staff', action: 'assign' },
+  { code: 'equipment.read', module: 'equipment', action: 'read' },
+  { code: 'equipment.write', module: 'equipment', action: 'write' },
+  { code: 'equipment.issue', module: 'equipment', action: 'issue' },
+  { code: 'equipment.return', module: 'equipment', action: 'return' },
+  { code: 'equipment.export', module: 'equipment', action: 'export' },
   { code: 'settings.read', module: 'settings', action: 'read' },
   { code: 'settings.update', module: 'settings', action: 'update' },
   { code: 'users.read', module: 'users', action: 'read' },
@@ -76,6 +81,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'delivery.read', 'delivery.create', 'delivery.update',
     'reports.read',
     'staff.read', 'staff.create', 'staff.update', 'staff.archive', 'staff.assign',
+    'equipment.read', 'equipment.write', 'equipment.issue', 'equipment.return', 'equipment.export',
     'settings.read',
   ],
   staff: [
@@ -91,6 +97,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'delivery.read', 'delivery.create',
     'reports.read',
     'staff.read', 'staff.create', 'staff.assign',
+    'equipment.read', 'equipment.issue', 'equipment.return',
   ],
   viewer: [
     'dashboard.read',
@@ -105,6 +112,7 @@ const ROLE_PERMISSION_MAP: Record<string, string[]> = {
     'delivery.read',
     'reports.read',
     'staff.read',
+    'equipment.read',
     'settings.read',
   ],
 };
@@ -220,6 +228,20 @@ async function main(): Promise<void> {
     { category: 'expense_category', code: 'marketing', label: 'Marketing' },
     { category: 'expense_category', code: 'office', label: 'Office' },
     { category: 'expense_category', code: 'other', label: 'Other' },
+    { category: 'equipment_category', code: 'camera', label: 'Camera' },
+    { category: 'equipment_category', code: 'lens', label: 'Lens' },
+    { category: 'equipment_category', code: 'microphone', label: 'Microphone' },
+    { category: 'equipment_category', code: 'light', label: 'Light' },
+    { category: 'equipment_category', code: 'battery', label: 'Battery' },
+    { category: 'equipment_category', code: 'memory_card', label: 'Memory Card' },
+    { category: 'equipment_category', code: 'bag', label: 'Bag' },
+    { category: 'equipment_category', code: 'gimbal', label: 'Gimbal' },
+    { category: 'equipment_category', code: 'drone', label: 'Drone' },
+    { category: 'equipment_category', code: 'led_display', label: 'LED / Display' },
+    { category: 'equipment_category', code: 'cable_adapter', label: 'Cable / Adapter' },
+    { category: 'equipment_category', code: 'tripod_stand', label: 'Tripod / Stand' },
+    { category: 'equipment_category', code: 'audio', label: 'Audio' },
+    { category: 'equipment_category', code: 'other', label: 'Other' },
   ];
 
   for (const entry of masterDataEntries) {
@@ -240,6 +262,16 @@ async function main(): Promise<void> {
       },
     });
   }
+
+  await prisma.equipment.updateMany({
+    where: {
+      companyId: company.id,
+      code: 'LEN-001',
+      name: 'Canon 50mm f/1.8',
+      category: { not: 'Lens' },
+    },
+    data: { category: 'Lens' },
+  });
 
   const serviceRateEntries = [
     { code: 'photography', name: 'Photography', category: 'service', defaultRate: 5000, unit: 'day', sortOrder: 1 },

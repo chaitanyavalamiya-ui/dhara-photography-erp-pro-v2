@@ -4,6 +4,7 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   BarChart3,
+  BookImage,
   BookOpen,
   CalendarRange,
   Search,
@@ -13,6 +14,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import {
+  getAlbumOverviewMetrics,
   REPORT_DATE_PRESETS,
   ReportDatePreset,
   reportsService,
@@ -86,6 +88,12 @@ export function ReportsPage() {
     queryKey: ['reports', 'dashboard', queryParams],
     queryFn: () => reportsService.getDashboard(queryParams),
     enabled: tab !== 'monthly',
+  });
+
+  const overviewQuery = useQuery({
+    queryKey: ['reports', 'overview', queryParams],
+    queryFn: () => reportsService.getOverview(queryParams),
+    enabled: tab === 'dashboard',
   });
 
   const chartsQuery = useQuery({
@@ -178,7 +186,7 @@ export function ReportsPage() {
   ];
 
   const activeError =
-    (tab === 'dashboard' && (dashboardQuery.error || chartsQuery.error)) ||
+    (tab === 'dashboard' && (dashboardQuery.error || overviewQuery.error || chartsQuery.error)) ||
     (tab === 'income' && incomeQuery.error) ||
     (tab === 'payments' && paymentsQuery.error) ||
     (tab === 'expenses' && expensesQuery.error) ||
@@ -189,7 +197,8 @@ export function ReportsPage() {
     (tab === 'transactions' && transactionsQuery.error);
 
   const isLoading =
-    (tab === 'dashboard' && (dashboardQuery.isLoading || chartsQuery.isLoading)) ||
+    (tab === 'dashboard' &&
+      (dashboardQuery.isLoading || overviewQuery.isLoading || chartsQuery.isLoading)) ||
     (tab === 'income' && incomeQuery.isLoading) ||
     (tab === 'payments' && paymentsQuery.isLoading) ||
     (tab === 'expenses' && expensesQuery.isLoading) ||
@@ -215,6 +224,29 @@ export function ReportsPage() {
       ]
     : [];
 
+  const albumOverviewCards = overviewQuery.data
+    ? getAlbumOverviewMetrics(overviewQuery.data).map((metric) => ({
+        label: metric.label,
+        value: metric.value,
+        icon:
+          metric.key === 'albumSales'
+            ? BookImage
+            : metric.key === 'albumVendorCost'
+              ? ArrowUpRight
+              : metric.value >= 0
+                ? TrendingUp
+                : TrendingDown,
+        color:
+          metric.key === 'albumVendorCost'
+            ? 'text-red-400'
+            : metric.key === 'albumProfit'
+              ? metric.value >= 0
+                ? 'text-green-400'
+                : 'text-red-400'
+              : 'text-gold',
+      }))
+    : [];
+
   const dashboardCards = dashboard
     ? [
         { label: 'Total Invoice Value', value: dashboard.totalInvoiceValue, icon: TrendingUp, color: 'text-gold' },
@@ -231,6 +263,7 @@ export function ReportsPage() {
         { label: 'Paid Invoices', value: dashboard.paidInvoicesCount, icon: TrendingUp, color: 'text-green-400', isCount: true },
         { label: 'Unpaid Invoices', value: dashboard.unpaidInvoicesCount, icon: TrendingDown, color: 'text-orange-400', isCount: true },
         { label: 'Avg Booking Value', value: dashboard.averageBookingValue, icon: BarChart3, color: 'text-gold' },
+        ...albumOverviewCards,
       ]
     : [];
 

@@ -15,6 +15,7 @@ import { AlbumsPage } from './pages/AlbumsPage';
 import { StaffPage } from './pages/StaffPage';
 import { UsersPage } from './pages/UsersPage';
 import { DeliveriesPage } from './pages/DeliveriesPage';
+import { EquipmentPage } from './pages/EquipmentPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { UiPrototypePage } from './pages/UiPrototypePage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -121,6 +122,14 @@ function ErpRoutes() {
             element={
               <PermissionRoute permission="delivery.read">
                 <DeliveriesPage />
+              </PermissionRoute>
+            }
+          />
+          <Route
+            path="equipment"
+            element={
+              <PermissionRoute permission="equipment.read">
+                <EquipmentPage />
               </PermissionRoute>
             }
           />

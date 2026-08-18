@@ -14,6 +14,7 @@ import { CreatePackageDto, PackageResponseDto, UpdatePackageDto } from './dto/pa
 import { SettingsServiceRateDto } from './dto/service-rate-response.dto';
 import { UpdateMasterDataDto } from './dto/update-master-data.dto';
 import { UpdateServiceRateDto } from './dto/update-service-rate.dto';
+import { EQUIPMENT_MASTER_CATEGORY } from '../equipment/utils/equipment.utils';
 import {
   buildPackageMetadata,
   PACKAGE_MASTER_CATEGORY,
@@ -185,6 +186,8 @@ export class SettingsService {
       throw new ConflictException('An item with this code already exists.');
     }
 
+    await this.assertUniqueEquipmentCategoryLabel(companyId, dto.category, dto.label);
+
     const created = await this.prisma.masterData.create({
       data: {
         companyId,
@@ -232,6 +235,18 @@ export class SettingsService {
       throw new NotFoundException('Master data item not found.');
     }
 
+    const previousLabel = existing.label;
+    const previousCode = existing.code;
+
+    if (dto.label !== undefined) {
+      await this.assertUniqueEquipmentCategoryLabel(
+        companyId,
+        existing.category,
+        dto.label,
+        existing.id,
+      );
+    }
+
     if (dto.isActive === false && existing.isActive) {
       const inUse = await this.isMasterDataInUse(existing.id, existing.category);
       if (inUse) {
@@ -250,6 +265,20 @@ export class SettingsService {
         updatedById: userId,
       },
     });
+
+    if (
+      existing.category === EQUIPMENT_MASTER_CATEGORY &&
+      dto.label !== undefined &&
+      dto.label.trim() !== previousLabel
+    ) {
+      await this.prisma.equipment.updateMany({
+        where: {
+          companyId,
+          category: { in: [previousLabel, previousCode] },
+        },
+        data: { category: updated.label },
+      });
+    }
 
     await this.auditService.log({
       companyId,
@@ -292,6 +321,29 @@ export class SettingsService {
     }
 
     return false;
+  }
+
+  private async assertUniqueEquipmentCategoryLabel(
+    companyId: string,
+    category: string,
+    label: string,
+    excludeId?: string,
+  ): Promise<void> {
+    if (category !== EQUIPMENT_MASTER_CATEGORY) {
+      return;
+    }
+    const duplicate = await this.prisma.masterData.findFirst({
+      where: {
+        companyId,
+        category: EQUIPMENT_MASTER_CATEGORY,
+        archivedAt: null,
+        label: { equals: label.trim(), mode: 'insensitive' },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    });
+    if (duplicate) {
+      throw new ConflictException('An equipment category with this name already exists.');
+    }
   }
 
   async getPackages(companyId: string, includeInactive = false): Promise<PackageResponseDto[]> {

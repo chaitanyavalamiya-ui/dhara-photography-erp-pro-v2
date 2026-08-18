@@ -27,6 +27,7 @@ type SettingsTab =
   | 'packages'
   | 'service-rates'
   | 'expense-categories'
+  | 'equipment-categories'
   | 'payment-modes'
   | 'activity-log'
   | 'roles-permissions'
@@ -38,6 +39,7 @@ const TAB_CONFIG: { id: SettingsTab; label: string; category?: MasterDataCategor
   { id: 'packages', label: 'Packages' },
   { id: 'service-rates', label: 'Service Rates' },
   { id: 'expense-categories', label: 'Expense Categories', category: 'expense_category' },
+  { id: 'equipment-categories', label: 'Equipment Categories', category: 'equipment_category' },
   { id: 'payment-modes', label: 'Payment Modes', category: 'payment_mode' },
   { id: 'activity-log', label: 'Activity Log' },
   { id: 'roles-permissions', label: 'Roles & Permissions' },
@@ -275,7 +277,8 @@ export function SettingsPage() {
     }
   }, [companyQuery.data]);
 
-  const isMasterDataTab = tab === 'expense-categories' || tab === 'payment-modes';
+  const isMasterDataTab =
+    tab === 'expense-categories' || tab === 'payment-modes' || tab === 'equipment-categories';
 
   return (
     <div className="space-y-6">

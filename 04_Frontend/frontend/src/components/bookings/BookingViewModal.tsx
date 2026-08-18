@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { deriveBookingPaymentStatus, formatBookingCurrency, formatDate } from '@/utils/booking-form';
 import { BookingTeamSection } from './BookingTeamSection';
 import { BookingEquipmentSection } from './BookingEquipmentSection';
+import { BookingInventorySection } from './BookingInventorySection';
 import { BookingStaffPaymentsSection } from './BookingStaffPaymentsSection';
 import { BookingProgressSection } from './BookingProgressSection';
 import { BookingHistorySection } from './BookingHistorySection';
@@ -187,7 +188,12 @@ export function BookingViewModal({
               )}
 
               {activeTab === 'team' && <BookingTeamSection booking={displayed} />}
-              {activeTab === 'equipment' && <BookingEquipmentSection booking={displayed} />}
+              {activeTab === 'equipment' && (
+                <div className="space-y-8">
+                  <BookingInventorySection booking={displayed} />
+                  <BookingEquipmentSection booking={displayed} />
+                </div>
+              )}
               {activeTab === 'payments' && <BookingStaffPaymentsSection booking={displayed} />}
               {activeTab === 'progress' && <BookingProgressSection booking={displayed} />}
               {activeTab === 'history' && <BookingHistorySection booking={displayed} />}

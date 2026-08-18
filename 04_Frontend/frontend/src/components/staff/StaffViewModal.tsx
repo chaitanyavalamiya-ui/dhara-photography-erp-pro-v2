@@ -1,6 +1,9 @@
 import { X } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { StaffDetail } from '@/services/staff-service';
+import { equipmentService } from '@/services/equipment-service';
 import { formatCurrency, formatDate, formatStaffPayment } from '@/utils/staff-form';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface StaffViewModalProps {
   open: boolean;
@@ -11,6 +14,13 @@ interface StaffViewModalProps {
 }
 
 export function StaffViewModal({ open, staff, isLoading, onClose, onEdit }: StaffViewModalProps) {
+  const canEquipment = useAuthStore((s) => s.hasPermission('equipment.read'));
+  const equipmentQuery = useQuery({
+    queryKey: ['equipment', 'staff', staff?.id],
+    queryFn: () => equipmentService.getStaffSummary(staff!.id),
+    enabled: open && canEquipment && Boolean(staff?.id),
+  });
+
   if (!open) return null;
 
   return (
@@ -158,6 +168,39 @@ export function StaffViewModal({ open, staff, isLoading, onClose, onEdit }: Staf
                 </div>
               )}
             </section>
+
+            {canEquipment && (
+              <section className="mt-4 rounded-lg border border-surface-border bg-surface-elevated p-4">
+                <h3 className="text-sm font-semibold text-gold">Equipment History</h3>
+                {equipmentQuery.data ? (
+                  <>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-5">
+                      {[
+                        ['Total Issues', equipmentQuery.data.totalIssues],
+                        ['Currently Holding', equipmentQuery.data.currentlyHolding],
+                        ['Returned', equipmentQuery.data.returned],
+                        ['Missing', equipmentQuery.data.missing],
+                        ['Damaged', equipmentQuery.data.damaged],
+                      ].map(([label, value]) => (
+                        <div key={String(label)}>
+                          <p className="text-xs uppercase text-gray-500">{label}</p>
+                          <p className="text-sm text-gray-100">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <ul className="mt-3 space-y-2 text-sm">
+                      {equipmentQuery.data.issues.map((issue) => (
+                        <li key={issue.id} className="rounded-md border border-surface-border px-3 py-2">
+                          {issue.issueNumber} · {issue.bookingNumber} · {issue.status}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="mt-3 text-sm text-gray-500">No equipment issues for this staff member.</p>
+                )}
+              </section>
+            )}
           </>
         )}
 

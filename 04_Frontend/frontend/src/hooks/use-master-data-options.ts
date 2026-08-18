@@ -11,6 +11,7 @@ export interface MasterDataOption {
 const FALLBACK_OPTIONS: Record<MasterDataCategory, MasterDataOption[]> = {
   expense_category: EXPENSE_CATEGORY_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label })),
   payment_mode: PAYMENT_METHOD_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label })),
+  equipment_category: [],
 };
 
 export function useMasterDataOptions(category: MasterDataCategory) {

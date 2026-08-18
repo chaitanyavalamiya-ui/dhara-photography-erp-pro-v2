@@ -1,6 +1,6 @@
 import { apiClient, ApiResponse } from './api-client';
 
-export type MasterDataCategory = 'expense_category' | 'payment_mode';
+export type MasterDataCategory = 'expense_category' | 'payment_mode' | 'equipment_category';
 
 export interface MasterDataItem {
   id: string;

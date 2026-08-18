@@ -29,6 +29,7 @@ interface AddMasterDataModalProps {
 const CATEGORY_LABELS: Record<MasterDataCategory, string> = {
   expense_category: 'Expense Category',
   payment_mode: 'Payment Mode',
+  equipment_category: 'Equipment Category',
 };
 
 function labelToCode(label: string): string {

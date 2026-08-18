@@ -20,6 +20,7 @@ export const ROBO_NAV_TARGETS: RoboNavTarget[] = [
   { id: 'expenses', target: 'expenses-nav', route: '/expenses', position: 'center-left' },
   { id: 'add-expense', target: 'add-expense', route: '/expenses', position: 'top-right' },
   { id: 'delivery', target: 'delivery-nav', route: '/deliveries', position: 'center-left' },
+  { id: 'equipment', target: 'equipment-nav', route: '/equipment', position: 'center-left' },
   { id: 'reports', target: 'reports-nav', route: '/reports', position: 'center-left' },
   { id: 'settings', target: 'settings-nav', route: '/settings', position: 'center-left' },
   {

@@ -6,7 +6,7 @@ import { roundMoney } from '../bookings/utils/booking.utils';
 import {
   buildBookingEventDateWhere,
   REPORT_BOOKING_FILTER,
-  paginateNewestFirstRunningBalances,
+  attachChronologicalRunningBalances,
   sortAccountLedgerNewestFirst,
   getMonthRange,
   getStudioDateParts,
@@ -679,7 +679,7 @@ export class AccountsService {
     const totalExpense = roundMoney(entries.reduce((sum, row) => sum + row.expense, 0));
     const start = (page - 1) * limit;
     const pageEntries = entries.slice(start, start + limit);
-    const runningBalances = paginateNewestFirstRunningBalances(entries, page, limit);
+    const runningBalances = attachChronologicalRunningBalances(entries).slice(start, start + limit);
 
     const items: AccountTransactionDto[] = pageEntries.map((entry, index) => ({
         id: entry.id,

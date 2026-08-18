@@ -19,6 +19,7 @@ import {
   ReportDatePreset,
   reportsService,
 } from '@/services/reports-service';
+import { withLedgerRunningBalances } from '@/utils/running-balance';
 import { BookingProfitabilityModal } from '@/components/reports/BookingProfitabilityModal';
 import { ReportChartsSection } from '@/components/reports/ReportChartsSection';
 import { ReportExportBar } from '@/components/reports/ReportExportBar';
@@ -326,7 +327,9 @@ export function ReportsPage() {
     row.outstanding,
   ]);
 
-  const txnRows = (transactionsQuery.data?.items ?? []).map((row) => [
+  const transactionItems = withLedgerRunningBalances(transactionsQuery.data?.items ?? []);
+
+  const txnRows = transactionItems.map((row) => [
     row.date,
     row.type,
     row.description,
@@ -763,7 +766,7 @@ export function ReportsPage() {
               </div>
               <ReportTable
                 headers={['Date', 'Type', 'Description', 'Client', 'Booking', 'Method', 'Income', 'Expense', 'Balance']}
-                rows={(transactionsQuery.data.items ?? []).map((row) => [
+                rows={transactionItems.map((row) => [
                   row.date,
                   row.type,
                   row.description,

@@ -120,6 +120,17 @@ export function sortAccountLedgerNewestFirst<T extends AccountLedgerSortKey>(ent
   return [...entries].sort(compareAccountLedgerNewestFirst);
 }
 
+export function compareAccountLedgerOldestFirst(
+  a: AccountLedgerSortKey,
+  b: AccountLedgerSortKey,
+): number {
+  return compareAccountLedgerNewestFirst(b, a);
+}
+
+function ledgerAmount(value: number): number {
+  return Number(value) || 0;
+}
+
 /**
  * Running balance after each transaction in chronological order:
  * previous + income − expense, starting at 0 for the selected period.
@@ -133,8 +144,37 @@ export function computeNewestFirstRunningBalances(
 
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     const entry = entries[index];
-    previous = roundMoney(previous + entry.income - entry.expense);
+    previous = roundMoney(previous + ledgerAmount(entry.income) - ledgerAmount(entry.expense));
     balances[index] = previous;
+  }
+
+  return balances;
+}
+
+/**
+ * Deterministic running balance for a displayed list.
+ * Sort oldest → newest internally, then attach the resulting balance to each
+ * row in the original display order (newest-first UI included).
+ */
+export function attachChronologicalRunningBalances<
+  T extends AccountLedgerSortKey & { income: number; expense: number },
+>(displayEntries: T[]): number[] {
+  if (displayEntries.length === 0) {
+    return [];
+  }
+
+  const ordered = displayEntries.map((entry, displayIndex) => ({ entry, displayIndex }));
+  ordered.sort((a, b) => {
+    const byChronology = compareAccountLedgerOldestFirst(a.entry, b.entry);
+    return byChronology !== 0 ? byChronology : a.displayIndex - b.displayIndex;
+  });
+
+  const balances = new Array<number>(displayEntries.length);
+  let previous = 0;
+
+  for (const { entry, displayIndex } of ordered) {
+    previous = roundMoney(previous + ledgerAmount(entry.income) - ledgerAmount(entry.expense));
+    balances[displayIndex] = previous;
   }
 
   return balances;

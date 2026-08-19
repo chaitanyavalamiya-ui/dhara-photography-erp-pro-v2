@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { InvoiceDeliverablesDto } from './invoice-deliverables.dto';
 
 export class CreateInvoiceDto {
   @ApiProperty()
@@ -16,4 +18,10 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ type: InvoiceDeliverablesDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => InvoiceDeliverablesDto)
+  deliverables?: InvoiceDeliverablesDto;
 }

@@ -5,6 +5,7 @@ import { Invoice } from '@/services/invoices-service';
 import { Payment, paymentsService } from '@/services/payments-service';
 import { InvoiceDocument } from '@/components/invoices/InvoiceDocument';
 import { InvoicePaymentHistory } from '@/components/invoices/InvoicePaymentHistory';
+import { AddPaymentModal } from '@/components/accounts/AddPaymentModal';
 import { buildWhatsAppShareUrl, printInvoice } from '@/utils/invoice';
 import { downloadInvoicePdf } from '@/utils/invoice-pdf';
 import { getApiErrorMessage } from '@/utils/api-error';
@@ -39,11 +40,34 @@ export function InvoiceViewModal({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [voidTarget, setVoidTarget] = useState<Payment | null>(null);
   const [voidError, setVoidError] = useState<string | null>(null);
+  const [editPayment, setEditPayment] = useState<Payment | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const paymentsQuery = useQuery({
     queryKey: ['payments', 'invoice', invoice?.id],
     queryFn: () => paymentsService.list({ invoiceId: invoice!.id, limit: 100 }),
     enabled: open && Boolean(invoice?.id),
+  });
+
+  const updatePaymentMutation = useMutation({
+    mutationFn: ({
+      paymentId,
+      payload,
+    }: {
+      paymentId: string;
+      payload: Parameters<typeof paymentsService.update>[1];
+    }) => paymentsService.update(paymentId, payload),
+    onSuccess: () => {
+      setEditPayment(null);
+      setEditError(null);
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    },
+    onError: (error: unknown) => {
+      setEditError(getApiErrorMessage(error, 'Failed to update payment.'));
+    },
   });
 
   const voidMutation = useMutation({
@@ -216,12 +240,21 @@ export function InvoiceViewModal({
                 isLoading={paymentsQuery.isLoading}
                 isError={paymentsQuery.isError}
                 canVoid={canVoidPayment}
+                canEdit={canVoidPayment}
                 isVoidingId={voidMutation.isPending ? voidTarget?.id ?? null : null}
                 onVoid={
                   canVoidPayment
                     ? (payment) => {
                         setVoidError(null);
                         setVoidTarget(payment);
+                      }
+                    : undefined
+                }
+                onEdit={
+                  canVoidPayment
+                    ? (payment) => {
+                        setEditError(null);
+                        setEditPayment(payment);
                       }
                     : undefined
                 }
@@ -255,10 +288,35 @@ export function InvoiceViewModal({
                   </div>
                 </div>
               )}
+              {editError && (
+                <p className="text-sm text-red-400">{editError}</p>
+              )}
             </div>
           )}
         </div>
       </div>
+      <AddPaymentModal
+        open={Boolean(editPayment)}
+        payment={editPayment}
+        isSubmitting={updatePaymentMutation.isPending}
+        onClose={() => {
+          setEditPayment(null);
+          setEditError(null);
+        }}
+        onSubmit={(values) => {
+          if (!editPayment) return;
+          updatePaymentMutation.mutate({
+            paymentId: editPayment.id,
+            payload: {
+              amount: values.amount,
+              paymentModeCode: values.paymentModeCode,
+              paymentDate: values.paymentDate,
+              transactionReference: values.transactionReference || null,
+              notes: values.notes || null,
+            },
+          });
+        }}
+      />
     </div>
   );
 }

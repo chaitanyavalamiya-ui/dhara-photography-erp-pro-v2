@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -18,6 +18,7 @@ describe('ClientsService', () => {
     companyBranch: { findFirst: jest.fn() },
     masterData: { findFirst: jest.fn() },
     clientBranch: { create: jest.fn() },
+    booking: { count: jest.fn() },
     $transaction: jest.fn(),
   };
 
@@ -122,5 +123,28 @@ describe('ClientsService', () => {
   it('does not restore a client from another company', async () => {
     mockPrisma.client.findFirst.mockResolvedValue(null);
     await expect(service.restore('company-2', 'user-1', 'c1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('blocks archive when the client still has active bookings', async () => {
+    mockPrisma.client.findFirst.mockResolvedValue({
+      id: 'c1',
+      companyId: 'company-1',
+      clientNumber: 'CLT-000001',
+      fullName: 'Asha',
+      mobile: '9876543210',
+      isActive: true,
+      archivedAt: null,
+      status: { label: 'Active' },
+      bookings: [],
+      invoices: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    mockPrisma.booking.count.mockResolvedValue(2);
+
+    await expect(service.archive('company-1', 'user-1', 'c1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(mockPrisma.client.update).not.toHaveBeenCalled();
   });
 });

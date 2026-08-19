@@ -40,6 +40,14 @@ export interface CreatePaymentPayload {
   notes?: string;
 }
 
+export interface UpdatePaymentPayload {
+  amount?: number;
+  paymentModeCode?: string;
+  paymentDate?: string;
+  transactionReference?: string | null;
+  notes?: string | null;
+}
+
 export const PAYMENT_METHOD_OPTIONS = [
   { value: 'cash', label: 'Cash' },
   { value: 'upi', label: 'UPI' },
@@ -62,6 +70,11 @@ export const paymentsService = {
 
   async create(payload: CreatePaymentPayload): Promise<Payment> {
     const { data } = await apiClient.post<ApiResponse<Payment>>('/payments', payload);
+    return data.data;
+  },
+
+  async update(id: string, payload: UpdatePaymentPayload): Promise<Payment> {
+    const { data } = await apiClient.patch<ApiResponse<Payment>>(`/payments/${id}`, payload);
     return data.data;
   },
 

@@ -47,6 +47,10 @@ export interface Invoice {
   invoiceDate: string;
   dueDate?: string | null;
   notes?: string | null;
+  deliverables?: {
+    items: string[];
+    videoMedia: '' | 'pendrive' | 'hard_disk' | string;
+  };
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -96,11 +100,19 @@ export interface CreateInvoicePayload {
   bookingId: string;
   dueDate?: string;
   notes?: string;
+  deliverables?: {
+    items: string[];
+    videoMedia?: '' | 'pendrive' | 'hard_disk';
+  };
 }
 
 export interface UpdateInvoicePayload {
   dueDate?: string | null;
   notes?: string | null;
+  deliverables?: {
+    items: string[];
+    videoMedia?: '' | 'pendrive' | 'hard_disk';
+  };
   advanceAmount?: number;
 }
 

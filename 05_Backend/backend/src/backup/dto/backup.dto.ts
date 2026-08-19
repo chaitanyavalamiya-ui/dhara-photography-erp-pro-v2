@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { Equals, IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { RESTORE_CONFIRM_PHRASE } from '../app-paths';
 
 export class UpdateBackupLocationDto {
@@ -15,6 +15,9 @@ export class RestoreBackupDto {
 
   @IsString()
   @IsNotEmpty()
+  @Equals(RESTORE_CONFIRM_PHRASE, {
+    message: 'Restore confirmation phrase did not match.',
+  })
   confirmPhrase!: string;
 }
 

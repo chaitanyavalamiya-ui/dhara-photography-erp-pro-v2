@@ -112,6 +112,9 @@ export class InvoiceResponseDto {
   @ApiPropertyOptional()
   notes?: string | null;
 
+  @ApiProperty({ type: () => Object })
+  deliverables!: { items: string[]; videoMedia: string };
+
   @ApiProperty()
   isActive!: boolean;
 

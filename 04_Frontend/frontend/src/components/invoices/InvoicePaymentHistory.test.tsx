@@ -53,6 +53,20 @@ describe('InvoicePaymentHistory', () => {
     expect(onVoid).toHaveBeenCalled();
   });
 
+  it('shows edit action for active payments when allowed', () => {
+    const onEdit = vi.fn();
+    render(
+      <InvoicePaymentHistory
+        canEdit
+        payments={[payment({ receiptNumber: 'RCPT-1' })]}
+        onEdit={onEdit}
+      />,
+    );
+
+    screen.getByRole('button', { name: 'Edit' }).click();
+    expect(onEdit).toHaveBeenCalled();
+  });
+
   it('hides void action when payments.update is not granted', () => {
     render(
       <InvoicePaymentHistory

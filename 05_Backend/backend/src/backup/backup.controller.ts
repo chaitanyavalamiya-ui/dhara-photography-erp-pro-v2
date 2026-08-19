@@ -56,7 +56,7 @@ export class BackupController {
   }
 
   @Post('restore')
-  @RequirePermissions('settings.update')
+  @RequirePermissions('settings.update', 'roles.manage')
   @ApiOperation({ summary: 'Replace ERP data from a validated backup ZIP' })
   restore(
     @CurrentUser() user: JwtPayload,

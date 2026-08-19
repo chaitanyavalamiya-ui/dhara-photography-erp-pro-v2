@@ -10,6 +10,7 @@ const editRateSchema = z.object({
     .number({ invalid_type_error: 'Enter a valid rate' })
     .finite('Enter a valid rate')
     .min(1, 'Rate must be at least ₹1'),
+  isActive: z.boolean(),
 });
 
 type EditRateForm = z.infer<typeof editRateSchema>;
@@ -19,7 +20,7 @@ interface EditServiceRateModalProps {
   rate: SettingsServiceRate | null;
   isSubmitting?: boolean;
   onClose: () => void;
-  onSubmit: (defaultRate: number) => void;
+  onSubmit: (values: { defaultRate: number; isActive: boolean }) => void;
 }
 
 export function EditServiceRateModal({
@@ -35,7 +36,7 @@ export function EditServiceRateModal({
     formState: { errors },
   } = useForm<EditRateForm>({
     resolver: zodResolver(editRateSchema),
-    values: rate ? { defaultRate: rate.defaultRate } : undefined,
+    values: rate ? { defaultRate: rate.defaultRate, isActive: rate.isActive } : undefined,
   });
 
   if (!open || !rate) return null;
@@ -71,7 +72,7 @@ export function EditServiceRateModal({
 
         <form
           key={rate.id}
-          onSubmit={handleSubmit((values) => onSubmit(values.defaultRate))}
+          onSubmit={handleSubmit((values) => onSubmit(values))}
           className="space-y-5"
         >
           <div>
@@ -90,6 +91,11 @@ export function EditServiceRateModal({
               <p className="mt-1 text-xs text-red-400">{errors.defaultRate.message}</p>
             )}
           </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-300">
+            <input type="checkbox" className="rounded border-surface-border" {...register('isActive')} />
+            Active for new bookings
+          </label>
 
           <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
             <button type="button" className="btn-secondary" onClick={onClose}>

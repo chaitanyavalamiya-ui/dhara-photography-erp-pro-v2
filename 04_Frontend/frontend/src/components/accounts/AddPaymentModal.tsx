@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { invoicesService } from '@/services/invoices-service';
+import { Payment } from '@/services/payments-service';
 import { useMasterDataOptions } from '@/hooks/use-master-data-options';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
@@ -28,6 +29,7 @@ interface AddPaymentModalProps {
   open: boolean;
   isSubmitting?: boolean;
   prefillInvoiceId?: string;
+  payment?: Payment | null;
   onClose: () => void;
   onSubmit: (values: FormValues) => void;
 }
@@ -36,6 +38,7 @@ export function AddPaymentModal({
   open,
   isSubmitting,
   prefillInvoiceId,
+  payment,
   onClose,
   onSubmit,
 }: AddPaymentModalProps) {
@@ -68,22 +71,29 @@ export function AddPaymentModal({
     },
   });
 
+  const isEdit = Boolean(payment);
   const selectedInvoiceId = watch('invoiceId');
   const selectedInvoice = payableInvoices.find((inv) => inv.id === selectedInvoiceId);
-  const selectedBalance = selectedInvoice ? getInvoiceBalance(selectedInvoice) : undefined;
+  const selectedBalance = selectedInvoice
+    ? getInvoiceBalance(selectedInvoice) + (isEdit ? payment?.amount ?? 0 : 0)
+    : isEdit
+      ? payment?.remainingBalance !== undefined
+        ? Number(payment.remainingBalance) + payment.amount
+        : undefined
+      : undefined;
 
   useEffect(() => {
     if (open) {
       reset({
-        paymentDate: new Date().toISOString().slice(0, 10),
-        paymentModeCode: 'upi',
-        invoiceId: prefillInvoiceId ?? '',
-        amount: undefined,
-        transactionReference: '',
-        notes: '',
+        paymentDate: payment?.paymentDate ?? new Date().toISOString().slice(0, 10),
+        paymentModeCode: payment?.paymentModeCode ?? 'upi',
+        invoiceId: payment?.invoiceId ?? prefillInvoiceId ?? '',
+        amount: payment?.amount,
+        transactionReference: payment?.transactionReference ?? '',
+        notes: payment?.notes ?? '',
       });
     }
-  }, [open, prefillInvoiceId, reset]);
+  }, [open, prefillInvoiceId, payment, reset]);
 
   const submitPayment = (values: FormValues) => {
     if (selectedBalance !== undefined && values.amount > selectedBalance) {
@@ -104,8 +114,12 @@ export function AddPaymentModal({
       <div className="card w-full max-w-md">
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">Record Payment</h2>
-            <p className="mt-1 text-sm text-gray-400">Payment against an invoice</p>
+            <h2 className="font-display text-xl font-semibold text-gold">
+              {isEdit ? 'Update Payment' : 'Record Payment'}
+            </h2>
+            <p className="mt-1 text-sm text-gray-400">
+              {isEdit ? 'Correct an existing receipt without voiding it' : 'Payment against an invoice'}
+            </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
             <X className="h-5 w-5" />
@@ -115,7 +129,7 @@ export function AddPaymentModal({
         <form onSubmit={handleSubmit(submitPayment)} className="space-y-4">
           <div>
             <label className="mb-1.5 block text-sm text-gray-300">Invoice</label>
-            <select className="input-field" disabled={invoiceSelectDisabled} {...register('invoiceId')}>
+            <select className="input-field" disabled={isEdit || invoiceSelectDisabled} {...register('invoiceId')}>
               <option value="">
                 {invoiceSelectDisabled
                   ? 'Loading invoices...'
@@ -193,9 +207,9 @@ export function AddPaymentModal({
             <button
               type="submit"
               className="btn-primary"
-              disabled={isSubmitting || invoiceSelectDisabled || payableInvoices.length === 0}
+              disabled={isSubmitting || (!isEdit && (invoiceSelectDisabled || payableInvoices.length === 0))}
             >
-              {isSubmitting ? 'Saving...' : 'Record Payment'}
+              {isSubmitting ? 'Saving...' : isEdit ? 'Save Payment' : 'Record Payment'}
             </button>
           </div>
         </form>

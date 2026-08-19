@@ -6,8 +6,10 @@ interface InvoicePaymentHistoryProps {
   isLoading?: boolean;
   isError?: boolean;
   canVoid?: boolean;
+  canEdit?: boolean;
   isVoidingId?: string | null;
   onVoid?: (payment: Payment) => void;
+  onEdit?: (payment: Payment) => void;
 }
 
 export function InvoicePaymentHistory({
@@ -15,8 +17,10 @@ export function InvoicePaymentHistory({
   isLoading,
   isError,
   canVoid,
+  canEdit,
   isVoidingId,
   onVoid,
+  onEdit,
 }: InvoicePaymentHistoryProps) {
   if (isLoading) {
     return (
@@ -64,7 +68,7 @@ export function InvoicePaymentHistory({
               <th className="px-4 py-2.5">Method</th>
               <th className="px-4 py-2.5">Reference</th>
               <th className="px-4 py-2.5 text-right">Amount</th>
-              {canVoid && <th className="px-4 py-2.5 text-right">Actions</th>}
+              {(canVoid || canEdit) && <th className="px-4 py-2.5 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -90,17 +94,30 @@ export function InvoicePaymentHistory({
                 >
                   {formatCurrency(payment.amount)}
                 </td>
-                {canVoid && (
+                {(canVoid || canEdit) && (
                   <td className="px-4 py-2.5 text-right">
-                    {!payment.isVoided && onVoid && (
-                      <button
-                        type="button"
-                        className="text-xs text-red-400 hover:text-red-300"
-                        disabled={isVoidingId === payment.id}
-                        onClick={() => onVoid(payment)}
-                      >
-                        {isVoidingId === payment.id ? 'Voiding…' : 'Void'}
-                      </button>
+                    {!payment.isVoided && (
+                      <div className="flex justify-end gap-3">
+                        {canEdit && onEdit && (
+                          <button
+                            type="button"
+                            className="text-xs text-gold hover:text-gold/80"
+                            onClick={() => onEdit(payment)}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {canVoid && onVoid && (
+                          <button
+                            type="button"
+                            className="text-xs text-red-400 hover:text-red-300"
+                            disabled={isVoidingId === payment.id}
+                            onClick={() => onVoid(payment)}
+                          >
+                            {isVoidingId === payment.id ? 'Voiding…' : 'Void'}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </td>
                 )}

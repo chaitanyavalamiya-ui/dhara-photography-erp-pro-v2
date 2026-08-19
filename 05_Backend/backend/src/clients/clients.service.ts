@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -376,6 +377,15 @@ export class ClientsService {
 
     if (!existing) {
       throw new NotFoundException('Client not found.');
+    }
+
+    const activeBookings = await this.prisma.booking.count({
+      where: { companyId, clientId: id, archivedAt: null, isActive: true },
+    });
+    if (activeBookings > 0) {
+      throw new BadRequestException(
+        'Cannot archive a client who still has active bookings.',
+      );
     }
 
     await this.prisma.client.update({

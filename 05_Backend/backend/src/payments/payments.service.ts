@@ -182,6 +182,9 @@ export class PaymentsService {
     userAgent?: string,
   ): Promise<PaymentResponseDto> {
     const existing = await this.getPaymentOrThrow(companyId, id);
+    if (!existing.isActive) {
+      throw new BadRequestException('Voided payments cannot be updated.');
+    }
     const invoice = await this.prisma.invoice.findFirst({
       where: { id: existing.invoiceId, companyId },
     });
@@ -194,18 +197,18 @@ export class PaymentsService {
       ? await this.resolvePaymentMode(companyId, dto.paymentModeCode)
       : null;
 
-    if (dto.amount !== undefined) {
-      const currentTotal = await getPaymentTotalForInvoice(this.prisma, existing.invoiceId);
-      const otherPaymentsTotal = roundMoney(currentTotal - Number(existing.amount));
-      const newTotal = roundMoney(otherPaymentsTotal + dto.amount);
-      const totalAmount = Number(invoice.totalAmount);
-
-      if (newTotal > totalAmount) {
-        throw new BadRequestException('Updated payment would exceed invoice total.');
-      }
-    }
-
     const updated = await this.prisma.$transaction(async (tx) => {
+      if (dto.amount !== undefined) {
+        const currentTotal = await getPaymentTotalForInvoice(tx, existing.invoiceId);
+        const otherPaymentsTotal = roundMoney(currentTotal - Number(existing.amount));
+        const newTotal = roundMoney(otherPaymentsTotal + dto.amount);
+        const totalAmount = Number(invoice.totalAmount);
+
+        if (newTotal > totalAmount) {
+          throw new BadRequestException('Updated payment would exceed invoice total.');
+        }
+      }
+
       const payment = await tx.payment.update({
         where: { id },
         data: {
@@ -389,7 +392,7 @@ export class PaymentsService {
     id: string,
   ): Promise<PaymentWithRelations> {
     const payment = await this.prisma.payment.findFirst({
-      where: { id, companyId, archivedAt: null },
+      where: { id, companyId, archivedAt: null, isActive: true },
       include: this.paymentInclude(),
     });
 

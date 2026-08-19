@@ -23,6 +23,7 @@ interface BackupRestorePanelProps {
 export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
   const queryClient = useQueryClient();
   const canUpdate = useAuthStore((s) => s.hasPermission('settings.update'));
+  const canRestore = useAuthStore((s) => s.hasPermission('roles.manage'));
   const [locationDraft, setLocationDraft] = useState('');
   const [restorePath, setRestorePath] = useState('');
   const [preview, setPreview] = useState<BackupRunResult | null>(null);
@@ -167,7 +168,7 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
         <p className="mt-1 text-sm text-gray-500">
           Choose a backup from this PC or a pendrive. The file is checked before any data is replaced.
         </p>
-        {canUpdate ? (
+        {canRestore ? (
           <div className="mt-4 space-y-3">
             <div className="flex flex-col gap-3 sm:flex-row">
               <input
@@ -233,7 +234,7 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
             )}
           </div>
         ) : (
-          <p className="mt-3 text-sm text-gray-500">You need settings update permission to restore.</p>
+          <p className="mt-3 text-sm text-gray-500">Only the studio owner can restore a backup.</p>
         )}
       </div>
 
@@ -255,7 +256,7 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
                   <th className="px-3 py-3 font-medium">Date</th>
                   <th className="px-3 py-3 font-medium">Size</th>
                   <th className="px-3 py-3 font-medium">Status</th>
-                  {canUpdate && <th className="px-3 py-3 font-medium">Actions</th>}
+                  {canRestore && <th className="px-3 py-3 font-medium">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -269,7 +270,7 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
                         {item.status}
                       </span>
                     </td>
-                    {canUpdate && (
+                    {canRestore && (
                       <td className="px-3 py-3">
                         <button
                           type="button"

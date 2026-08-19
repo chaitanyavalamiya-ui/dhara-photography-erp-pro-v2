@@ -1,6 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { mkdtempSync, symlinkSync, writeFileSync, existsSync } from 'fs';
+import { mkdtempSync, symlinkSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { AuditService } from '../audit/audit.service';
@@ -10,11 +10,20 @@ import { BACKUP_FILE_OUTSIDE_DIR_MESSAGE } from './app-paths';
 describe('BackupService', () => {
   const tmpBackupDir = mkdtempSync(join(tmpdir(), 'dhara-history-'));
 
+  const mockPrisma = {
+    user: {
+      findFirst: jest.fn().mockResolvedValue({
+        userRoles: [{ role: { code: 'owner' } }],
+      }),
+    },
+  };
+
   const service = new BackupService(
     {
       get: jest.fn((key: string) => (key === 'BACKUP_DIR' ? tmpBackupDir : undefined)),
     } as unknown as ConfigService,
     { log: jest.fn() } as unknown as AuditService,
+    mockPrisma as never,
   );
 
   afterEach(() => {
@@ -25,6 +34,24 @@ describe('BackupService', () => {
     await expect(
       service.restoreBackup('company-1', 'user-1', join(tmpBackupDir, 'demo.zip'), 'yes'),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(mockPrisma.user.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects restore when the actor is not the studio owner', async () => {
+    mockPrisma.user.findFirst.mockResolvedValueOnce({
+      userRoles: [{ role: { code: 'admin' } }],
+    });
+    const zip = join(tmpBackupDir, 'owner-check.zip');
+    writeFileSync(zip, 'zip');
+
+    await expect(
+      service.restoreBackup('company-1', 'admin-1', zip, 'REPLACE'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    try {
+      unlinkSync(zip);
+    } catch {
+      // ignore
+    }
   });
 
   it('lists backup history without deleting existing ZIP files', () => {

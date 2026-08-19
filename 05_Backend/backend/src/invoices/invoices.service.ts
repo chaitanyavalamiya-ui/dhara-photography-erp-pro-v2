@@ -31,6 +31,13 @@ import {
   syncInvoiceAndBookingFinancials,
 } from '../common/utils/financial.utils';
 import { toDecimal } from '../bookings/utils/booking.utils';
+import {
+  InvoiceDeliverables,
+  parseInvoiceDeliverables,
+  persistInvoiceNotes,
+  stripInvoiceDeliverableMarker,
+} from './utils/invoice-deliverables';
+import { InvoiceDeliverablesDto } from './dto/invoice-deliverables.dto';
 
 type InvoiceWithRelations = Prisma.InvoiceGetPayload<{
   include: {
@@ -163,7 +170,7 @@ export class InvoicesService {
       outstandingAmount: balanceAmount,
       status,
       dueDate,
-      notes: dto.notes?.trim() || null,
+      notes: persistInvoiceNotes(dto.notes, toDeliverables(dto.deliverables)),
       userId,
     });
 
@@ -233,7 +240,15 @@ export class InvoicesService {
           outstandingAmount: toDecimal(outstandingAmount),
           status,
           dueDate,
-          notes: dto.notes !== undefined ? dto.notes?.trim() || null : undefined,
+          notes:
+            dto.notes !== undefined || dto.deliverables !== undefined
+              ? persistInvoiceNotes(
+                  dto.notes !== undefined
+                    ? dto.notes
+                    : stripInvoiceDeliverableMarker(existing.notes),
+                  toDeliverables(dto.deliverables) ?? parseInvoiceDeliverables(existing.notes),
+                )
+              : undefined,
           updatedById: userId,
         },
         include: this.invoiceInclude(),
@@ -509,7 +524,8 @@ export class InvoicesService {
       status: invoice.status,
       invoiceDate: toDateOnlyLabel(invoice.invoiceDate) ?? invoice.invoiceDate.toISOString(),
       dueDate: toDateOnlyLabel(invoice.dueDate),
-      notes: invoice.notes,
+      notes: stripInvoiceDeliverableMarker(invoice.notes) || null,
+      deliverables: parseInvoiceDeliverables(invoice.notes),
       isActive: invoice.isActive,
       createdAt: invoice.createdAt.toISOString(),
       updatedAt: invoice.updatedAt.toISOString(),
@@ -602,4 +618,17 @@ export class InvoicesService {
       status: invoice.status,
     };
   }
+}
+
+function toDeliverables(dto?: InvoiceDeliverablesDto): InvoiceDeliverables | undefined {
+  if (!dto) {
+    return undefined;
+  }
+  return {
+    items: dto.items.filter((item): item is InvoiceDeliverables['items'][number] =>
+      ['album', 'mini_album', 'calendar', 'video', 'soft_copy', 'reels', 'other'].includes(item),
+    ),
+    videoMedia:
+      dto.videoMedia === 'pendrive' || dto.videoMedia === 'hard_disk' ? dto.videoMedia : '',
+  };
 }

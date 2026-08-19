@@ -5,12 +5,18 @@ import { InvoiceViewModal } from './InvoiceViewModal';
 import { Invoice } from '@/services/invoices-service';
 import { paymentsService } from '@/services/payments-service';
 
-vi.mock('@/services/payments-service', () => ({
-  paymentsService: {
-    list: vi.fn(),
-    void: vi.fn(),
-  },
-}));
+vi.mock('@/services/payments-service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/payments-service')>();
+  return {
+    ...actual,
+    paymentsService: {
+      ...actual.paymentsService,
+      list: vi.fn(),
+      void: vi.fn(),
+      update: vi.fn(),
+    },
+  };
+});
 
 vi.mock('@/utils/invoice-pdf', () => ({
   downloadInvoicePdf: vi.fn(),
@@ -100,7 +106,7 @@ describe('InvoiceViewModal payment void permission', () => {
   it('shows void when payments.update is granted', async () => {
     renderModal({ canUpdate: false, canVoidPayment: true });
     expect(await screen.findByRole('button', { name: 'Void' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
   });
 
   it('hides void when payments.update is missing', async () => {

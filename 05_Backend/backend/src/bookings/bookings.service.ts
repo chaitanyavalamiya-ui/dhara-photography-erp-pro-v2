@@ -451,6 +451,21 @@ export class BookingsService {
   ): Promise<{ message: string }> {
     const existing = await this.getBookingOrThrow(companyId, id);
 
+    const [activeInvoices, activePayments] = await Promise.all([
+      this.prisma.invoice.count({
+        where: { companyId, bookingId: id, archivedAt: null, isActive: true },
+      }),
+      this.prisma.payment.count({
+        where: { companyId, bookingId: id, archivedAt: null, isActive: true },
+      }),
+    ]);
+
+    if (activeInvoices > 0 || activePayments > 0) {
+      throw new BadRequestException(
+        'Cannot archive a booking that still has active invoices or payments.',
+      );
+    }
+
     await this.prisma.booking.update({
       where: { id },
       data: {

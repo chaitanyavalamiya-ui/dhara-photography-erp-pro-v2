@@ -138,8 +138,15 @@ export function SettingsPage() {
   });
 
   const updateRateMutation = useMutation({
-    mutationFn: ({ id, defaultRate }: { id: string; defaultRate: number }) =>
-      settingsService.updateServiceRate(id, { defaultRate }),
+    mutationFn: ({
+      id,
+      defaultRate,
+      isActive,
+    }: {
+      id: string;
+      defaultRate: number;
+      isActive: boolean;
+    }) => settingsService.updateServiceRate(id, { defaultRate, isActive }),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'service-rates'] });
       queryClient.invalidateQueries({ queryKey: ['bookings', 'service-rates'] });
@@ -761,9 +768,9 @@ export function SettingsPage() {
         rate={editRate}
         isSubmitting={updateRateMutation.isPending}
         onClose={() => setEditRate(null)}
-        onSubmit={(defaultRate) => {
+        onSubmit={(values) => {
           if (editRate) {
-            updateRateMutation.mutate({ id: editRate.id, defaultRate });
+            updateRateMutation.mutate({ id: editRate.id, ...values });
           }
         }}
       />

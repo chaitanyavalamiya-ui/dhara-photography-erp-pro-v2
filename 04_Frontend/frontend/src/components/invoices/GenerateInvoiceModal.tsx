@@ -7,14 +7,13 @@ import { formatCurrency, formatDate } from '@/utils/booking-form';
 import { InvoiceDeliverablesFields } from '@/components/invoices/InvoiceDeliverablesFields';
 import {
   InvoiceDeliverables,
-  encodeInvoiceNotes,
 } from '@/utils/invoice-deliverables';
 
 interface GenerateInvoiceModalProps {
   open: boolean;
   isSubmitting?: boolean;
   onClose: () => void;
-  onGenerate: (bookingId: string, notes?: string) => void;
+  onGenerate: (bookingId: string, payload: { notes?: string; deliverables: InvoiceDeliverables }) => void;
 }
 
 export function GenerateInvoiceModal({
@@ -163,7 +162,7 @@ export function GenerateInvoiceModal({
                         className="btn-primary px-3 py-1.5 text-xs"
                         disabled={isSubmitting}
                         onClick={() =>
-                          onGenerate(booking.id, encodeInvoiceNotes('', deliverables) || undefined)
+                          onGenerate(booking.id, { deliverables })
                         }
                       >
                         {isSubmitting ? 'Generating...' : 'Generate'}

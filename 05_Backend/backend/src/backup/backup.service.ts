@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { AuditService } from '../audit/audit.service';
+import { PrismaService } from '../prisma/prisma.service';
 import {
   assertBackupDirOutsideApp,
   expandWindowsEnvPath,
@@ -41,6 +42,7 @@ export class BackupService {
   constructor(
     private readonly configService: ConfigService,
     private readonly auditService: AuditService,
+    private readonly prisma: PrismaService,
   ) {}
 
   getLocation(repoRoot = resolveRepoRoot()): { backupDir: string; defaultBackupDir: string } {
@@ -149,6 +151,8 @@ export class BackupService {
     if (confirmPhrase !== RESTORE_CONFIRM_PHRASE) {
       throw new BadRequestException('Restore confirmation phrase did not match.');
     }
+
+    await this.assertOwnerCanRestore(companyId, actorUserId);
 
     const safePath = this.assertBackupFile(backupFile);
     const result = await this.runScript('restore-db.ps1', [
@@ -295,5 +299,21 @@ export class BackupService {
       .replace(/postgresql:\/\/[^@\s]+@/gi, 'postgresql://****@')
       .replace(/Password=[^\s;]+/gi, 'Password=****')
       .replace(/PGPASSWORD[^\s]*/gi, 'PGPASSWORD=****');
+  }
+
+  private async assertOwnerCanRestore(companyId: string, userId: string): Promise<void> {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, companyId, isActive: true, archivedAt: null },
+      select: {
+        userRoles: {
+          select: { role: { select: { code: true } } },
+        },
+      },
+    });
+
+    const isOwner = Boolean(user?.userRoles.some((assignment) => assignment.role.code === 'owner'));
+    if (!isOwner) {
+      throw new ForbiddenException('Only the studio owner can restore a backup.');
+    }
   }
 }

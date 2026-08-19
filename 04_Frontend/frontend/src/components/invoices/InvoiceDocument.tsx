@@ -14,8 +14,21 @@ interface InvoiceDocumentProps {
 }
 
 export function InvoiceDocument({ invoice, id = 'invoice-document' }: InvoiceDocumentProps) {
-  const deliverableLabels = getInvoiceDeliverableLabels(parseInvoiceDeliverables(invoice.notes));
-  const visibleNotes = stripInvoiceDeliverableMarker(invoice.notes) || invoice.booking.notes;
+  const deliverableLabels = getInvoiceDeliverableLabels(
+    invoice.deliverables
+      ? {
+          items: invoice.deliverables.items as never,
+          videoMedia:
+            invoice.deliverables.videoMedia === 'pendrive' ||
+            invoice.deliverables.videoMedia === 'hard_disk'
+              ? invoice.deliverables.videoMedia
+              : '',
+        }
+      : parseInvoiceDeliverables(invoice.notes),
+  );
+  const visibleNotes =
+    (invoice.deliverables ? invoice.notes : stripInvoiceDeliverableMarker(invoice.notes)) ||
+    invoice.booking.notes;
 
   return (
     <div

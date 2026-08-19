@@ -8,7 +8,6 @@ import { formatCurrency } from '@/utils/booking-form';
 import { InvoiceDeliverablesFields } from '@/components/invoices/InvoiceDeliverablesFields';
 import {
   InvoiceDeliverables,
-  encodeInvoiceNotes,
   parseInvoiceDeliverables,
   stripInvoiceDeliverableMarker,
 } from '@/utils/invoice-deliverables';
@@ -25,7 +24,7 @@ interface EditInvoiceModalProps {
   invoice: Invoice | null;
   isSubmitting?: boolean;
   onClose: () => void;
-  onSubmit: (values: EditInvoiceForm) => void;
+  onSubmit: (values: EditInvoiceForm & { deliverables: InvoiceDeliverables }) => void;
 }
 
 export function EditInvoiceModal({
@@ -52,9 +51,24 @@ export function EditInvoiceModal({
     if (open && invoice) {
       reset({
         dueDate: invoice.dueDate ?? '',
-        notes: stripInvoiceDeliverableMarker(invoice.notes),
+        notes: invoice.deliverables
+          ? invoice.notes ?? ''
+          : stripInvoiceDeliverableMarker(invoice.notes),
       });
-      setDeliverables(parseInvoiceDeliverables(invoice.notes));
+      setDeliverables(
+        invoice.deliverables
+          ? {
+              items: invoice.deliverables.items.filter((item): item is InvoiceDeliverables['items'][number] =>
+                Boolean(item),
+              ) as InvoiceDeliverables['items'],
+              videoMedia:
+                invoice.deliverables.videoMedia === 'pendrive' ||
+                invoice.deliverables.videoMedia === 'hard_disk'
+                  ? invoice.deliverables.videoMedia
+                  : '',
+            }
+          : parseInvoiceDeliverables(invoice.notes),
+      );
     }
   }, [open, invoice, reset]);
 
@@ -102,7 +116,8 @@ export function EditInvoiceModal({
           onSubmit={handleSubmit((values) =>
             onSubmit({
               ...values,
-              notes: encodeInvoiceNotes(values.notes ?? '', deliverables),
+              notes: values.notes ?? '',
+              deliverables,
             }),
           )}
           className="space-y-4"

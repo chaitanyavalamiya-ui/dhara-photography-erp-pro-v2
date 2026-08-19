@@ -14,6 +14,7 @@ describe('PaymentsService.void', () => {
       aggregate: jest.fn(),
     },
     invoice: {
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn(),
     },
@@ -114,5 +115,44 @@ describe('PaymentsService.void', () => {
       BadRequestException,
     );
     expect(mockPrisma.payment.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects updating a voided payment', async () => {
+    mockPrisma.payment.findFirst.mockResolvedValue({
+      ...activePayment,
+      isActive: false,
+      archivedAt: null,
+    });
+
+    await expect(
+      service.update('company-1', 'user-1', 'pay-1', { amount: 1000 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('updates payment amount inside the invoice total and resyncs financials', async () => {
+    mockPrisma.payment.findFirst.mockResolvedValue(activePayment);
+    mockPrisma.invoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      companyId: 'company-1',
+      totalAmount: 10000,
+    });
+    mockPrisma.payment.aggregate.mockResolvedValue({ _sum: { amount: 5000 } });
+    mockPrisma.payment.update.mockResolvedValue({
+      ...activePayment,
+      amount: 4000,
+    });
+    mockPrisma.invoice.findUnique.mockResolvedValue({
+      id: 'inv-1',
+      bookingId: 'bk-1',
+      totalAmount: 10000,
+      dueDate: null,
+    });
+    mockPrisma.invoice.update.mockResolvedValue({});
+    mockPrisma.booking.update.mockResolvedValue({});
+
+    const updated = await service.update('company-1', 'user-1', 'pay-1', { amount: 4000 });
+    expect(updated.amount).toBe(4000);
+    expect(mockPrisma.payment.update).toHaveBeenCalled();
+    expect(mockAudit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'update' }));
   });
 });

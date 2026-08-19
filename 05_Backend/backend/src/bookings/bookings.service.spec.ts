@@ -260,4 +260,23 @@ describe('BookingsService client change', () => {
     );
     expect(mockPrisma.booking.update).toHaveBeenCalled();
   });
+
+  it('blocks archive when the booking still has an active invoice', async () => {
+    mockPrisma.invoice.count.mockResolvedValue(1);
+    mockPrisma.payment.count.mockResolvedValue(0);
+
+    await expect(service.archive('company-1', 'user-1', 'booking-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(mockPrisma.booking.update).not.toHaveBeenCalled();
+  });
+
+  it('archives a booking with no active invoices or payments', async () => {
+    mockPrisma.invoice.count.mockResolvedValue(0);
+    mockPrisma.payment.count.mockResolvedValue(0);
+    mockPrisma.booking.update.mockResolvedValue(existing);
+
+    await service.archive('company-1', 'user-1', 'booking-1');
+    expect(mockPrisma.booking.update).toHaveBeenCalled();
+  });
 });

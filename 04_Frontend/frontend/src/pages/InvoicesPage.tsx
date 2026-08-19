@@ -61,8 +61,15 @@ export function InvoicesPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: ({ bookingId, notes }: { bookingId: string; notes?: string }) =>
-      invoicesService.create({ bookingId, notes }),
+    mutationFn: ({
+      bookingId,
+      notes,
+      deliverables,
+    }: {
+      bookingId: string;
+      notes?: string;
+      deliverables?: { items: string[]; videoMedia?: '' | 'pendrive' | 'hard_disk' };
+    }) => invoicesService.create({ bookingId, notes, deliverables }),
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       setGenerateOpen(false);
@@ -81,10 +88,21 @@ export function InvoicesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, dueDate, notes }: { id: string; dueDate?: string; notes?: string }) =>
+    mutationFn: ({
+      id,
+      dueDate,
+      notes,
+      deliverables,
+    }: {
+      id: string;
+      dueDate?: string;
+      notes?: string;
+      deliverables?: { items: string[]; videoMedia?: '' | 'pendrive' | 'hard_disk' };
+    }) =>
       invoicesService.update(id, {
         dueDate: dueDate || null,
         notes: notes || null,
+        deliverables,
       }),
     onSuccess: (invoice) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -355,7 +373,7 @@ export function InvoicesPage() {
         open={generateOpen}
         isSubmitting={createMutation.isPending}
         onClose={() => setGenerateOpen(false)}
-        onGenerate={(bookingId, notes) => createMutation.mutate({ bookingId, notes })}
+        onGenerate={(bookingId, payload) => createMutation.mutate({ bookingId, ...payload })}
       />
 
       <InvoiceViewModal

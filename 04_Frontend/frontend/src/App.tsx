@@ -25,7 +25,6 @@ import { PermissionRoute } from './routes/PermissionRoute';
 export default function App() {
   return (
     <Routes>
-      <Route path="/ui-prototype" element={<UiPrototypePage />} />
       <Route path="*" element={<ErpRoutes />} />
     </Routes>
   );
@@ -36,6 +35,14 @@ function ErpRoutes() {
     <AuthSessionBootstrap>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/ui-prototype"
+          element={
+            <ProtectedRoute>
+              <UiPrototypePage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/"
           element={

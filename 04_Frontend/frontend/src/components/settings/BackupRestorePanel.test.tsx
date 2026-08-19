@@ -43,7 +43,7 @@ describe('BackupRestorePanel', () => {
         fullName: 'Admin',
         email: 'admin@example.com',
         companyId: 'company-1',
-        permissions: ['settings.read', 'settings.update'],
+        permissions: ['settings.read', 'settings.update', 'roles.manage'],
       },
       accessToken: 'token',
       refreshToken: 'refresh',
@@ -71,6 +71,25 @@ describe('BackupRestorePanel', () => {
       screen.getByText(/Older backups are kept until you delete them yourself/),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
+  });
+
+  it('hides restore controls from non-owners', async () => {
+    useAuthStore.setState({
+      user: {
+        id: 'admin-1',
+        fullName: 'Admin',
+        email: 'admin@example.com',
+        companyId: 'company-1',
+        permissions: ['settings.read', 'settings.update'],
+      },
+      accessToken: 'token',
+      refreshToken: 'refresh',
+      isAuthenticated: true,
+    });
+    renderPanel();
+    expect(await screen.findByText('dhara_erp_20260101_010101.zip')).toBeInTheDocument();
+    expect(screen.getByText('Only the studio owner can restore a backup.')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Backup ZIP path')).not.toBeInTheDocument();
   });
 
   it('requires REPLACE before restore is enabled', async () => {

@@ -34,4 +34,19 @@ describe('http-security', () => {
       true,
     );
   });
+
+  it('falls back to localhost when CORS_ORIGIN is missing outside production', () => {
+    expect(parseCorsOrigins(undefined, 'http://localhost:5173', { production: false })).toEqual([
+      'http://localhost:5173',
+    ]);
+  });
+
+  it('fails fast when CORS_ORIGIN is missing or localhost-only in production', () => {
+    expect(() => parseCorsOrigins(undefined, 'http://localhost:5173', { production: true })).toThrow(
+      'CORS_ORIGIN is required in production.',
+    );
+    expect(() =>
+      parseCorsOrigins('http://localhost:5173', 'http://localhost:5173', { production: true }),
+    ).toThrow('CORS_ORIGIN cannot be localhost-only in production.');
+  });
 });

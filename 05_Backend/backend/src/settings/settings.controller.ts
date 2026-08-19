@@ -10,7 +10,7 @@ import { CreatePackageDto, PackageResponseDto, UpdatePackageDto } from './dto/pa
 import { SettingsServiceRateDto } from './dto/service-rate-response.dto';
 import { UpdateMasterDataDto } from './dto/update-master-data.dto';
 import { UpdateServiceRateDto } from './dto/update-service-rate.dto';
-import { RequirePermissions } from '../common/decorators/auth.decorators';
+import { RequireAnyPermissions, RequirePermissions } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
@@ -45,6 +45,7 @@ export class SettingsController {
   }
 
   @Get('packages')
+  @RequireAnyPermissions('settings.read', 'bookings.create', 'bookings.update')
   @ApiOperation({ summary: 'List studio packages' })
   async getPackages(
     @CurrentUser() user: JwtPayload,
@@ -102,6 +103,13 @@ export class SettingsController {
   }
 
   @Get('master-data')
+  @RequireAnyPermissions(
+    'settings.read',
+    'expenses.read',
+    'expenses.create',
+    'expenses.update',
+    'payments.create',
+  )
   @ApiOperation({ summary: 'List master data items for a category' })
   async getMasterData(
     @CurrentUser() user: JwtPayload,

@@ -6,6 +6,7 @@ import {
   calculateBookingTotals,
   calculateItemAmount,
   deriveBookingPaymentStatus,
+  isBookingClientChangeLocked,
   isBookingNumberUniqueConflict,
 } from './booking.utils';
 
@@ -95,6 +96,30 @@ describe('booking.utils', () => {
         meta: { target: ['email'] },
       });
       expect(isBookingNumberUniqueConflict(error)).toBe(false);
+    });
+  });
+
+  describe('isBookingClientChangeLocked', () => {
+    const none = {
+      invoices: 0,
+      payments: 0,
+      galleries: 0,
+      albums: 0,
+      deliveries: 0,
+    };
+
+    it('is unlocked when the booking has no dependent records', () => {
+      expect(isBookingClientChangeLocked(none)).toBe(false);
+    });
+
+    it.each([
+      ['invoices'],
+      ['payments'],
+      ['galleries'],
+      ['albums'],
+      ['deliveries'],
+    ] as const)('is locked when %s exist', (key) => {
+      expect(isBookingClientChangeLocked({ ...none, [key]: 1 })).toBe(true);
     });
   });
 });

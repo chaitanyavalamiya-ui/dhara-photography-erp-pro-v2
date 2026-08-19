@@ -54,35 +54,42 @@ function renderModal() {
 }
 
 describe('EquipmentReturnModal', () => {
-  it('auto-calculates missing quantity as issued minus returned', async () => {
+  it('shows outstanding and does not treat leftover returned quantity as missing', async () => {
     renderModal();
-    const qty = await screen.findByRole('spinbutton');
-    fireEvent.change(qty, { target: { value: '1' } });
-    expect(screen.getByText('1')).toBeInTheDocument();
-    expect(screen.getByText(/WARNING: 1 ITEM MISSING/)).toBeInTheDocument();
+    expect(screen.getByText('Outstanding')).toBeInTheDocument();
+    const returned = await screen.findByLabelText(/Returned quantity for 256GB Memory Card/);
+    fireEvent.change(returned, { target: { value: '1' } });
+    expect(screen.getByText('1 still outstanding')).toBeInTheDocument();
+    expect(screen.queryByText(/WARNING: 1 ITEM MISSING/)).not.toBeInTheDocument();
   });
 
-  it('blocks returned quantity greater than issued', async () => {
+  it('blocks returned plus missing greater than outstanding', async () => {
     renderModal();
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText(/Returned quantity for 256GB Memory Card/), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText(/Missing quantity for 256GB Memory Card/), { target: { value: '1' } });
+    expect(screen.getByText(/Returned \+ missing cannot exceed outstanding/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save Return' }));
-    expect(
-      await screen.findByText(/Returned quantity cannot exceed issued quantity/),
-    ).toBeInTheDocument();
     expect(equipmentService.returnIssue).not.toHaveBeenCalled();
   });
 
-  it('submits damaged condition in', async () => {
+  it('submits explicit returned and missing quantities', async () => {
     vi.mocked(equipmentService.returnIssue).mockResolvedValue(issue);
     renderModal();
+    fireEvent.change(screen.getByLabelText(/Returned quantity for 256GB Memory Card/), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText(/Missing quantity for 256GB Memory Card/), { target: { value: '0' } });
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'DAMAGED' } });
-    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save Return' }));
     await waitFor(() => expect(equipmentService.returnIssue).toHaveBeenCalled());
     expect(equipmentService.returnIssue).toHaveBeenCalledWith(
       'issue-1',
       expect.objectContaining({
-        items: [expect.objectContaining({ conditionIn: 'DAMAGED', quantityReturned: 2 })],
+        items: [
+          expect.objectContaining({
+            conditionIn: 'DAMAGED',
+            quantityReturned: 1,
+            quantityMissing: 0,
+          }),
+        ],
       }),
     );
   });

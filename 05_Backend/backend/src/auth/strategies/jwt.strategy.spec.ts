@@ -8,9 +8,9 @@ import { JwtPayload } from '../interfaces/jwt-payload.interface';
 describe('JwtStrategy', () => {
   const payload: JwtPayload = {
     sub: 'user-1',
-    email: 'admin@example.com',
-    companyId: 'company-1',
-    permissions: ['users.read'],
+    email: 'stale@example.com',
+    companyId: 'stale-company',
+    permissions: ['stale.permission'],
   };
 
   const prisma = {
@@ -26,17 +26,45 @@ describe('JwtStrategy', () => {
     prisma as unknown as PrismaService,
   );
 
+  function activeUser(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'user-1',
+      email: 'admin@example.com',
+      companyId: 'company-1',
+      isActive: true,
+      archivedAt: null,
+      lockedUntil: null,
+      company: {
+        id: 'company-1',
+        isActive: true,
+        archivedAt: null,
+      },
+      userRoles: [
+        {
+          role: {
+            permissions: [
+              {
+                isGranted: true,
+                permission: { code: 'users.read', isActive: true },
+              },
+              {
+                isGranted: true,
+                permission: { code: 'users.update', isActive: false },
+              },
+            ],
+          },
+        },
+      ],
+      ...overrides,
+    };
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('rejects inactive users', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      isActive: false,
-      archivedAt: null,
-      lockedUntil: null,
-    });
+    prisma.user.findUnique.mockResolvedValue(activeUser({ isActive: false }));
 
     await expect(strategy.validate(payload)).rejects.toBeInstanceOf(UnauthorizedException);
     try {
@@ -51,12 +79,7 @@ describe('JwtStrategy', () => {
   });
 
   it('rejects archived users', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      isActive: true,
-      archivedAt: new Date(),
-      lockedUntil: null,
-    });
+    prisma.user.findUnique.mockResolvedValue(activeUser({ archivedAt: new Date() }));
 
     await expect(strategy.validate(payload)).rejects.toBeInstanceOf(UnauthorizedException);
     try {
@@ -70,13 +93,22 @@ describe('JwtStrategy', () => {
     }
   });
 
-  it('rejects locked users', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      isActive: true,
-      archivedAt: null,
-      lockedUntil: new Date(Date.now() + 60_000),
+  it('rejects users in a deactivated company', async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      activeUser({
+        company: { id: 'company-1', isActive: false, archivedAt: null },
+      }),
+    );
+
+    await expect(strategy.validate(payload)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: AUTH_ERROR_CODES.ACCOUNT_INACTIVE }),
     });
+  });
+
+  it('rejects locked users', async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      activeUser({ lockedUntil: new Date(Date.now() + 60_000) }),
+    );
 
     await expect(strategy.validate(payload)).rejects.toBeInstanceOf(UnauthorizedException);
     try {
@@ -90,14 +122,14 @@ describe('JwtStrategy', () => {
     }
   });
 
-  it('returns the payload for an active unlocked user', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-1',
-      isActive: true,
-      archivedAt: null,
-      lockedUntil: null,
-    });
+  it('returns current DB company and permissions instead of the JWT payload', async () => {
+    prisma.user.findUnique.mockResolvedValue(activeUser());
 
-    await expect(strategy.validate(payload)).resolves.toEqual(payload);
+    await expect(strategy.validate(payload)).resolves.toEqual({
+      sub: 'user-1',
+      email: 'admin@example.com',
+      companyId: 'company-1',
+      permissions: ['users.read'],
+    });
   });
 });

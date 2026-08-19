@@ -94,6 +94,29 @@ export function allocateNextBookingNumber(latestNumber?: string | null): string 
   return `BK-${String(next).padStart(6, '0')}`;
 }
 
+export type BookingClientChangeDependentCounts = {
+  invoices: number;
+  payments: number;
+  galleries: number;
+  albums: number;
+  deliveries: number;
+};
+
+export const BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE =
+  'Cannot change the booking client because this booking already has invoice, payment, gallery, album, or delivery records.';
+
+export function isBookingClientChangeLocked(
+  counts: BookingClientChangeDependentCounts,
+): boolean {
+  return (
+    counts.invoices > 0 ||
+    counts.payments > 0 ||
+    counts.galleries > 0 ||
+    counts.albums > 0 ||
+    counts.deliveries > 0
+  );
+}
+
 export function isBookingNumberUniqueConflict(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
     return false;

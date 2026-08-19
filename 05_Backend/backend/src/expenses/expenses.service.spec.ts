@@ -169,4 +169,222 @@ describe('ExpensesService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(mockPrisma.expense.create).not.toHaveBeenCalled();
   });
+
+  describe('parent-link consistency', () => {
+    const createdExpense = {
+      id: 'exp-1',
+      amount: 100,
+      expenseDate: new Date('2026-08-18T00:00:00.000Z'),
+      description: 'Travel',
+      vendorPerson: null,
+      referenceNumber: null,
+      notes: null,
+      clientId: null,
+      bookingId: null,
+      staffId: null,
+      invoiceId: null,
+      createdAt: new Date('2026-08-18T00:00:00.000Z'),
+      category: { code: 'travel', label: 'Travel' },
+      paymentMode: null,
+      client: null,
+      booking: null,
+      staff: null,
+      invoice: null,
+    };
+
+    function stubCreate(overrides: Record<string, unknown> = {}) {
+      mockPrisma.masterData.findFirst.mockResolvedValue({ id: 'cat-1', code: 'travel' });
+      mockPrisma.companyBranch.findFirst.mockResolvedValue({ id: 'branch-default' });
+      mockPrisma.expense.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
+        ...createdExpense,
+        ...data,
+        ...overrides,
+        client: data.clientId ? { fullName: 'Asha' } : null,
+        booking: data.bookingId ? { bookingNumber: 'BK-000001' } : null,
+        staff: data.staffId ? { fullName: 'Ravi' } : null,
+        invoice: data.invoiceId ? { invoiceNumber: 'INV-000001' } : null,
+      }));
+    }
+
+    it('creates with the booking canonical client and branch when they match', async () => {
+      stubCreate();
+      mockPrisma.booking.findFirst.mockResolvedValue({
+        id: 'booking-1',
+        clientId: 'client-1',
+        branchId: 'branch-booking',
+      });
+
+      await service.create('company-1', 'user-1', {
+        categoryCode: 'travel',
+        amount: 100,
+        expenseDate: '2026-08-18',
+        bookingId: 'booking-1',
+        clientId: 'client-1',
+      });
+
+      expect(mockPrisma.booking.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'booking-1', companyId: 'company-1' }),
+        }),
+      );
+      expect(mockPrisma.expense.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            bookingId: 'booking-1',
+            clientId: 'client-1',
+            branchId: 'branch-booking',
+          }),
+        }),
+      );
+    });
+
+    it('rejects a client that does not match the booking', async () => {
+      stubCreate();
+      mockPrisma.booking.findFirst.mockResolvedValue({
+        id: 'booking-1',
+        clientId: 'client-1',
+        branchId: 'branch-booking',
+      });
+
+      await expect(
+        service.create('company-1', 'user-1', {
+          categoryCode: 'travel',
+          amount: 100,
+          expenseDate: '2026-08-18',
+          bookingId: 'booking-1',
+          clientId: 'client-other',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await expect(
+        service.create('company-1', 'user-1', {
+          categoryCode: 'travel',
+          amount: 100,
+          expenseDate: '2026-08-18',
+          bookingId: 'booking-1',
+          clientId: 'client-other',
+        }),
+      ).rejects.toThrow('Expense client must match the selected booking client.');
+      expect(mockPrisma.expense.create).not.toHaveBeenCalled();
+    });
+
+    it('rewrites client and branch from the new booking when bookingId changes', async () => {
+      stubCreate();
+      mockPrisma.expense.findFirst.mockResolvedValue({
+        ...createdExpense,
+        clientId: 'client-old',
+        bookingId: 'booking-old',
+        staffId: null,
+        invoiceId: null,
+      });
+      mockPrisma.booking.findFirst.mockResolvedValue({
+        id: 'booking-new',
+        clientId: 'client-new',
+        branchId: 'branch-new',
+      });
+      mockPrisma.expense.update.mockResolvedValue({
+        ...createdExpense,
+        clientId: 'client-new',
+        bookingId: 'booking-new',
+      });
+
+      await service.update('company-1', 'user-1', 'exp-1', { bookingId: 'booking-new' });
+
+      expect(mockPrisma.expense.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            bookingId: 'booking-new',
+            clientId: 'client-new',
+            branchId: 'branch-new',
+          }),
+        }),
+      );
+    });
+
+    it('rejects an invoice from another booking', async () => {
+      stubCreate();
+      mockPrisma.booking.findFirst.mockResolvedValue({
+        id: 'booking-1',
+        clientId: 'client-1',
+        branchId: 'branch-booking',
+      });
+      mockPrisma.invoice.findFirst.mockResolvedValue({
+        id: 'inv-other',
+        bookingId: 'booking-other',
+      });
+
+      await expect(
+        service.create('company-1', 'user-1', {
+          categoryCode: 'travel',
+          amount: 100,
+          expenseDate: '2026-08-18',
+          bookingId: 'booking-1',
+          invoiceId: 'inv-other',
+        }),
+      ).rejects.toThrow('Invoice does not belong to the selected booking.');
+      expect(mockPrisma.expense.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invoice from another company', async () => {
+      stubCreate();
+      mockPrisma.invoice.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create('company-1', 'user-1', {
+          categoryCode: 'travel',
+          amount: 100,
+          expenseDate: '2026-08-18',
+          invoiceId: 'inv-foreign',
+        }),
+      ).rejects.toThrow('Invoice not found in this company.');
+      expect(mockPrisma.invoice.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'inv-foreign', companyId: 'company-1' }),
+        }),
+      );
+      expect(mockPrisma.expense.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects staff from another company', async () => {
+      stubCreate();
+      mockPrisma.staff.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.create('company-1', 'user-1', {
+          categoryCode: 'travel',
+          amount: 100,
+          expenseDate: '2026-08-18',
+          staffId: 'staff-foreign',
+        }),
+      ).rejects.toThrow('Staff member not found in this company.');
+      expect(mockPrisma.staff.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: 'staff-foreign', companyId: 'company-1' }),
+        }),
+      );
+      expect(mockPrisma.expense.create).not.toHaveBeenCalled();
+    });
+
+    it('still creates a standalone expense without a booking', async () => {
+      stubCreate();
+
+      await service.create('company-1', 'user-1', {
+        categoryCode: 'travel',
+        amount: 100,
+        expenseDate: '2026-08-18',
+      });
+
+      expect(mockPrisma.expense.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            companyId: 'company-1',
+            branchId: 'branch-default',
+            bookingId: null,
+            clientId: null,
+            invoiceId: null,
+            staffId: null,
+          }),
+        }),
+      );
+    });
+  });
 });

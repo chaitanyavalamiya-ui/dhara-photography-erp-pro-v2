@@ -1,9 +1,27 @@
+import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { computeInvoiceStatus, roundMoney } from '../../invoices/utils/invoice.utils';
 import { toDecimal } from '../../bookings/utils/booking.utils';
 
 type DbClient = PrismaService | Prisma.TransactionClient;
+
+export const INVOICE_TOTAL_BELOW_PAYMENTS_MESSAGE =
+  'Invoice total cannot be less than the sum of active payments.';
+
+export function assertInvoiceTotalCoversPayments(
+  totalAmount: number,
+  paymentTotal: number,
+): void {
+  const total = roundMoney(totalAmount);
+  const payments = roundMoney(paymentTotal);
+
+  if (payments > total) {
+    throw new BadRequestException(
+      `${INVOICE_TOTAL_BELOW_PAYMENTS_MESSAGE} Active payments total ₹${payments.toFixed(2)}.`,
+    );
+  }
+}
 
 export async function getPaymentTotalForInvoice(
   tx: DbClient,
@@ -29,7 +47,8 @@ export async function syncInvoiceAndBookingFinancials(
 
   const totalAmount = Number(invoice.totalAmount);
   const advanceAmount = await getPaymentTotalForInvoice(tx, invoiceId);
-  const outstandingAmount = roundMoney(Math.max(totalAmount - advanceAmount, 0));
+  assertInvoiceTotalCoversPayments(totalAmount, advanceAmount);
+  const outstandingAmount = roundMoney(totalAmount - advanceAmount);
   const status = computeInvoiceStatus(
     totalAmount,
     advanceAmount,

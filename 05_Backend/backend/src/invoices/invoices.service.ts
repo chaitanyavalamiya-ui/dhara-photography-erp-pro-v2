@@ -24,7 +24,12 @@ import {
   roundMoney,
   toDateOnlyLabel,
 } from './utils/invoice.utils';
-import { getPaymentTotalForInvoice, generateReceiptNumber, getStudioDateParts, syncInvoiceAndBookingFinancials } from '../common/utils/financial.utils';
+import {
+  generateReceiptNumber,
+  getPaymentTotalForInvoice,
+  getStudioDateParts,
+  syncInvoiceAndBookingFinancials,
+} from '../common/utils/financial.utils';
 import { toDecimal } from '../bookings/utils/booking.utils';
 
 type InvoiceWithRelations = Prisma.InvoiceGetPayload<{
@@ -273,15 +278,34 @@ export class InvoicesService {
   ): Promise<{ message: string }> {
     const existing = await this.getInvoiceOrThrow(companyId, id);
 
-    await this.prisma.invoice.update({
-      where: { id },
-      data: {
-        isActive: false,
-        archivedAt: new Date(),
-        archivedById: userId,
-        archivedReason: 'Archived from invoices module',
-        updatedById: userId,
+    const activePaymentCount = await this.prisma.payment.count({
+      where: {
+        invoiceId: id,
+        companyId,
+        isActive: true,
+        archivedAt: null,
       },
+    });
+
+    if (activePaymentCount > 0) {
+      throw new BadRequestException(
+        'Cannot archive this invoice while it has active payments. Void the payments first.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.invoice.update({
+        where: { id },
+        data: {
+          isActive: false,
+          archivedAt: new Date(),
+          archivedById: userId,
+          archivedReason: 'Archived from invoices module',
+          updatedById: userId,
+        },
+      });
+
+      await syncInvoiceAndBookingFinancials(tx, id);
     });
 
     await this.auditService.log({

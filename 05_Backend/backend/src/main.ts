@@ -19,7 +19,9 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('BACKEND_PORT', 3000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
-  const allowedOrigins = parseCorsOrigins(configService.get<string>('CORS_ORIGIN'));
+  const allowedOrigins = parseCorsOrigins(configService.get<string>('CORS_ORIGIN'), 'http://localhost:5173', {
+    production: configService.get<string>('NODE_ENV') === 'production',
+  });
 
   app.setGlobalPrefix(apiPrefix);
   app.use(helmet(createHelmetOptions()));

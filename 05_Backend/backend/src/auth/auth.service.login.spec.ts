@@ -28,12 +28,30 @@ describe('AuthService login security', () => {
     userRoles: [],
   };
 
+  const activeCompany = {
+    id: 'company-1',
+    isActive: true,
+    archivedAt: null,
+  };
+
+  const loginDto = {
+    companyCode: 'DHARA-PATAN',
+    email: 'admin@example.com',
+    password: 'CurrentPass1',
+  };
+
   const mockPrisma = {
+    company: {
+      findFirst: jest.fn(),
+    },
     user: {
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       update: jest.fn(),
     },
     refreshToken: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
       updateMany: jest.fn(),
       create: jest.fn(),
     },
@@ -71,6 +89,7 @@ describe('AuthService login security', () => {
         userRoles: [],
       };
     });
+    mockPrisma.company.findFirst.mockResolvedValue(activeCompany);
     mockPrisma.refreshToken.create.mockResolvedValue({ id: 'rt-1' });
 
     const module: TestingModule = await Test.createTestingModule({
@@ -93,10 +112,10 @@ describe('AuthService login security', () => {
   });
 
   it('increments failed login attempts atomically', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ ...baseUser });
+    mockPrisma.user.findUnique.mockResolvedValue({ ...baseUser });
 
     await expect(
-      service.login({ email: 'admin@example.com', password: 'WrongPass1' }),
+      service.login({ ...loginDto, password: 'WrongPass1' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -116,10 +135,10 @@ describe('AuthService login security', () => {
 
   it('locks the account when the atomic threshold is reached', async () => {
     failedAttempts = 4;
-    mockPrisma.user.findFirst.mockResolvedValue({ ...baseUser, failedLoginAttempts: 4 });
+    mockPrisma.user.findUnique.mockResolvedValue({ ...baseUser, failedLoginAttempts: 4 });
 
     await expect(
-      service.login({ email: 'admin@example.com', password: 'WrongPass1' }),
+      service.login({ ...loginDto, password: 'WrongPass1' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -138,9 +157,9 @@ describe('AuthService login security', () => {
   });
 
   it('resets the failed-attempt counter on successful login', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ ...baseUser, failedLoginAttempts: 3 });
+    mockPrisma.user.findUnique.mockResolvedValue({ ...baseUser, failedLoginAttempts: 3 });
 
-    const result = await service.login({ email: 'admin@example.com', password: 'CurrentPass1' });
+    const result = await service.login(loginDto);
 
     expect(result.tokens.accessToken).toBe('access-token');
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
@@ -157,13 +176,13 @@ describe('AuthService login security', () => {
   });
 
   it('clears an expired lock before authenticating', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({
+    mockPrisma.user.findUnique.mockResolvedValue({
       ...baseUser,
       failedLoginAttempts: 5,
       lockedUntil: new Date(Date.now() - 1000),
     });
 
-    await service.login({ email: 'admin@example.com', password: 'CurrentPass1' });
+    await service.login(loginDto);
 
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -176,13 +195,13 @@ describe('AuthService login security', () => {
   });
 
   it('does not reveal lockout for a wrong password on a locked account', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({
+    mockPrisma.user.findUnique.mockResolvedValue({
       ...baseUser,
       lockedUntil: new Date(Date.now() + 60_000),
     });
 
     await expect(
-      service.login({ email: 'admin@example.com', password: 'WrongPass1' }),
+      service.login({ ...loginDto, password: 'WrongPass1' }),
     ).rejects.toMatchObject({
       response: expect.objectContaining({
         code: AUTH_ERROR_CODES.INVALID_CREDENTIALS,
@@ -193,13 +212,13 @@ describe('AuthService login security', () => {
   });
 
   it('returns a lock message only after the correct password on a locked account', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({
+    mockPrisma.user.findUnique.mockResolvedValue({
       ...baseUser,
       lockedUntil: new Date(Date.now() + 120_000),
     });
 
     try {
-      await service.login({ email: 'admin@example.com', password: 'CurrentPass1' });
+      await service.login(loginDto);
       throw new Error('expected lockout');
     } catch (error) {
       expect(error).toBeInstanceOf(HttpException);
@@ -214,17 +233,15 @@ describe('AuthService login security', () => {
   });
 
   it('rejects unknown, inactive, and archived users with the same credentials error', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findUnique.mockResolvedValue(null);
     await expect(
-      service.login({ email: 'missing@example.com', password: 'CurrentPass1' }),
+      service.login({ ...loginDto, email: 'missing@example.com' }),
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: AUTH_ERROR_CODES.INVALID_CREDENTIALS }),
     });
 
-    mockPrisma.user.findFirst.mockResolvedValue({ ...baseUser, isActive: false });
-    await expect(
-      service.login({ email: 'admin@example.com', password: 'CurrentPass1' }),
-    ).rejects.toMatchObject({
+    mockPrisma.user.findUnique.mockResolvedValue({ ...baseUser, isActive: false });
+    await expect(service.login(loginDto)).rejects.toMatchObject({
       response: expect.objectContaining({
         code: AUTH_ERROR_CODES.INVALID_CREDENTIALS,
         message: 'Invalid email or password.',
@@ -233,10 +250,10 @@ describe('AuthService login security', () => {
   });
 
   it('does not log secrets on failed login', async () => {
-    mockPrisma.user.findFirst.mockResolvedValue({ ...baseUser });
+    mockPrisma.user.findUnique.mockResolvedValue({ ...baseUser });
 
     await expect(
-      service.login({ email: 'admin@example.com', password: 'WrongPass1' }),
+      service.login({ ...loginDto, password: 'WrongPass1' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
     const serialized = JSON.stringify(mockAuditService.log.mock.calls);
@@ -244,4 +261,213 @@ describe('AuthService login security', () => {
     expect(serialized).not.toContain(passwordHash);
     expect(serialized).not.toContain('access-token');
   });
+
+  it('scopes login to company code plus email and succeeds for the matching tenant', async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({
+      ...baseUser,
+      userRoles: [
+        {
+          role: {
+            permissions: [
+              { isGranted: true, permission: { code: 'dashboard.read', isActive: true } },
+            ],
+          },
+        },
+      ],
+    });
+
+    const result = await service.login(loginDto);
+
+    expect(mockPrisma.company.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { code: { equals: 'DHARA-PATAN', mode: 'insensitive' } },
+      }),
+    );
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          companyId_normalizedEmail: {
+            companyId: 'company-1',
+            normalizedEmail: 'admin@example.com',
+          },
+        },
+      }),
+    );
+    expect(result.user).toEqual(
+      expect.objectContaining({
+        id: 'user-1',
+        companyId: 'company-1',
+        permissions: ['dashboard.read'],
+      }),
+    );
+    expect(mockJwtService.signAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sub: 'user-1',
+        companyId: 'company-1',
+        permissions: ['dashboard.read'],
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it('does not allow the same email to log into a different company', async () => {
+    mockPrisma.company.findFirst.mockResolvedValue({
+      id: 'company-2',
+      isActive: true,
+      archivedAt: null,
+    });
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(service.login({ ...loginDto, companyCode: 'OTHER-STUDIO' })).rejects.toMatchObject({
+      response: expect.objectContaining({ code: AUTH_ERROR_CODES.INVALID_CREDENTIALS }),
+    });
+
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          companyId_normalizedEmail: {
+            companyId: 'company-2',
+            normalizedEmail: 'admin@example.com',
+          },
+        },
+      }),
+    );
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+  });
+
+  it('rejects an unknown or inactive company without looking up the user by email alone', async () => {
+    mockPrisma.company.findFirst.mockResolvedValue(null);
+
+    await expect(service.login({ ...loginDto, companyCode: 'MISSING' })).rejects.toMatchObject({
+      response: expect.objectContaining({ code: AUTH_ERROR_CODES.INVALID_CREDENTIALS }),
+    });
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+
+    mockPrisma.company.findFirst.mockResolvedValue({
+      id: 'company-1',
+      isActive: false,
+      archivedAt: null,
+    });
+    await expect(service.login(loginDto)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: AUTH_ERROR_CODES.INVALID_CREDENTIALS }),
+    });
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+  });
 });
+
+describe('AuthService refresh revocation', () => {
+  let service: AuthService;
+
+  const mockPrisma = {
+    company: { findFirst: jest.fn() },
+    user: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    refreshToken: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+      create: jest.fn(),
+    },
+    $transaction: jest.fn(),
+  };
+
+  const storedToken = {
+    id: 'rt-1',
+    userId: 'user-1',
+    user: {
+      id: 'user-1',
+      companyId: 'company-1',
+      email: 'admin@example.com',
+      isActive: true,
+      archivedAt: null,
+      lockedUntil: null as Date | null,
+      company: { id: 'company-1', isActive: true, archivedAt: null },
+      userRoles: [
+        {
+          role: {
+            permissions: [{ isGranted: true, permission: { code: 'users.read', isActive: true } }],
+          },
+        },
+      ],
+    },
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    mockPrisma.refreshToken.update.mockResolvedValue({ id: 'rt-1' });
+    mockPrisma.refreshToken.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.refreshToken.create.mockResolvedValue({ id: 'rt-2' });
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: JwtService, useValue: { signAsync: jest.fn().mockResolvedValue('new-access') } },
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((_key: string, fallback?: unknown) => fallback),
+            getOrThrow: jest.fn().mockReturnValue('test-secret'),
+          },
+        },
+        { provide: AuditService, useValue: { log: jest.fn() } },
+      ],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+  });
+
+  it('issues a new access token from current DB company and permissions', async () => {
+    mockPrisma.refreshToken.findFirst.mockResolvedValue(storedToken);
+
+    const result = await service.refresh('raw-refresh');
+
+    expect(result.accessToken).toBe('new-access');
+    expect(mockPrisma.refreshToken.update).toHaveBeenCalledWith({
+      where: { id: 'rt-1' },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('revokes refresh sessions when the user is deactivated', async () => {
+    mockPrisma.refreshToken.findFirst.mockResolvedValue({
+      ...storedToken,
+      user: { ...storedToken.user, isActive: false },
+    });
+
+    await expect(service.refresh('raw-refresh')).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('revokes refresh sessions when the company is deactivated', async () => {
+    mockPrisma.refreshToken.findFirst.mockResolvedValue({
+      ...storedToken,
+      user: {
+        ...storedToken.user,
+        company: { id: 'company-1', isActive: false, archivedAt: null },
+      },
+    });
+
+    await expect(service.refresh('raw-refresh')).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+
+  it('rejects a locked user without issuing new tokens', async () => {
+    mockPrisma.refreshToken.findFirst.mockResolvedValue({
+      ...storedToken,
+      user: { ...storedToken.user, lockedUntil: new Date(Date.now() + 60_000) },
+    });
+
+    await expect(service.refresh('raw-refresh')).rejects.toMatchObject({
+      response: expect.objectContaining({ code: AUTH_ERROR_CODES.ACCOUNT_LOCKED }),
+    });
+    expect(mockPrisma.refreshToken.create).not.toHaveBeenCalled();
+  });
+});
+

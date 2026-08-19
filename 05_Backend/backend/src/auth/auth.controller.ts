@@ -26,7 +26,7 @@ export class AuthController {
   @UseGuards(AuthRateLimitGuard)
   @AuthRateLimit('login')
   @Post('login')
-  @ApiOperation({ summary: 'Login with email and password' })
+  @ApiOperation({ summary: 'Login with company code, email, and password' })
   async login(@Body() dto: LoginDto, @Req() req: Request): Promise<LoginResponseDto> {
     return this.authService.login(dto, req.ip, req.headers['user-agent']);
   }

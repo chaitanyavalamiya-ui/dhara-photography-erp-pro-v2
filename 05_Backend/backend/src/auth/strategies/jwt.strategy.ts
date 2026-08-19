@@ -5,6 +5,11 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { AUTH_ERROR_CODES } from '../auth-error.codes';
+import {
+  extractPermissions,
+  isCompanyAccessActive,
+  isUserAccessActive,
+} from '../auth-permissions';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -22,15 +27,30 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<JwtPayload> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: {
-        id: true,
-        isActive: true,
-        archivedAt: true,
-        lockedUntil: true,
+      include: {
+        company: {
+          select: {
+            id: true,
+            isActive: true,
+            archivedAt: true,
+          },
+        },
+        userRoles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  where: { isGranted: true },
+                  include: { permission: true },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
-    if (!user || !user.isActive || user.archivedAt) {
+    if (!user || !isUserAccessActive(user) || !isCompanyAccessActive(user.company)) {
       throw new UnauthorizedException({
         message: 'User account is not active.',
         code: AUTH_ERROR_CODES.ACCOUNT_INACTIVE,
@@ -44,6 +64,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       });
     }
 
-    return payload;
+    return {
+      sub: user.id,
+      email: user.email,
+      companyId: user.companyId,
+      permissions: extractPermissions(user.userRoles),
+    };
   }
 }

@@ -29,8 +29,9 @@ import { invoicesService } from '@/services/invoices-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { ReportChartsSection } from '@/components/reports/ReportChartsSection';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
-import { todayIso } from '@/utils/studio-date';
 import { cn } from '@/utils/cn';
+import { todayIso } from '@/utils/studio-date';
+import { QueryErrorPanel, isEnabledQueryLoading } from '@/components/dashboard/QueryErrorPanel';
 
 function LoadingCard({ className }: { className?: string }) {
   return <div className={cn('card animate-pulse bg-surface-elevated', className)} />;
@@ -237,23 +238,20 @@ export function DashboardPage() {
       roboTarget?: string;
     }[] = [];
 
-    if (canBookings) {
+    if (canBookings && !todayBookingsQuery.isError && !todayBookingsQuery.isLoading) {
       cards.push({
         label: "Today's Bookings",
-        value: String(todayBookingsQuery.data?.length ?? (todayBookingsQuery.isLoading ? '—' : 0)),
+        value: String(todayBookingsQuery.data?.length ?? 0),
         sub: 'Shoots scheduled today',
         icon: Camera,
         roboTarget: 'today-bookings',
       });
     }
 
-    if (canClients) {
+    if (canClients && !upcomingEventsQuery.isError && !upcomingEventsQuery.isLoading) {
       cards.push({
         label: "Today's Events",
-        value: String(
-          upcomingEventsQuery.data?.filter((event) => event.daysUntil === 0).length ??
-            (upcomingEventsQuery.isLoading ? '—' : 0),
-        ),
+        value: String(upcomingEventsQuery.data?.filter((event) => event.daysUntil === 0).length ?? 0),
         sub: 'Birthdays and anniversaries',
         icon: Gift,
       });
@@ -319,9 +317,34 @@ export function DashboardPage() {
     canClients,
     todayBookingsQuery.data,
     todayBookingsQuery.isLoading,
+    todayBookingsQuery.isError,
     upcomingEventsQuery.data,
     upcomingEventsQuery.isLoading,
+    upcomingEventsQuery.isError,
   ]);
+
+  const snapshotLoading =
+    isEnabledQueryLoading(canAccounts, accountsDashboardQuery) ||
+    isEnabledQueryLoading(canAccounts, monthSummaryQuery) ||
+    isEnabledQueryLoading(canReports, reportsDashboardQuery) ||
+    isEnabledQueryLoading(canBookings, todayBookingsQuery) ||
+    isEnabledQueryLoading(canClients, upcomingEventsQuery);
+
+  const snapshotErrorQuery = [
+    canAccounts && accountsDashboardQuery.isError ? accountsDashboardQuery : null,
+    canAccounts && monthSummaryQuery.isError ? monthSummaryQuery : null,
+    canReports && reportsDashboardQuery.isError ? reportsDashboardQuery : null,
+    canBookings && todayBookingsQuery.isError ? todayBookingsQuery : null,
+    canClients && upcomingEventsQuery.isError ? upcomingEventsQuery : null,
+  ].find((query) => query !== null);
+
+  const retrySnapshot = () => {
+    if (canAccounts && accountsDashboardQuery.isError) void accountsDashboardQuery.refetch();
+    if (canAccounts && monthSummaryQuery.isError) void monthSummaryQuery.refetch();
+    if (canReports && reportsDashboardQuery.isError) void reportsDashboardQuery.refetch();
+    if (canBookings && todayBookingsQuery.isError) void todayBookingsQuery.refetch();
+    if (canClients && upcomingEventsQuery.isError) void upcomingEventsQuery.refetch();
+  };
 
   const quickActions = [
     canCreateBooking && { label: 'New Booking', to: '/bookings', icon: CalendarDays },
@@ -370,13 +393,16 @@ export function DashboardPage() {
       {(canAccounts || canReports || canBookings) && (
         <div>
           <p className="dhara-section-kicker mb-3">Studio Snapshot</p>
-          {accountsDashboardQuery.isLoading && reportsDashboardQuery.isLoading && canAccounts ? (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <LoadingCard key={i} className="h-32" />
-              ))}
+          {snapshotErrorQuery ? (
+            <div className="mb-3">
+              <QueryErrorPanel
+                error={snapshotErrorQuery.error}
+                fallback="Failed to load studio snapshot."
+                onRetry={retrySnapshot}
+              />
             </div>
-          ) : kpiCards.length > 0 ? (
+          ) : null}
+          {kpiCards.length > 0 || snapshotLoading ? (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
               {kpiCards.map((card) => (
                 <div key={card.label} className="card dhara-kpi" data-robo-target={card.roboTarget}>
@@ -403,8 +429,13 @@ export function DashboardPage() {
                   </p>
                 </div>
               ))}
+              {snapshotLoading
+                ? Array.from({ length: Math.max(1, 6 - kpiCards.length) }).map((_, i) => (
+                    <LoadingCard key={`snapshot-loading-${i}`} className="h-32" />
+                  ))
+                : null}
             </div>
-          ) : (
+          ) : snapshotErrorQuery ? null : (
             <EmptyPanel message="Financial summary will appear once accounts data is available." />
           )}
         </div>
@@ -431,6 +462,14 @@ export function DashboardPage() {
               </div>
               {recentBookingsQuery.isLoading ? (
                 <LoadingCard className="m-6 h-40" />
+              ) : recentBookingsQuery.isError ? (
+                <div className="p-6">
+                  <QueryErrorPanel
+                    error={recentBookingsQuery.error}
+                    fallback="Failed to load recent bookings."
+                    onRetry={() => void recentBookingsQuery.refetch()}
+                  />
+                </div>
               ) : (recentBookingsQuery.data?.items.length ?? 0) === 0 ? (
                 <EmptyPanel message="No bookings yet." icon={BookOpen} />
               ) : (
@@ -498,6 +537,12 @@ export function DashboardPage() {
                 <EmptyPanel message="You do not have permission to view bookings." />
               ) : todayBookingsQuery.isLoading ? (
                 <LoadingCard className="h-40" />
+              ) : todayBookingsQuery.isError ? (
+                <QueryErrorPanel
+                  error={todayBookingsQuery.error}
+                  fallback="Failed to load today's shoots."
+                  onRetry={() => void todayBookingsQuery.refetch()}
+                />
               ) : (todayBookingsQuery.data?.length ?? 0) === 0 ? (
                 <EmptyPanel message="No bookings scheduled for today." icon={Camera} />
               ) : (
@@ -553,6 +598,12 @@ export function DashboardPage() {
                 </div>
                 {recentIncomeQuery.isLoading ? (
                   <LoadingCard className="h-32" />
+                ) : recentIncomeQuery.isError ? (
+                  <QueryErrorPanel
+                    error={recentIncomeQuery.error}
+                    fallback="Failed to load recent payments."
+                    onRetry={() => void recentIncomeQuery.refetch()}
+                  />
                 ) : (recentIncomeQuery.data?.items.length ?? 0) === 0 ? (
                   <EmptyPanel message="No payments recorded this month." />
                 ) : (
@@ -580,7 +631,7 @@ export function DashboardPage() {
             )}
           </div>
 
-          {canEquipment && equipmentDashboardQuery.data && (
+          {canEquipment && (
             <div>
               <div className="mb-3 flex items-center justify-between">
                 <p className="dhara-section-kicker">Equipment Snapshot</p>
@@ -588,6 +639,19 @@ export function DashboardPage() {
                   Inventory →
                 </Link>
               </div>
+              {equipmentDashboardQuery.isLoading ? (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <LoadingCard key={i} className="h-24" />
+                  ))}
+                </div>
+              ) : equipmentDashboardQuery.isError ? (
+                <QueryErrorPanel
+                  error={equipmentDashboardQuery.error}
+                  fallback="Failed to load equipment snapshot."
+                  onRetry={() => void equipmentDashboardQuery.refetch()}
+                />
+              ) : equipmentDashboardQuery.data ? (
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                 {[
                   ['On Shoot', equipmentDashboardQuery.data.onShoot],
@@ -603,6 +667,9 @@ export function DashboardPage() {
                   </div>
                 ))}
               </div>
+              ) : (
+                <EmptyPanel message="Equipment snapshot will appear once inventory is available." />
+              )}
             </div>
           )}
 
@@ -618,7 +685,21 @@ export function DashboardPage() {
                   Full reports →
                 </Link>
               </div>
-              {reportsOverviewQuery.data && (
+              {reportsOverviewQuery.isLoading ? (
+                <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <LoadingCard key={i} className="h-28" />
+                  ))}
+                </div>
+              ) : reportsOverviewQuery.isError ? (
+                <div className="mb-4">
+                  <QueryErrorPanel
+                    error={reportsOverviewQuery.error}
+                    fallback="Failed to load revenue overview."
+                    onRetry={() => void reportsOverviewQuery.refetch()}
+                  />
+                </div>
+              ) : reportsOverviewQuery.data ? (
                 <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {getAlbumOverviewMetrics(reportsOverviewQuery.data).map((metric) => (
                     <div key={metric.key} className="card dhara-kpi">
@@ -635,8 +716,16 @@ export function DashboardPage() {
                     </div>
                   ))}
                 </div>
+              ) : null}
+              {chartsQuery.isError ? (
+                <QueryErrorPanel
+                  error={chartsQuery.error}
+                  fallback="Failed to load charts."
+                  onRetry={() => void chartsQuery.refetch()}
+                />
+              ) : (
+                <ReportChartsSection charts={chartsQuery.data} loading={chartsQuery.isLoading} />
               )}
-              <ReportChartsSection charts={chartsQuery.data} loading={chartsQuery.isLoading} />
             </div>
           )}
         </div>
@@ -664,6 +753,12 @@ export function DashboardPage() {
               <EmptyPanel message="You do not have permission to view client events." />
             ) : upcomingEventsQuery.isLoading ? (
               <LoadingCard className="h-40" />
+            ) : upcomingEventsQuery.isError ? (
+              <QueryErrorPanel
+                error={upcomingEventsQuery.error}
+                fallback="Failed to load today's events."
+                onRetry={() => void upcomingEventsQuery.refetch()}
+              />
             ) : (upcomingEventsQuery.data?.length ?? 0) === 0 ? (
               <EmptyPanel
                 message="No upcoming birthdays or anniversaries in the next 30 days."
@@ -767,6 +862,12 @@ export function DashboardPage() {
               </div>
               {recentInvoicesQuery.isLoading ? (
                 <LoadingCard className="h-32" />
+              ) : recentInvoicesQuery.isError ? (
+                <QueryErrorPanel
+                  error={recentInvoicesQuery.error}
+                  fallback="Failed to load recent invoices."
+                  onRetry={() => void recentInvoicesQuery.refetch()}
+                />
               ) : (recentInvoicesQuery.data?.items.length ?? 0) === 0 ? (
                 <EmptyPanel message="No invoices yet." />
               ) : (
@@ -818,12 +919,11 @@ export function DashboardPage() {
           {upcomingDeliveriesQuery.isLoading ? (
             <LoadingCard className="h-40" />
           ) : upcomingDeliveriesQuery.isError ? (
-            <div
-              className="rounded-lg border px-4 py-6 text-center text-sm"
-              style={{ borderColor: 'var(--dhara-danger)', color: 'var(--dhara-danger)' }}
-            >
-              Failed to load deliveries.
-            </div>
+            <QueryErrorPanel
+              error={upcomingDeliveriesQuery.error}
+              fallback="Failed to load deliveries."
+              onRetry={() => void upcomingDeliveriesQuery.refetch()}
+            />
           ) : (upcomingDeliveriesQuery.data?.length ?? 0) === 0 ? (
             <EmptyPanel message="No pending or ready deliveries right now." />
           ) : (

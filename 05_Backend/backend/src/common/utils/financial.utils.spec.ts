@@ -1,12 +1,16 @@
 import { Prisma } from '@prisma/client';
+import { BadRequestException } from '@nestjs/common';
 import {
   allocateNextReceiptNumber,
+  assertInvoiceTotalCoversPayments,
+  INVOICE_TOTAL_BELOW_PAYMENTS_MESSAGE,
   isReceiptNumberUniqueConflict,
   attachChronologicalRunningBalances,
   computeNewestFirstRunningBalances,
   paginateNewestFirstRunningBalances,
   resolveReportDateRange,
   sortAccountLedgerNewestFirst,
+  syncInvoiceAndBookingFinancials,
 } from './financial.utils';
 
 describe('financial.utils receipt numbers', () => {
@@ -247,5 +251,72 @@ describe('resolveReportDateRange studio timezone', () => {
 
     expect(range.dateFrom).toBe('2026-08-17');
     expect(range.dateTo).toBe('2026-08-17');
+  });
+});
+
+describe('syncInvoiceAndBookingFinancials payment coverage', () => {
+  const tx = {
+    invoice: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+    payment: {
+      aggregate: jest.fn(),
+    },
+    booking: {
+      update: jest.fn(),
+    },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    tx.invoice.update.mockResolvedValue({});
+    tx.booking.update.mockResolvedValue({});
+  });
+
+  it('rejects an invoice total below the active payment sum', async () => {
+    tx.invoice.findUnique.mockResolvedValue({
+      id: 'inv-1',
+      bookingId: 'bk-1',
+      totalAmount: 4000,
+      dueDate: null,
+    });
+    tx.payment.aggregate.mockResolvedValue({ _sum: { amount: 5000 } });
+
+    await expect(syncInvoiceAndBookingFinancials(tx as never, 'inv-1')).rejects.toThrow(
+      INVOICE_TOTAL_BELOW_PAYMENTS_MESSAGE,
+    );
+    await expect(syncInvoiceAndBookingFinancials(tx as never, 'inv-1')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(tx.invoice.update).not.toHaveBeenCalled();
+    expect(tx.booking.update).not.toHaveBeenCalled();
+  });
+
+  it('syncs advance and balance when the invoice total covers active payments', async () => {
+    tx.invoice.findUnique.mockResolvedValue({
+      id: 'inv-1',
+      bookingId: 'bk-1',
+      totalAmount: 10000,
+      dueDate: null,
+    });
+    tx.payment.aggregate.mockResolvedValue({ _sum: { amount: 4000 } });
+
+    await syncInvoiceAndBookingFinancials(tx as never, 'inv-1');
+
+    expect(tx.invoice.update).toHaveBeenCalledWith({
+      where: { id: 'inv-1' },
+      data: expect.objectContaining({
+        status: 'partially_paid',
+      }),
+    });
+    expect(tx.booking.update).toHaveBeenCalledWith({
+      where: { id: 'bk-1' },
+      data: expect.objectContaining({}),
+    });
+  });
+
+  it('treats equal total and payment sum as valid', () => {
+    expect(() => assertInvoiceTotalCoversPayments(5000, 5000)).not.toThrow();
   });
 });

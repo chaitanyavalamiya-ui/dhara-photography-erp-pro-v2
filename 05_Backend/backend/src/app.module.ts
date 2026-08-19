@@ -23,11 +23,13 @@ import { AuditModule } from './audit/audit.module';
 import { BackupModule } from './backup/backup.module';
 import { RoboModule } from './robo/robo.module';
 import { EquipmentModule } from './equipment/equipment.module';
+import { validateProductionEnv } from './common/production-env';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateProductionEnv,
       envFilePath: [
         resolve(process.cwd(), '.env'),
         resolve(process.cwd(), '../../.env'),

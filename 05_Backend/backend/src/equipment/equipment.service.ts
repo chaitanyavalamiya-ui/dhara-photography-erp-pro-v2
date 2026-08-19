@@ -490,6 +490,14 @@ export class EquipmentService {
       throw new NotFoundException('Equipment issue not found.');
     }
 
+    const lines = dto.items.map((item) => ({
+      ...item,
+      quantityMissing: item.quantityMissing ?? 0,
+    }));
+    if (!lines.some((item) => item.quantityReturned + item.quantityMissing > 0)) {
+      throw new BadRequestException('Enter at least one returned or missing quantity.');
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const returnedAt = new Date();
       const returnRecord = await tx.equipmentReturn.create({
@@ -503,7 +511,8 @@ export class EquipmentService {
         },
       });
 
-      for (const line of dto.items) {
+      for (const line of lines) {
+        if (line.quantityReturned + line.quantityMissing === 0) continue;
         await this.returnLine(tx, companyId, userId, issue, returnRecord.id, line, returnedAt);
       }
 
@@ -702,23 +711,33 @@ export class EquipmentService {
       damagedQuantity: number;
     }> },
     returnId: string,
-    line: { issueItemId: string; quantityReturned: number; conditionIn: string; notes?: string },
+    line: { issueItemId: string; quantityReturned: number; quantityMissing?: number; conditionIn: string; notes?: string },
     returnedAt: Date,
   ) {
-    const existing = issue.items.find((item) => item.id === line.issueItemId);
+    const existing = await tx.equipmentIssueItem.findFirst({
+      where: { id: line.issueItemId, issueId: issue.id },
+    });
     if (!existing) {
       throw new NotFoundException('Issue item not found on this checklist.');
     }
 
     const outstanding = existing.quantityIssued - existing.quantityReturned - existing.missingQuantity;
-    if (line.quantityReturned < 0) {
+    const quantityReturned = line.quantityReturned;
+    const missingQuantity = line.quantityMissing ?? 0;
+    if (quantityReturned < 0) {
       throw new BadRequestException('Returned quantity cannot be negative.');
     }
-    if (line.quantityReturned > outstanding) {
-      throw new BadRequestException('Returned quantity cannot exceed issued quantity.');
+    if (missingQuantity < 0) {
+      throw new BadRequestException('Missing quantity cannot be negative.');
+    }
+    if (quantityReturned + missingQuantity === 0) {
+      return;
+    }
+    if (quantityReturned + missingQuantity > outstanding) {
+      throw new BadRequestException('Returned plus missing quantity cannot exceed outstanding quantity.');
     }
 
-    const missingQuantity = outstanding - line.quantityReturned;
+    const leftoverOutstanding = outstanding - quantityReturned - missingQuantity;
     const damagedQuantity = line.conditionIn === 'DAMAGED' ? line.quantityReturned : 0;
     const nextReturned = existing.quantityReturned + line.quantityReturned;
     const nextMissing = existing.missingQuantity + missingQuantity;
@@ -730,8 +749,13 @@ export class EquipmentService {
       damagedQuantity: nextDamaged,
     });
 
-    await tx.equipmentIssueItem.update({
-      where: { id: existing.id },
+    const claimed = await tx.equipmentIssueItem.updateMany({
+      where: {
+        id: existing.id,
+        issueId: issue.id,
+        quantityReturned: existing.quantityReturned,
+        missingQuantity: existing.missingQuantity,
+      },
       data: {
         quantityReturned: nextReturned,
         missingQuantity: nextMissing,
@@ -741,6 +765,11 @@ export class EquipmentService {
         notes: line.notes !== undefined ? line.notes.trim() || null : undefined,
       },
     });
+    if (claimed.count !== 1) {
+      throw new BadRequestException(
+        'This equipment return could not be completed because the checklist was updated. Retry with the latest outstanding quantity.',
+      );
+    }
 
     await tx.equipmentReturnItem.create({
       data: {
@@ -755,33 +784,40 @@ export class EquipmentService {
       },
     });
 
-    const equipment = await tx.equipment.findFirstOrThrow({
+    const onShootRelease = line.quantityReturned + missingQuantity;
+    const goodReturned = line.quantityReturned - damagedQuantity;
+    const stock = await tx.equipment.updateMany({
+      where: {
+        id: existing.equipmentId,
+        companyId,
+        onShootQuantity: { gte: onShootRelease },
+      },
+      data: {
+        availableQuantity: { increment: goodReturned },
+        onShootQuantity: { decrement: onShootRelease },
+        missingQuantity: { increment: missingQuantity },
+        underRepairQuantity: { increment: damagedQuantity },
+        ...(damagedQuantity > 0 ? { condition: 'DAMAGED' } : {}),
+        updatedById: userId,
+      },
+    });
+    if (stock.count !== 1) {
+      throw new BadRequestException(
+        'Could not update equipment stock for this return because on-shoot quantity is insufficient or was updated concurrently.',
+      );
+    }
+
+    const after = await tx.equipment.findFirstOrThrow({
       where: { id: existing.equipmentId, companyId },
     });
-
-    const goodReturned = line.quantityReturned - damagedQuantity;
-    const nextAvailable = equipment.availableQuantity + goodReturned;
-    const nextOnShoot = equipment.onShootQuantity - line.quantityReturned - missingQuantity;
-    const nextMissingQty = equipment.missingQuantity + missingQuantity;
-    const nextRepair = equipment.underRepairQuantity + damagedQuantity;
-    const nextStatus = deriveEquipmentStatus({
-      trackingType: equipment.trackingType,
-      availableQuantity: nextAvailable,
-      onShootQuantity: Math.max(nextOnShoot, 0),
-      missingQuantity: nextMissingQty,
-      underRepairQuantity: nextRepair,
-    });
+    if (after.availableQuantity < 0 || after.onShootQuantity < 0) {
+      throw new BadRequestException('Equipment stock cannot become negative.');
+    }
 
     await tx.equipment.update({
-      where: { id: equipment.id },
+      where: { id: after.id },
       data: {
-        availableQuantity: nextAvailable,
-        onShootQuantity: Math.max(nextOnShoot, 0),
-        missingQuantity: nextMissingQty,
-        underRepairQuantity: nextRepair,
-        status: nextStatus,
-        condition: damagedQuantity > 0 ? 'DAMAGED' : equipment.condition,
-        updatedById: userId,
+        status: deriveEquipmentStatus(after),
       },
     });
 
@@ -791,19 +827,21 @@ export class EquipmentService {
     await tx.equipmentHistory.create({
       data: {
         companyId,
-        equipmentId: equipment.id,
+        equipmentId: existing.equipmentId,
         issueId: issue.id,
         returnId,
         bookingId: issue.bookingId,
         staffId: issue.staffId,
         action: historyAction,
-        quantity: line.quantityReturned + missingQuantity,
+        quantity: quantityReturned + missingQuantity,
         conditionOut: null,
         conditionIn: line.conditionIn,
         notes:
           missingQuantity > 0
-            ? `RETURNED: ${line.quantityReturned > 0 ? 'PARTIAL' : 'NO'}. Status: MISSING. ${line.notes ?? ''}`.trim()
-            : line.notes?.trim() || null,
+            ? `RETURNED: ${quantityReturned}. MISSING: ${missingQuantity}.${leftoverOutstanding > 0 ? ` OUTSTANDING: ${leftoverOutstanding}.` : ''} ${line.notes ?? ''}`.trim()
+            : leftoverOutstanding > 0
+              ? `PARTIAL RETURN. OUTSTANDING: ${leftoverOutstanding}. ${line.notes ?? ''}`.trim()
+              : line.notes?.trim() || null,
         occurredAt: returnedAt,
         createdById: userId,
       },
@@ -908,7 +946,7 @@ export class EquipmentService {
 
   private async assertStaff(companyId: string, staffId: string) {
     const staff = await this.prisma.staff.findFirst({
-      where: { id: staffId, companyId, archivedAt: null },
+      where: { id: staffId, companyId, archivedAt: null, isActive: true },
     });
     if (!staff) {
       throw new NotFoundException('Staff member not found.');

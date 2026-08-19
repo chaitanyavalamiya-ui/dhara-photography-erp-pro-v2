@@ -1,8 +1,9 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { resolveApiBaseUrl } from '@/config/api-base-url';
 import { useAuthStore } from '@/stores/auth-store';
 import { rememberPostLoginPath } from '@/utils/post-login-path';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:3000/api/v1';
+const API_BASE_URL = resolveApiBaseUrl(import.meta.env);
 
 type RetryableRequest = InternalAxiosRequestConfig & { _retry?: boolean };
 

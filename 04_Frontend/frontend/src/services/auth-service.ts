@@ -2,6 +2,7 @@ import { apiClient, ApiResponse } from './api-client';
 import { AuthUser } from '@/stores/auth-store';
 
 export interface LoginRequest {
+  companyCode: string;
   email: string;
   password: string;
 }

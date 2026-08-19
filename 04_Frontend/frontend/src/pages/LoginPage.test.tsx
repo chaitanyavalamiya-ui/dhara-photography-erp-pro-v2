@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -40,6 +40,9 @@ function axiosError(status: number, data: Record<string, unknown>) {
 }
 
 async function submitLogin() {
+  fireEvent.change(screen.getByLabelText('Studio code'), {
+    target: { value: 'DHARA-PATAN' },
+  });
   fireEvent.change(screen.getByLabelText('Email'), {
     target: { value: 'admin@example.com' },
   });
@@ -72,6 +75,16 @@ describe('LoginPage', () => {
     renderLogin();
     await submitLogin();
 
+    await waitFor(() => {
+      expect(authService.login).toHaveBeenCalledWith(
+        expect.objectContaining({
+          companyCode: 'DHARA-PATAN',
+          email: 'admin@example.com',
+          password: 'CurrentPass1',
+        }),
+        expect.anything(),
+      );
+    });
     expect(await screen.findByText('Invalid email or password.')).toBeInTheDocument();
   });
 

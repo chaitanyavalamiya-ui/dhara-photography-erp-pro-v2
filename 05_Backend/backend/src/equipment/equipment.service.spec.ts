@@ -33,13 +33,54 @@ describe('EquipmentService', () => {
     archivedAt: null,
     client: { fullName: 'UAT Test Client' },
   };
-  const staff = {
-    id: 'staff-1',
-    companyId: 'company-1',
-    fullName: 'Rahul',
-    staffCode: 'ST-001',
-    archivedAt: null,
-  };
+  const staffRecords = [
+    {
+      id: 'staff-1',
+      companyId: 'company-1',
+      fullName: 'Rahul',
+      staffCode: 'ST-001',
+      archivedAt: null as Date | null,
+      isActive: true,
+    },
+    {
+      id: 'staff-2',
+      companyId: 'company-2',
+      fullName: 'Other Studio',
+      staffCode: 'ST-002',
+      archivedAt: null as Date | null,
+      isActive: true,
+    },
+  ];
+  const staff = staffRecords[0];
+
+  function applyNumericOp(row: Record<string, unknown>, field: string, value: unknown) {
+    if (value && typeof value === 'object') {
+      const op = value as { increment?: number; decrement?: number };
+      if (typeof op.increment === 'number') {
+        row[field] = Number(row[field] ?? 0) + op.increment;
+      }
+      if (typeof op.decrement === 'number') {
+        row[field] = Number(row[field] ?? 0) - op.decrement;
+      }
+      return;
+    }
+    if (value !== undefined) {
+      row[field] = value as never;
+    }
+  }
+
+  function snapshotStore() {
+    return JSON.parse(JSON.stringify(store)) as typeof store;
+  }
+
+  function restoreStore(snapshot: typeof store) {
+    store.equipment = snapshot.equipment;
+    store.issues = snapshot.issues;
+    store.items = snapshot.items;
+    store.returns = snapshot.returns;
+    store.returnItems = snapshot.returnItems;
+    store.history = snapshot.history;
+  }
 
   function nowFields() {
     const now = new Date();
@@ -57,24 +98,21 @@ describe('EquipmentService', () => {
         return row;
       }),
       updateMany: jest.fn(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
-        const row = store.equipment.find((item) => item.id === where.id) as Record<string, number | string>;
+        const row = store.equipment.find((item) => item.id === where.id) as Record<string, unknown> | undefined;
         if (!row) return { count: 0 };
+        if (where.companyId && row.companyId !== where.companyId) return { count: 0 };
         if (where.status && row.status !== where.status) return { count: 0 };
-        const gte = (where.availableQuantity as { gte?: number } | undefined)?.gte;
-        if (gte !== undefined && Number(row.availableQuantity) < gte) return { count: 0 };
-        if (typeof data.availableQuantity === 'object' && data.availableQuantity && 'decrement' in (data.availableQuantity as object)) {
-          row.availableQuantity =
-            Number(row.availableQuantity) - Number((data.availableQuantity as { decrement: number }).decrement);
-        } else if (typeof data.availableQuantity === 'number') {
-          row.availableQuantity = data.availableQuantity;
-        }
-        if (typeof data.onShootQuantity === 'object' && data.onShootQuantity && 'increment' in (data.onShootQuantity as object)) {
-          row.onShootQuantity =
-            Number(row.onShootQuantity) + Number((data.onShootQuantity as { increment: number }).increment);
-        } else if (typeof data.onShootQuantity === 'number') {
-          row.onShootQuantity = data.onShootQuantity;
-        }
-        if (data.status) row.status = data.status as string;
+        const availableGte = (where.availableQuantity as { gte?: number } | undefined)?.gte;
+        if (availableGte !== undefined && Number(row.availableQuantity) < availableGte) return { count: 0 };
+        const onShootGte = (where.onShootQuantity as { gte?: number } | undefined)?.gte;
+        if (onShootGte !== undefined && Number(row.onShootQuantity) < onShootGte) return { count: 0 };
+        applyNumericOp(row, 'availableQuantity', data.availableQuantity);
+        applyNumericOp(row, 'onShootQuantity', data.onShootQuantity);
+        applyNumericOp(row, 'missingQuantity', data.missingQuantity);
+        applyNumericOp(row, 'underRepairQuantity', data.underRepairQuantity);
+        if (data.status) row.status = data.status;
+        if (data.condition) row.condition = data.condition;
+        if (data.updatedById) row.updatedById = data.updatedById;
         return { count: 1 };
       }),
       update: jest.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
@@ -103,6 +141,9 @@ describe('EquipmentService', () => {
       }),
     },
     equipmentIssueItem: {
+      findFirst: jest.fn(async ({ where }: { where: { id: string; issueId: string } }) =>
+        store.items.find((row) => row.id === where.id && row.issueId === where.issueId) ?? null,
+      ),
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
         const row = {
           id: `item-${store.items.length + 1}`,
@@ -124,10 +165,19 @@ describe('EquipmentService', () => {
         Object.assign(row, data);
         return row;
       }),
+      updateMany: jest.fn(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+        const row = store.items.find((item) => item.id === where.id) as Record<string, unknown> | undefined;
+        if (!row) return { count: 0 };
+        if (where.issueId && row.issueId !== where.issueId) return { count: 0 };
+        if (where.quantityReturned !== undefined && row.quantityReturned !== where.quantityReturned) return { count: 0 };
+        if (where.missingQuantity !== undefined && row.missingQuantity !== where.missingQuantity) return { count: 0 };
+        Object.assign(row, data);
+        return { count: 1 };
+      }),
     },
     equipmentReturn: {
       create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
-        const row = { id: 'return-1', ...data };
+        const row = { id: `return-${store.returns.length + 1}`, ...data };
         store.returns.push(row);
         return row;
       }),
@@ -167,17 +217,41 @@ describe('EquipmentService', () => {
     };
   }
 
+  let transactionQueue: Promise<unknown> = Promise.resolve();
+
   const prisma = {
     ...tx,
-    $transaction: jest.fn(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
+    $transaction: jest.fn((fn: (client: typeof tx) => Promise<unknown>) => {
+      const run = async () => {
+        const snapshot = snapshotStore();
+        try {
+          return await fn(tx);
+        } catch (error) {
+          restoreStore(snapshot);
+          throw error;
+        }
+      };
+      const queued = transactionQueue.then(run, run);
+      transactionQueue = queued.then(
+        () => undefined,
+        () => undefined,
+      );
+      return queued;
+    }),
     booking: {
       findFirst: jest.fn(async ({ where }: { where: { id: string; companyId: string } }) =>
         where.companyId === 'company-1' && where.id === booking.id ? booking : null,
       ),
     },
     staff: {
-      findFirst: jest.fn(async ({ where }: { where: { id: string; companyId: string } }) =>
-        where.companyId === 'company-1' && where.id === staff.id ? staff : null,
+      findFirst: jest.fn(async ({ where }: { where: Record<string, unknown> }) =>
+        staffRecords.find((row) => {
+          if (where.id && row.id !== where.id) return false;
+          if (where.companyId && row.companyId !== where.companyId) return false;
+          if (where.archivedAt === null && row.archivedAt) return false;
+          if (where.isActive === true && row.isActive !== true) return false;
+          return true;
+        }) ?? null,
       ),
     },
     equipment: {
@@ -248,6 +322,7 @@ describe('EquipmentService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    transactionQueue = Promise.resolve();
     store.equipment = [
       {
         id: 'mem-1',
@@ -315,6 +390,10 @@ describe('EquipmentService', () => {
     store.returns = [];
     store.returnItems = [];
     store.history = [];
+    staffRecords[0].archivedAt = null;
+    staffRecords[0].isActive = true;
+    staffRecords[1].archivedAt = null;
+    staffRecords[1].isActive = true;
 
     const module = await Test.createTestingModule({
       providers: [
@@ -340,6 +419,56 @@ describe('EquipmentService', () => {
     expect(store.equipment[0].availableQuantity).toBe(4);
     expect(store.equipment[0].onShootQuantity).toBe(2);
     expect(store.history[0]).toMatchObject({ action: 'ISSUED', quantity: 2 });
+  });
+
+  it('allows active company staff to receive equipment', async () => {
+    const result = await service.createIssue('company-1', 'user-1', {
+      bookingId: 'booking-1',
+      staffId: 'staff-1',
+      items: [{ equipmentId: 'mem-1', quantityIssued: 1, conditionOut: 'GOOD' }],
+    });
+
+    expect(result.staffId).toBe('staff-1');
+    expect(result.staffName).toBe('Rahul');
+    expect(store.equipment[0].onShootQuantity).toBe(1);
+  });
+
+  it('rejects inactive staff from receiving equipment', async () => {
+    staffRecords[0].isActive = false;
+    await expect(
+      service.createIssue('company-1', 'user-1', {
+        bookingId: 'booking-1',
+        staffId: 'staff-1',
+        items: [{ equipmentId: 'mem-1', quantityIssued: 1, conditionOut: 'GOOD' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(store.issues).toHaveLength(0);
+    expect(store.equipment[0].availableQuantity).toBe(6);
+  });
+
+  it('rejects archived staff from receiving equipment', async () => {
+    staffRecords[0].archivedAt = new Date();
+    await expect(
+      service.createIssue('company-1', 'user-1', {
+        bookingId: 'booking-1',
+        staffId: 'staff-1',
+        items: [{ equipmentId: 'mem-1', quantityIssued: 1, conditionOut: 'GOOD' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(store.issues).toHaveLength(0);
+    expect(store.equipment[0].availableQuantity).toBe(6);
+  });
+
+  it('rejects staff from another company', async () => {
+    await expect(
+      service.createIssue('company-1', 'user-1', {
+        bookingId: 'booking-1',
+        staffId: 'staff-2',
+        items: [{ equipmentId: 'mem-1', quantityIssued: 1, conditionOut: 'GOOD' }],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(store.issues).toHaveLength(0);
+    expect(store.equipment[0].availableQuantity).toBe(6);
   });
 
   it('does not allow issuing more than available', async () => {
@@ -370,28 +499,114 @@ describe('EquipmentService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('returns equipment, restores available qty, and records missing', async () => {
+  it('returns a partial quantity without marking leftover as missing', async () => {
     await service.createIssue('company-1', 'user-1', {
       bookingId: 'booking-1',
       staffId: 'staff-1',
-      items: [{ equipmentId: 'mem-1', quantityIssued: 2, conditionOut: 'GOOD' }],
+      items: [{ equipmentId: 'mem-1', quantityIssued: 5, conditionOut: 'GOOD' }],
     });
     const issueItemId = store.items[0].id as string;
 
     const returned = await service.returnIssue('company-1', 'user-1', 'issue-1', {
-      items: [{ issueItemId, quantityReturned: 1, conditionIn: 'GOOD' }],
+      items: [{ issueItemId, quantityReturned: 1, quantityMissing: 0, conditionIn: 'GOOD' }],
     });
 
     expect(returned.summary.totalReturned).toBe(1);
-    expect(returned.summary.totalMissing).toBe(1);
-    expect(returned.status).toBe('MISSING');
-    expect(store.equipment[0].availableQuantity).toBe(5);
+    expect(returned.summary.totalMissing).toBe(0);
+    expect(returned.status).toBe('PARTIAL');
+    expect(returned.items[0].quantityReturned).toBe(1);
+    expect(returned.items[0].missingQuantity).toBe(0);
+    expect(returned.items[0].quantityIssued - returned.items[0].quantityReturned - returned.items[0].missingQuantity).toBe(4);
+    expect(store.equipment[0].availableQuantity).toBe(2);
+    expect(store.equipment[0].onShootQuantity).toBe(4);
+    expect(store.equipment[0].missingQuantity).toBe(0);
+    expect(store.history.some((row) => row.action === 'MISSING')).toBe(false);
+  });
+
+  it('completes a second return for remaining outstanding quantity', async () => {
+    await service.createIssue('company-1', 'user-1', {
+      bookingId: 'booking-1',
+      staffId: 'staff-1',
+      items: [{ equipmentId: 'mem-1', quantityIssued: 5, conditionOut: 'GOOD' }],
+    });
+    const issueItemId = store.items[0].id as string;
+
+    await service.returnIssue('company-1', 'user-1', 'issue-1', {
+      items: [{ issueItemId, quantityReturned: 1, quantityMissing: 0, conditionIn: 'GOOD' }],
+    });
+    const completed = await service.returnIssue('company-1', 'user-1', 'issue-1', {
+      items: [{ issueItemId, quantityReturned: 4, quantityMissing: 0, conditionIn: 'GOOD' }],
+    });
+
+    expect(completed.status).toBe('COMPLETED');
+    expect(completed.summary.totalReturned).toBe(5);
+    expect(completed.summary.totalMissing).toBe(0);
+    expect(store.equipment[0].availableQuantity).toBe(6);
     expect(store.equipment[0].onShootQuantity).toBe(0);
-    expect(store.equipment[0].missingQuantity).toBe(1);
+    expect(store.returnItems).toHaveLength(2);
+  });
+
+  it('records only the explicit missing quantity on a partial return', async () => {
+    await service.createIssue('company-1', 'user-1', {
+      bookingId: 'booking-1',
+      staffId: 'staff-1',
+      items: [{ equipmentId: 'mem-1', quantityIssued: 5, conditionOut: 'GOOD' }],
+    });
+    const issueItemId = store.items[0].id as string;
+
+    const returned = await service.returnIssue('company-1', 'user-1', 'issue-1', {
+      items: [{ issueItemId, quantityReturned: 1, quantityMissing: 2, conditionIn: 'GOOD' }],
+    });
+
+    expect(returned.summary.totalReturned).toBe(1);
+    expect(returned.summary.totalMissing).toBe(2);
+    expect(returned.status).toBe('PARTIAL');
+    expect(returned.items[0].quantityIssued - returned.items[0].quantityReturned - returned.items[0].missingQuantity).toBe(2);
+    expect(store.equipment[0].availableQuantity).toBe(2);
+    expect(store.equipment[0].onShootQuantity).toBe(2);
+    expect(store.equipment[0].missingQuantity).toBe(2);
+  });
+
+  it('supports a missing-only return without crediting available stock', async () => {
+    await service.createIssue('company-1', 'user-1', {
+      bookingId: 'booking-1',
+      staffId: 'staff-1',
+      items: [{ equipmentId: 'mem-1', quantityIssued: 5, conditionOut: 'GOOD' }],
+    });
+    const issueItemId = store.items[0].id as string;
+
+    const returned = await service.returnIssue('company-1', 'user-1', 'issue-1', {
+      items: [{ issueItemId, quantityReturned: 0, quantityMissing: 2, conditionIn: 'GOOD' }],
+    });
+
+    expect(returned.summary.totalReturned).toBe(0);
+    expect(returned.summary.totalMissing).toBe(2);
+    expect(returned.items[0].quantityIssued - returned.items[0].quantityReturned - returned.items[0].missingQuantity).toBe(3);
+    expect(store.equipment[0].availableQuantity).toBe(1);
+    expect(store.equipment[0].onShootQuantity).toBe(3);
+    expect(store.equipment[0].missingQuantity).toBe(2);
     expect(store.history.some((row) => row.action === 'MISSING')).toBe(true);
   });
 
-  it('rejects returned quantity greater than issued', async () => {
+  it('rejects returned plus missing greater than outstanding', async () => {
+    await service.createIssue('company-1', 'user-1', {
+      bookingId: 'booking-1',
+      staffId: 'staff-1',
+      items: [{ equipmentId: 'mem-1', quantityIssued: 5, conditionOut: 'GOOD' }],
+    });
+    await expect(
+      service.returnIssue('company-1', 'user-1', 'issue-1', {
+        items: [{ issueItemId: store.items[0].id as string, quantityReturned: 4, quantityMissing: 2, conditionIn: 'GOOD' }],
+      }),
+    ).rejects.toMatchObject({
+      constructor: BadRequestException,
+      message: expect.stringMatching(/cannot exceed outstanding quantity/i),
+    });
+    expect(store.equipment[0].availableQuantity).toBe(1);
+    expect(store.equipment[0].onShootQuantity).toBe(5);
+  });
+
+  it('rejects returned quantity greater than outstanding', async () => {
     await service.createIssue('company-1', 'user-1', {
       bookingId: 'booking-1',
       staffId: 'staff-1',
@@ -418,6 +633,108 @@ describe('EquipmentService', () => {
     expect(store.equipment[1].status).toBe('UNDER_REPAIR');
     expect(store.equipment[1].availableQuantity).toBe(0);
     expect(store.equipment[1].underRepairQuantity).toBe(1);
+  });
+
+  it('allows only one concurrent return against the same outstanding units', async () => {
+    await service.createIssue('company-1', 'user-1', {
+      bookingId: 'booking-1',
+      staffId: 'staff-1',
+      items: [{ equipmentId: 'mem-1', quantityIssued: 5, conditionOut: 'GOOD' }],
+    });
+    const issueItemId = store.items[0].id as string;
+    const payload = {
+      items: [{ issueItemId, quantityReturned: 5, quantityMissing: 0, conditionIn: 'GOOD' as const }],
+    };
+
+    const results = await Promise.allSettled([
+      service.returnIssue('company-1', 'user-1', 'issue-1', payload),
+      service.returnIssue('company-1', 'user-1', 'issue-1', payload),
+    ]);
+
+    const fulfilled = results.filter((row) => row.status === 'fulfilled');
+    const rejected = results.filter((row) => row.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(BadRequestException);
+    expect(((rejected[0] as PromiseRejectedResult).reason as Error).message).toMatch(
+      /outstanding quantity|checklist was updated|on-shoot quantity is insufficient/i,
+    );
+    expect(store.equipment[0].availableQuantity).toBe(6);
+    expect(store.equipment[0].onShootQuantity).toBe(0);
+    expect(store.equipment[0].missingQuantity).toBe(0);
+    expect(store.equipment[0].availableQuantity).toBeGreaterThanOrEqual(0);
+    expect(store.equipment[0].onShootQuantity).toBeGreaterThanOrEqual(0);
+  });
+
+  it('does not let an over-return of remaining quantity corrupt stock', async () => {
+    await service.createIssue('company-1', 'user-1', {
+      bookingId: 'booking-1',
+      staffId: 'staff-1',
+      items: [{ equipmentId: 'mem-1', quantityIssued: 5, conditionOut: 'GOOD' }],
+    });
+    const issueItemId = store.items[0].id as string;
+
+    await service.returnIssue('company-1', 'user-1', 'issue-1', {
+      items: [{ issueItemId, quantityReturned: 1, quantityMissing: 0, conditionIn: 'GOOD' }],
+    });
+
+    await expect(
+      service.returnIssue('company-1', 'user-1', 'issue-1', {
+        items: [{ issueItemId, quantityReturned: 5, quantityMissing: 0, conditionIn: 'GOOD' }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(store.equipment[0].availableQuantity).toBe(2);
+    expect(store.equipment[0].onShootQuantity).toBe(4);
+    expect(store.equipment[0].missingQuantity).toBe(0);
+    expect(store.returnItems).toHaveLength(1);
+  });
+
+  it('returns a clear error when the atomic stock update fails', async () => {
+    await service.createIssue('company-1', 'user-1', {
+      bookingId: 'booking-1',
+      staffId: 'staff-1',
+      items: [{ equipmentId: 'mem-1', quantityIssued: 2, conditionOut: 'GOOD' }],
+    });
+    const issueItemId = store.items[0].id as string;
+    const original = tx.equipment.updateMany as jest.Mock;
+    original.mockImplementationOnce(async () => ({ count: 0 }));
+
+    await expect(
+      service.returnIssue('company-1', 'user-1', 'issue-1', {
+        items: [{ issueItemId, quantityReturned: 1, conditionIn: 'GOOD' }],
+      }),
+    ).rejects.toMatchObject({
+      constructor: BadRequestException,
+      message: expect.stringMatching(/on-shoot quantity is insufficient or was updated concurrently/i),
+    });
+
+    expect(store.items[0].quantityReturned).toBe(0);
+    expect(store.items[0].missingQuantity).toBe(0);
+    expect(store.equipment[0].availableQuantity).toBe(4);
+    expect(store.equipment[0].onShootQuantity).toBe(2);
+  });
+
+  it('never lets availableQuantity or onShootQuantity become negative on return', async () => {
+    await service.createIssue('company-1', 'user-1', {
+      bookingId: 'booking-1',
+      staffId: 'staff-1',
+      items: [{ equipmentId: 'mem-1', quantityIssued: 2, conditionOut: 'GOOD' }],
+    });
+    store.equipment[0].onShootQuantity = 0;
+    const issueItemId = store.items[0].id as string;
+
+    await expect(
+      service.returnIssue('company-1', 'user-1', 'issue-1', {
+        items: [{ issueItemId, quantityReturned: 1, conditionIn: 'GOOD' }],
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(store.equipment[0].availableQuantity).toBe(4);
+    expect(store.equipment[0].onShootQuantity).toBe(0);
+    expect(store.equipment[0].availableQuantity).toBeGreaterThanOrEqual(0);
+    expect(store.equipment[0].onShootQuantity).toBeGreaterThanOrEqual(0);
+    expect(store.items[0].quantityReturned).toBe(0);
   });
 
   it('isolates company data', async () => {

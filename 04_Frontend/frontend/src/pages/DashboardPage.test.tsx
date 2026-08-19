@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -201,5 +201,31 @@ describe('DashboardPage overview album metrics', () => {
     expect(await screen.findByText('Welcome, Staff')).toBeInTheDocument();
     expect(reportsService.getOverview).not.toHaveBeenCalled();
     expect(screen.queryByText('Album Sales')).not.toBeInTheDocument();
+  });
+
+  it('shows an error and Retry for failed recent bookings instead of an empty state', async () => {
+    vi.mocked(bookingsService.list).mockRejectedValue(new Error('bookings unavailable'));
+
+    renderPage();
+
+    expect(await screen.findByText('bookings unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('No bookings yet.')).not.toBeInTheDocument();
+
+    vi.mocked(bookingsService.list).mockResolvedValue(emptyPage as never);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Retry' })[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText('No bookings yet.')).toBeInTheDocument();
+    });
+  });
+
+  it('keeps successful snapshot KPIs when another snapshot query fails', async () => {
+    vi.mocked(bookingsService.getCalendar).mockRejectedValue(new Error('calendar unavailable'));
+
+    renderPage();
+
+    expect(await screen.findByText('Cash Received')).toBeInTheDocument();
+    expect(screen.getAllByText('calendar unavailable').length).toBeGreaterThan(0);
+    expect(screen.queryByText("Today's Bookings")).not.toBeInTheDocument();
   });
 });

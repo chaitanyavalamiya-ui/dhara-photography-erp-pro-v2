@@ -6,13 +6,14 @@ import {
   BOOKING_STATUS_OPTIONS,
   Booking,
   BookingFormData,
+  bookingsService,
 } from '@/services/bookings-service';
 import { invoicesService } from '@/services/invoices-service';
 import { clientsService } from '@/services/clients-service';
 import { settingsService } from '@/services/settings-service';
 import { BookingItemsEditor } from '@/components/bookings/BookingItemsEditor';
 import { ClientSearchSelect } from '@/components/clients/ClientSearchSelect';
-import { calculateBookingTotals, expandPackageToBookingItems, formatBookingCurrency, assertEventDateRange } from '@/utils/booking-form';
+import { calculateBookingTotals, expandPackageToBookingItems, formatBookingCurrency, assertEventDateRange, BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE, isBookingClientChangeLocked } from '@/utils/booking-form';
 
 interface BookingFormModalProps {
   open: boolean;
@@ -68,9 +69,27 @@ export function BookingFormModal({
       }),
   });
 
+  const clientLockQuery = useQuery({
+    queryKey: ['bookings', booking?.id, 'client-lock'],
+    enabled: open && mode === 'edit' && Boolean(booking?.id),
+    queryFn: () => bookingsService.getById(booking!.id),
+  });
+
   const advanceLocked =
     mode === 'edit' &&
     Boolean(invoiceLockQuery.data?.items.some((invoice) => invoice.bookingId === booking?.id));
+
+  const clientChangeLocked =
+    mode === 'edit' &&
+    (clientLockQuery.isPending ||
+      clientLockQuery.isError ||
+      isBookingClientChangeLocked(booking?.clientChangeLocked) ||
+      isBookingClientChangeLocked(clientLockQuery.data?.clientChangeLocked));
+
+  const showClientLockMessage =
+    mode === 'edit' &&
+    (isBookingClientChangeLocked(booking?.clientChangeLocked) ||
+      isBookingClientChangeLocked(clientLockQuery.data?.clientChangeLocked));
 
   useEffect(() => {
     if (!open) return;
@@ -124,6 +143,11 @@ export function BookingFormModal({
 
     if (!form.clientId) {
       setFormError('Please select a client.');
+      return;
+    }
+
+    if (clientChangeLocked && booking && form.clientId !== booking.clientId) {
+      setFormError(BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE);
       return;
     }
 
@@ -185,7 +209,11 @@ export function BookingFormModal({
                 value={form.clientId}
                 onChange={(clientId) => setForm((current) => ({ ...current, clientId }))}
                 required
+                disabled={clientChangeLocked}
               />
+              {showClientLockMessage ? (
+                <p className="mt-1 text-xs text-gray-500">{BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE}</p>
+              ) : null}
             </div>
 
             <div>

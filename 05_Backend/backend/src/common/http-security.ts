@@ -1,11 +1,30 @@
 import type { HelmetOptions } from 'helmet';
+import { isLocalhostOrigin } from './production-env';
 
-export function parseCorsOrigins(corsOrigin: string | undefined, fallback = 'http://localhost:5173'): string[] {
-  const raw = corsOrigin?.trim() || fallback;
-  return raw
+export function parseCorsOrigins(
+  corsOrigin: string | undefined,
+  fallback = 'http://localhost:5173',
+  options?: { production?: boolean },
+): string[] {
+  const production = options?.production === true;
+  const raw = corsOrigin?.trim();
+  const origins = (raw || fallback)
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
+
+  if (!raw) {
+    if (production) {
+      throw new Error('CORS_ORIGIN is required in production.');
+    }
+    return origins;
+  }
+
+  if (production && (origins.length === 0 || origins.every(isLocalhostOrigin))) {
+    throw new Error('CORS_ORIGIN cannot be localhost-only in production.');
+  }
+
+  return origins;
 }
 
 export function isCorsOriginAllowed(origin: string | undefined, allowedOrigins: string[]): boolean {

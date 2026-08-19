@@ -55,6 +55,7 @@ export interface Booking {
   createdAt: string;
   updatedAt: string;
   team?: BookingTeamMember[];
+  clientChangeLocked?: boolean;
 }
 
 export interface BookingFormData {

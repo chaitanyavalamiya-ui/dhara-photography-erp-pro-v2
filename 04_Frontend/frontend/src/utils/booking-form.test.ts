@@ -5,6 +5,7 @@ import {
   deriveBookingPaymentStatus,
   formatBookingCurrency,
   getBookingsEmptyMessage,
+  isBookingClientChangeLocked,
   mergeBookingClientOptions,
 } from './booking-form';
 
@@ -48,5 +49,11 @@ describe('booking-form helpers', () => {
 
   it('shows two decimal places for booking money', () => {
     expect(formatBookingCurrency(10000.5)).toContain('10,000.50');
+  });
+
+  it('treats missing clientChangeLocked as unlocked', () => {
+    expect(isBookingClientChangeLocked()).toBe(false);
+    expect(isBookingClientChangeLocked(false)).toBe(false);
+    expect(isBookingClientChangeLocked(true)).toBe(true);
   });
 });

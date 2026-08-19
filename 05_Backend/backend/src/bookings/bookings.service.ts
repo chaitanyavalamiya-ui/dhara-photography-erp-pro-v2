@@ -21,9 +21,11 @@ import {
 import {
   allocateNextBookingNumber,
   assertEventDateRange,
+  BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE,
   calculateBookingTotals,
   calculateItemAmount,
   deriveBookingPaymentStatus,
+  isBookingClientChangeLocked,
   isBookingNumberUniqueConflict,
   parseOptionalDateTime,
   roundMoney,
@@ -32,7 +34,11 @@ import {
   toIsoDateString,
 } from './utils/booking.utils';
 import { getStaffRoleLabel } from '../staff/utils/staff.utils';
-import { syncInvoiceAndBookingFinancials } from '../common/utils/financial.utils';
+import {
+  assertInvoiceTotalCoversPayments,
+  getPaymentTotalForInvoice,
+  syncInvoiceAndBookingFinancials,
+} from '../common/utils/financial.utils';
 import { toDateOnlyString } from '../clients/utils/client.utils';
 
 type BookingWithRelations = Prisma.BookingGetPayload<{
@@ -138,7 +144,14 @@ export class BookingsService {
       throw new NotFoundException('Booking not found.');
     }
 
-    return this.mapBooking(booking);
+    const clientChangeLocked = isBookingClientChangeLocked(
+      await this.getClientChangeDependentCounts(companyId, id),
+    );
+
+    return {
+      ...this.mapBooking(booking),
+      clientChangeLocked,
+    };
   }
 
   async getCalendar(
@@ -288,6 +301,8 @@ export class BookingsService {
     }
 
     if (dto.clientId && dto.clientId !== existing.clientId) {
+      await this.assertClientChangeAllowed(companyId, id);
+
       const client = await this.prisma.client.findFirst({
         where: { id: dto.clientId, companyId, archivedAt: null, isActive: true },
       });
@@ -331,6 +346,11 @@ export class BookingsService {
       throw new BadRequestException(
         'Advance is managed by invoice payments. Add or update a payment instead of editing booking advance.',
       );
+    }
+
+    if (activeInvoice && (dto.items !== undefined || dto.discount !== undefined)) {
+      const paymentTotal = await getPaymentTotalForInvoice(this.prisma, activeInvoice.id);
+      assertInvoiceTotalCoversPayments(totals.totalAmount, paymentTotal);
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -489,6 +509,34 @@ export class BookingsService {
     }
 
     return booking;
+  }
+
+  private async getClientChangeDependentCounts(
+    companyId: string,
+    bookingId: string,
+  ): Promise<{
+    invoices: number;
+    payments: number;
+    galleries: number;
+    albums: number;
+    deliveries: number;
+  }> {
+    const [invoices, payments, galleries, albums, deliveries] = await Promise.all([
+      this.prisma.invoice.count({ where: { companyId, bookingId } }),
+      this.prisma.payment.count({ where: { companyId, bookingId } }),
+      this.prisma.gallery.count({ where: { companyId, bookingId } }),
+      this.prisma.album.count({ where: { companyId, bookingId } }),
+      this.prisma.delivery.count({ where: { companyId, bookingId } }),
+    ]);
+
+    return { invoices, payments, galleries, albums, deliveries };
+  }
+
+  private async assertClientChangeAllowed(companyId: string, bookingId: string): Promise<void> {
+    const counts = await this.getClientChangeDependentCounts(companyId, bookingId);
+    if (isBookingClientChangeLocked(counts)) {
+      throw new BadRequestException(BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE);
+    }
   }
 
   private mapBooking(booking: BookingWithRelations | BookingDetailWithRelations): BookingResponseDto {

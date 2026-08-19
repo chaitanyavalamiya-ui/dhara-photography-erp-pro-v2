@@ -3,8 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import { BookingFormModal } from './BookingFormModal';
 import type { Booking } from '@/services/bookings-service';
+import { bookingsService } from '@/services/bookings-service';
 import { clientsService } from '@/services/clients-service';
 import { settingsService } from '@/services/settings-service';
+import { BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE } from '@/utils/booking-form';
 
 vi.mock('@/services/clients-service', () => ({
   clientsService: {
@@ -18,6 +20,17 @@ vi.mock('@/services/invoices-service', () => ({
     list: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20, totalPages: 1 }),
   },
 }));
+
+vi.mock('@/services/bookings-service', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/bookings-service')>();
+  return {
+    ...actual,
+    bookingsService: {
+      ...actual.bookingsService,
+      getById: vi.fn(),
+    },
+  };
+});
 
 vi.mock('@/services/settings-service', () => ({
   settingsService: {
@@ -56,7 +69,7 @@ const booking: Booking = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
-function renderForm() {
+function renderForm(bookingOverride: Partial<Booking> = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -96,6 +109,11 @@ function renderForm() {
     updatedAt: '',
   } as never);
   vi.mocked(settingsService.getPackages).mockResolvedValue([]);
+  vi.mocked(bookingsService.getById).mockResolvedValue({
+    ...booking,
+    ...bookingOverride,
+    clientChangeLocked: bookingOverride.clientChangeLocked ?? false,
+  });
 
   const onSubmit = vi.fn();
 
@@ -104,7 +122,7 @@ function renderForm() {
       <BookingFormModal
         open
         mode="edit"
-        booking={booking}
+        booking={{ ...booking, ...bookingOverride }}
         serviceRates={[]}
         onClose={() => undefined}
         onSubmit={onSubmit}
@@ -121,7 +139,17 @@ describe('BookingFormModal', () => {
     await waitFor(() => {
       expect(screen.getByRole('option', { name: /Rahul Patel/ })).toBeInTheDocument();
     });
-    expect(screen.getByRole('combobox', { name: /Client/ })).toHaveValue('client-current');
+    expect(screen.getByRole('combobox', { name: /Client/ })).not.toBeDisabled();
+  });
+
+  it('locks the client picker when the booking has dependent records', async () => {
+    renderForm({ clientChangeLocked: true });
+
+    await waitFor(() => {
+      expect(screen.getByText(BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE)).toBeInTheDocument();
+    });
+    expect(screen.getByRole('combobox', { name: /Client/ })).toBeDisabled();
+    expect(screen.getByLabelText('Search clients')).toBeDisabled();
   });
 
   it('blocks saving when the end date is before the start date', async () => {

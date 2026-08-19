@@ -162,3 +162,10 @@ export function formatDate(value?: string | null): string {
     year: 'numeric',
   });
 }
+
+export const BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE =
+  'Cannot change the booking client because this booking already has invoice, payment, gallery, album, or delivery records.';
+
+export function isBookingClientChangeLocked(flag?: boolean | null): boolean {
+  return Boolean(flag);
+}

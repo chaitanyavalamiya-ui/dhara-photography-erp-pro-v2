@@ -15,6 +15,7 @@ import {
 } from '@/utils/post-login-path';
 
 const loginSchema = z.object({
+  companyCode: z.string().trim().min(1, 'Studio code is required').max(64, 'Studio code is too long'),
   email: z
     .string()
     .trim()
@@ -101,9 +102,26 @@ export function LoginPage() {
           </div>
 
           <h1 className="mb-2 text-2xl font-semibold text-gray-100">Welcome back</h1>
-          <p className="mb-8 text-sm text-gray-500">Sign in to your studio dashboard</p>
+          <p className="mb-8 text-sm text-gray-500">Sign in with your studio code and account</p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div>
+              <label htmlFor="companyCode" className="mb-1.5 block text-sm font-medium text-gray-300">
+                Studio code
+              </label>
+              <input
+                id="companyCode"
+                type="text"
+                autoComplete="organization"
+                className="input-field"
+                placeholder="DHARA-PATAN"
+                {...register('companyCode')}
+              />
+              {errors.companyCode && (
+                <p className="mt-1 text-xs text-red-400">{errors.companyCode.message}</p>
+              )}
+            </div>
+
             <div>
               <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-300">
                 Email

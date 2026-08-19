@@ -75,22 +75,25 @@ export class ExpensesService {
     userAgent?: string,
   ): Promise<ExpenseResponseDto> {
     const category = await this.resolveCategory(companyId, dto.categoryCode);
-    const branch = await this.resolveBranch(companyId, dto.bookingId, dto.clientId);
+    const links = await this.resolveParentLinks(companyId, {
+      clientId: dto.clientId,
+      bookingId: dto.bookingId,
+      invoiceId: dto.invoiceId,
+      staffId: dto.staffId,
+    });
     const paymentMode = dto.paymentModeCode
       ? await this.resolvePaymentMode(companyId, dto.paymentModeCode)
       : null;
 
-    await this.validateLinks(companyId, dto.clientId, dto.bookingId, dto.invoiceId, dto.staffId);
-
     const expense = await this.prisma.expense.create({
       data: {
         companyId,
-        branchId: branch.id,
+        branchId: links.branchId,
         categoryId: category.id,
-        clientId: dto.clientId ?? null,
-        bookingId: dto.bookingId ?? null,
-        staffId: dto.staffId ?? null,
-        invoiceId: dto.invoiceId ?? null,
+        clientId: links.clientId,
+        bookingId: links.bookingId,
+        staffId: links.staffId,
+        invoiceId: links.invoiceId,
         description: dto.description?.trim() || null,
         vendorPerson: dto.vendorPerson?.trim() || null,
         amount: toDecimal(roundMoney(dto.amount)),
@@ -192,20 +195,28 @@ export class ExpensesService {
           : null
         : undefined;
 
-    if (
+    const parentFieldsTouched =
       dto.clientId !== undefined ||
       dto.bookingId !== undefined ||
       dto.invoiceId !== undefined ||
-      dto.staffId !== undefined
-    ) {
-      await this.validateLinks(
-        companyId,
-        dto.clientId ?? existing.clientId ?? undefined,
-        dto.bookingId ?? existing.bookingId ?? undefined,
-        dto.invoiceId ?? existing.invoiceId ?? undefined,
-        dto.staffId ?? existing.staffId ?? undefined,
-      );
-    }
+      dto.staffId !== undefined;
+
+    const bookingChanged =
+      dto.bookingId !== undefined && dto.bookingId !== existing.bookingId;
+
+    const links = parentFieldsTouched
+      ? await this.resolveParentLinks(companyId, {
+          clientId:
+            dto.clientId !== undefined
+              ? dto.clientId
+              : bookingChanged && dto.bookingId
+                ? null
+                : existing.clientId,
+          bookingId: dto.bookingId !== undefined ? dto.bookingId : existing.bookingId,
+          invoiceId: dto.invoiceId !== undefined ? dto.invoiceId : existing.invoiceId,
+          staffId: dto.staffId !== undefined ? dto.staffId : existing.staffId,
+        })
+      : null;
 
     const updated = await this.prisma.expense.update({
       where: { id },
@@ -223,10 +234,15 @@ export class ExpensesService {
         ...(dto.referenceNumber !== undefined
           ? { referenceNumber: dto.referenceNumber?.trim() || null }
           : {}),
-        ...(dto.clientId !== undefined ? { clientId: dto.clientId } : {}),
-        ...(dto.bookingId !== undefined ? { bookingId: dto.bookingId } : {}),
-        ...(dto.staffId !== undefined ? { staffId: dto.staffId } : {}),
-        ...(dto.invoiceId !== undefined ? { invoiceId: dto.invoiceId } : {}),
+        ...(links
+          ? {
+              clientId: links.clientId,
+              bookingId: links.bookingId,
+              staffId: links.staffId,
+              invoiceId: links.invoiceId,
+              branchId: links.branchId,
+            }
+          : {}),
         ...(dto.notes !== undefined ? { notes: dto.notes?.trim() || null } : {}),
         updatedById: userId,
       },
@@ -435,25 +451,13 @@ export class ExpensesService {
     return mode;
   }
 
-  private async resolveBranch(
+  private async resolveDefaultBranch(
     companyId: string,
-    bookingId?: string,
-    clientId?: string,
+    clientId?: string | null,
   ): Promise<{ id: string }> {
-    if (bookingId) {
-      const booking = await this.prisma.booking.findFirst({
-        where: { id: bookingId, companyId },
-        select: { branchId: true },
-      });
-
-      if (booking) {
-        return { id: booking.branchId };
-      }
-    }
-
     if (clientId) {
       const client = await this.prisma.client.findFirst({
-        where: { id: clientId, companyId },
+        where: { id: clientId, companyId, archivedAt: null },
         select: { primaryBranchId: true },
       });
 
@@ -474,40 +478,89 @@ export class ExpensesService {
     return branch;
   }
 
-  private async validateLinks(
+  private async resolveParentLinks(
     companyId: string,
-    clientId?: string,
-    bookingId?: string,
-    invoiceId?: string,
-    staffId?: string,
-  ): Promise<void> {
-    if (clientId) {
+    input: {
+      clientId?: string | null;
+      bookingId?: string | null;
+      invoiceId?: string | null;
+      staffId?: string | null;
+    },
+  ): Promise<{
+    clientId: string | null;
+    bookingId: string | null;
+    invoiceId: string | null;
+    staffId: string | null;
+    branchId: string;
+  }> {
+    const requestedBookingId = input.bookingId || null;
+    const requestedClientId = input.clientId || null;
+    const requestedInvoiceId = input.invoiceId || null;
+    const requestedStaffId = input.staffId || null;
+
+    let booking: { id: string; clientId: string; branchId: string } | null = null;
+    if (requestedBookingId) {
+      booking = await this.prisma.booking.findFirst({
+        where: { id: requestedBookingId, companyId, archivedAt: null },
+        select: { id: true, clientId: true, branchId: true },
+      });
+
+      if (!booking) {
+        throw new NotFoundException('Booking not found.');
+      }
+
+      if (requestedClientId && requestedClientId !== booking.clientId) {
+        throw new BadRequestException(
+          'Expense client must match the selected booking client.',
+        );
+      }
+    } else if (requestedClientId) {
       const client = await this.prisma.client.findFirst({
-        where: { id: clientId, companyId, archivedAt: null },
+        where: { id: requestedClientId, companyId, archivedAt: null },
+        select: { id: true },
       });
-      if (!client) throw new NotFoundException('Client not found.');
+      if (!client) {
+        throw new NotFoundException('Client not found.');
+      }
     }
 
-    if (bookingId) {
-      const booking = await this.prisma.booking.findFirst({
-        where: { id: bookingId, companyId, archivedAt: null },
-      });
-      if (!booking) throw new NotFoundException('Booking not found.');
-    }
-
-    if (invoiceId) {
+    if (requestedInvoiceId) {
       const invoice = await this.prisma.invoice.findFirst({
-        where: { id: invoiceId, companyId, archivedAt: null },
+        where: { id: requestedInvoiceId, companyId, archivedAt: null },
+        select: { id: true, bookingId: true },
       });
-      if (!invoice) throw new NotFoundException('Invoice not found.');
+
+      if (!invoice) {
+        throw new BadRequestException('Invoice not found in this company.');
+      }
+
+      if (booking && invoice.bookingId !== booking.id) {
+        throw new BadRequestException('Invoice does not belong to the selected booking.');
+      }
     }
 
-    if (staffId) {
+    if (requestedStaffId) {
       const staffMember = await this.prisma.staff.findFirst({
-        where: { id: staffId, companyId, archivedAt: null },
+        where: { id: requestedStaffId, companyId, archivedAt: null },
+        select: { id: true },
       });
-      if (!staffMember) throw new NotFoundException('Staff member not found.');
+      if (!staffMember) {
+        throw new BadRequestException('Staff member not found in this company.');
+      }
     }
+
+    const canonicalClientId = booking ? booking.clientId : requestedClientId;
+    const branch = booking
+      ? { id: booking.branchId }
+      : await this.resolveDefaultBranch(companyId, canonicalClientId);
+
+    return {
+      clientId: canonicalClientId,
+      bookingId: booking?.id ?? null,
+      invoiceId: requestedInvoiceId,
+      staffId: requestedStaffId,
+      branchId: branch.id,
+    };
   }
 
   private async buildStaffPaymentExpensePayload(

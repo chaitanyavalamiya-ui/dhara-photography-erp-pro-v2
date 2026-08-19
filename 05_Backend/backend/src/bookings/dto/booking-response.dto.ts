@@ -105,6 +105,12 @@ export class BookingResponseDto {
   @ApiProperty({ enum: ['Paid', 'Partial', 'Unpaid'] })
   paymentStatus!: 'Paid' | 'Partial' | 'Unpaid';
 
+  @ApiPropertyOptional({
+    description:
+      'True when invoice, payment, gallery, album, or delivery records block changing clientId. Set on booking detail only.',
+  })
+  clientChangeLocked?: boolean;
+
   @ApiProperty()
   isActive!: boolean;
 

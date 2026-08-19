@@ -156,6 +156,7 @@ export interface CreateReturnPayload {
   items: Array<{
     issueItemId: string;
     quantityReturned: number;
+    quantityMissing?: number;
     conditionIn: string;
     notes?: string;
   }>;

@@ -19,6 +19,11 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { assertPasswordPolicy } from '../common/utils/password-policy.util';
 import { AUTH_ERROR_CODES } from './auth-error.codes';
 import {
+  extractPermissions,
+  isCompanyAccessActive,
+  isUserAccessActive,
+} from './auth-permissions';
+import {
   formatLockMessage,
   getLoginSecurityConfig,
   getRetryAfterSeconds,
@@ -47,6 +52,21 @@ type UserWithRoles = {
   }>;
 };
 
+const USER_AUTH_INCLUDE = {
+  userRoles: {
+    include: {
+      role: {
+        include: {
+          permissions: {
+            where: { isGranted: true },
+            include: { permission: true },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -58,33 +78,37 @@ export class AuthService {
 
   async login(dto: LoginDto, ipAddress?: string, userAgent?: string): Promise<LoginResponseDto> {
     const normalizedEmail = dto.email.toLowerCase().trim();
+    const companyCode = dto.companyCode.trim();
     const securityConfig = getLoginSecurityConfig(this.configService);
 
-    const userRecord = await this.prisma.user.findFirst({
+    const company = await this.prisma.company.findFirst({
       where: {
-        normalizedEmail,
-        archivedAt: null,
+        code: { equals: companyCode, mode: 'insensitive' },
       },
-      include: {
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                permissions: {
-                  where: { isGranted: true },
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
+      select: {
+        id: true,
+        isActive: true,
+        archivedAt: true,
       },
     });
+
+    const userRecord =
+      isCompanyAccessActive(company) && company
+        ? await this.prisma.user.findUnique({
+            where: {
+              companyId_normalizedEmail: {
+                companyId: company.id,
+                normalizedEmail,
+              },
+            },
+            include: USER_AUTH_INCLUDE,
+          })
+        : null;
 
     const passwordHash = userRecord?.passwordHash ?? DUMMY_PASSWORD_HASH;
     const passwordValid = await bcrypt.compare(dto.password, passwordHash);
 
-    if (!userRecord || !userRecord.isActive) {
+    if (!isUserAccessActive(userRecord)) {
       throw this.invalidCredentials();
     }
 
@@ -127,7 +151,7 @@ export class AuthService {
       },
     });
 
-    const permissions = this.extractPermissions(user.userRoles);
+    const permissions = extractPermissions(user.userRoles);
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -181,24 +205,23 @@ export class AuthService {
       include: {
         user: {
           include: {
-            userRoles: {
-              include: {
-                role: {
-                  include: {
-                    permissions: {
-                      where: { isGranted: true },
-                      include: { permission: true },
-                    },
-                  },
-                },
+            company: {
+              select: {
+                id: true,
+                isActive: true,
+                archivedAt: true,
               },
             },
+            ...USER_AUTH_INCLUDE,
           },
         },
       },
     });
 
-    if (!stored || !stored.user.isActive || stored.user.archivedAt) {
+    if (!stored || !isUserAccessActive(stored.user) || !isCompanyAccessActive(stored.user.company)) {
+      if (stored) {
+        await this.revokeRefreshTokens(stored.userId);
+      }
       throw new UnauthorizedException('Invalid or expired refresh token.');
     }
 
@@ -214,7 +237,7 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
 
-    const permissions = this.extractPermissions(stored.user.userRoles);
+    const permissions = extractPermissions(stored.user.userRoles);
     const payload: JwtPayload = {
       sub: stored.user.id,
       email: stored.user.email,
@@ -237,10 +260,7 @@ export class AuthService {
   }
 
   async logout(userId: string, companyId: string, ipAddress?: string): Promise<void> {
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await this.revokeRefreshTokens(userId);
 
     await this.auditService.log({
       companyId,
@@ -257,22 +277,18 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                permissions: {
-                  where: { isGranted: true },
-                  include: { permission: true },
-                },
-              },
-            },
+        company: {
+          select: {
+            id: true,
+            isActive: true,
+            archivedAt: true,
           },
         },
+        ...USER_AUTH_INCLUDE,
       },
     });
 
-    if (!user || !user.isActive || user.archivedAt) {
+    if (!user || !isUserAccessActive(user) || !isCompanyAccessActive(user.company)) {
       throw new ForbiddenException({
         message: 'User account is not active.',
         code: AUTH_ERROR_CODES.ACCOUNT_INACTIVE,
@@ -284,7 +300,7 @@ export class AuthService {
       fullName: user.fullName,
       email: user.email,
       companyId: user.companyId,
-      permissions: this.extractPermissions(user.userRoles),
+      permissions: extractPermissions(user.userRoles),
     };
   }
 
@@ -330,10 +346,7 @@ export class AuthService {
       data: { passwordHash, updatedById: userId },
     });
 
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await this.revokeRefreshTokens(userId);
 
     await this.auditService.log({
       companyId,
@@ -360,20 +373,7 @@ export class AuthService {
         failedLoginAttempts: 0,
         lockedUntil: null,
       },
-      include: {
-        userRoles: {
-          include: {
-            role: {
-              include: {
-                permissions: {
-                  where: { isGranted: true },
-                  include: { permission: true },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: USER_AUTH_INCLUDE,
     });
 
     return updated as UserWithRoles;
@@ -438,6 +438,13 @@ export class AuthService {
     });
   }
 
+  private async revokeRefreshTokens(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   private async createRefreshToken(userId: string): Promise<string> {
     const rawToken = crypto.randomBytes(48).toString('hex');
     const tokenHash = this.hashToken(rawToken);
@@ -456,28 +463,5 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return crypto.createHash('sha256').update(token).digest('hex');
-  }
-
-  private extractPermissions(
-    userRoles: Array<{
-      role: {
-        permissions: Array<{
-          isGranted: boolean;
-          permission: { code: string; isActive: boolean };
-        }>;
-      };
-    }>,
-  ): string[] {
-    const permissionSet = new Set<string>();
-
-    for (const userRole of userRoles) {
-      for (const rolePerm of userRole.role.permissions) {
-        if (rolePerm.isGranted && rolePerm.permission.isActive) {
-          permissionSet.add(rolePerm.permission.code);
-        }
-      }
-    }
-
-    return Array.from(permissionSet).sort();
   }
 }

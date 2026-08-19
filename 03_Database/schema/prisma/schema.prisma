@@ -40,6 +40,7 @@ model Company {
   auditLogs   AuditLog[]
   reminders   Reminder[]
   bookingStaffPayments BookingStaffPayment[]
+  bookingStaff         BookingStaff[]
   bookingActivities    BookingActivity[]
   deliveries           Delivery[]
   equipment            Equipment[]
@@ -79,6 +80,7 @@ model CompanyBranch {
   deliveries     Delivery[]
 
   @@unique([companyId, code])
+  @@unique([companyId, id])
   @@index([companyId, isActive])
   @@map("company_branches")
   @@schema("master")
@@ -231,6 +233,7 @@ model MasterData {
   expensePaymentModes Expense[]  @relation("expense_payment_mode")
 
   @@unique([companyId, category, code])
+  @@unique([companyId, id])
   @@index([companyId, category, isActive])
   @@map("master_data")
   @@schema("master")
@@ -288,8 +291,8 @@ model Client {
   updatedById     String?   @map("updated_by") @db.Uuid
 
   company       Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  primaryBranch CompanyBranch @relation("primary_client_branch", fields: [primaryBranchId], references: [id], onDelete: Restrict)
-  status        MasterData?   @relation("client_status", fields: [statusId], references: [id], onDelete: Restrict)
+  primaryBranch CompanyBranch @relation("primary_client_branch", fields: [companyId, primaryBranchId], references: [companyId, id], onDelete: Restrict)
+  status        MasterData?   @relation("client_status", fields: [companyId, statusId], references: [companyId, id], onDelete: Restrict)
   branches      ClientBranch[]
   bookings      Booking[]
   invoices      Invoice[]
@@ -302,6 +305,7 @@ model Client {
 
   @@unique([companyId, clientNumber])
   @@unique([companyId, normalizedMobile])
+  @@unique([companyId, id])
   @@index([companyId, fullName])
   @@index([companyId, primaryBranchId, isActive])
   @@index([companyId, city])
@@ -357,13 +361,14 @@ model Staff {
   updatedById      String?   @map("updated_by") @db.Uuid
 
   company     Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  branch      CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branch      CompanyBranch @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
   assignments        BookingStaff[]
   expenses           Expense[]
   equipmentIssues    EquipmentIssue[]
   equipmentHistory   EquipmentHistory[]
 
   @@unique([companyId, staffCode])
+  @@unique([companyId, id])
   @@index([companyId, role])
   @@index([companyId, isActive])
   @@map("staff")
@@ -399,9 +404,9 @@ model Booking {
   updatedById    String?   @map("updated_by") @db.Uuid
 
   company  Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  branch   CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  client   Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  status   MasterData    @relation("booking_status", fields: [statusId], references: [id], onDelete: Restrict)
+  branch   CompanyBranch @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
+  client   Client        @relation(fields: [companyId, clientId], references: [companyId, id], onDelete: Restrict)
+  status   MasterData    @relation("booking_status", fields: [companyId, statusId], references: [companyId, id], onDelete: Restrict)
   items    BookingItem[]
   invoices Invoice[]
   payments Payment[]
@@ -418,6 +423,7 @@ model Booking {
   equipmentHistory EquipmentHistory[]
 
   @@unique([companyId, bookingNumber])
+  @@unique([companyId, id])
   @@index([branchId, eventDate])
   @@index([clientId, eventDate])
   @@index([companyId, eventType])
@@ -428,6 +434,7 @@ model Booking {
 
 model BookingStaff {
   id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
   bookingId      String    @map("booking_id") @db.Uuid
   staffId        String    @map("staff_id") @db.Uuid
   role           String
@@ -443,12 +450,14 @@ model BookingStaff {
   createdById    String?   @map("created_by") @db.Uuid
   updatedById    String?   @map("updated_by") @db.Uuid
 
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Restrict)
-  expense Expense? @relation("booking_staff_expense", fields: [expenseId], references: [id], onDelete: SetNull)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  booking Booking @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: Cascade)
+  staff   Staff   @relation(fields: [companyId, staffId], references: [companyId, id], onDelete: Restrict)
+  expense Expense? @relation("booking_staff_expense", fields: [companyId, expenseId], references: [companyId, id], onDelete: SetNull)
   payments BookingStaffPayment[]
 
   @@unique([bookingId, staffId, role])
+  @@unique([companyId, expenseId])
   @@index([staffId, assignmentDate])
   @@index([bookingId])
   @@map("booking_staff")
@@ -498,7 +507,7 @@ model BookingStaffPayment {
   updatedById    String?   @map("updated_by") @db.Uuid
 
   company      Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  booking      Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking      Booking       @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: Cascade)
   bookingStaff BookingStaff  @relation(fields: [bookingStaffId], references: [id], onDelete: Cascade)
   expense      Expense?      @relation("booking_staff_payment_expense", fields: [expenseId], references: [id], onDelete: SetNull)
 
@@ -550,7 +559,7 @@ model BookingActivity {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  booking Booking @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: Cascade)
 
   @@index([bookingId, occurredAt])
   @@map("booking_activities")
@@ -611,13 +620,14 @@ model Invoice {
   updatedById       String?   @map("updated_by") @db.Uuid
 
   company  Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  branch   CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  client   Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  booking  Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  branch   CompanyBranch @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
+  client   Client        @relation(fields: [companyId, clientId], references: [companyId, id], onDelete: Restrict)
+  booking  Booking       @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: Restrict)
   payments Payment[]
   expenses Expense[]
 
   @@unique([companyId, invoiceNumber])
+  @@unique([companyId, id])
   @@index([branchId, isActive])
   @@index([clientId, isActive])
   @@index([companyId, status])
@@ -649,11 +659,11 @@ model Payment {
   updatedById          String?   @map("updated_by") @db.Uuid
 
   company     Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  branch      CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  client      Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
-  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  paymentMode MasterData    @relation("payment_mode", fields: [paymentModeId], references: [id], onDelete: Restrict)
+  branch      CompanyBranch @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
+  client      Client        @relation(fields: [companyId, clientId], references: [companyId, id], onDelete: Restrict)
+  booking     Booking       @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: Restrict)
+  invoice     Invoice       @relation(fields: [companyId, invoiceId], references: [companyId, id], onDelete: Restrict)
+  paymentMode MasterData    @relation("payment_mode", fields: [companyId, paymentModeId], references: [companyId, id], onDelete: Restrict)
 
   @@unique([companyId, receiptNumber])
   @@index([branchId, paymentDate])
@@ -730,12 +740,12 @@ model Expense {
   updatedById     String?   @map("updated_by") @db.Uuid
 
   company     Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  branch      CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  branch      CompanyBranch @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
   category    MasterData    @relation("expense_category", fields: [categoryId], references: [id], onDelete: Restrict)
-  client      Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  booking     Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  client      Client?       @relation(fields: [companyId, clientId], references: [companyId, id], onDelete: SetNull)
+  booking     Booking?      @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: SetNull)
   staff       Staff?        @relation(fields: [staffId], references: [id], onDelete: SetNull)
-  invoice     Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  invoice     Invoice?      @relation(fields: [companyId, invoiceId], references: [companyId, id], onDelete: SetNull)
   paymentMode MasterData?   @relation("expense_payment_mode", fields: [paymentModeId], references: [id], onDelete: Restrict)
   albumVendorFor Album?      @relation("album_vendor_expense")
   bookingStaffAssignment BookingStaff? @relation("booking_staff_expense")
@@ -748,6 +758,7 @@ model Expense {
   @@index([clientId, expenseDate])
   @@index([staffId, expenseDate])
   @@index([paymentModeId])
+  @@unique([companyId, id])
   @@map("expenses")
   @@schema("transaction")
 }
@@ -774,9 +785,9 @@ model Gallery {
   updatedById         String?   @map("updated_by") @db.Uuid
 
   company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  branch  CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  branch  CompanyBranch @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
+  client  Client        @relation(fields: [companyId, clientId], references: [companyId, id], onDelete: Restrict)
+  booking Booking       @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: Restrict)
   photos  GalleryPhoto[]
   albums  Album[]
 
@@ -847,9 +858,9 @@ model Album {
   updatedById          String?   @map("updated_by") @db.Uuid
 
   company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  branch  CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  branch  CompanyBranch @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
+  client  Client        @relation(fields: [companyId, clientId], references: [companyId, id], onDelete: Restrict)
+  booking Booking       @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: Restrict)
   gallery Gallery?      @relation(fields: [galleryId], references: [id], onDelete: SetNull)
   vendorExpenseRecord Expense?      @relation("album_vendor_expense", fields: [vendorExpenseId], references: [id], onDelete: SetNull)
   photos  AlbumPhoto[]
@@ -908,9 +919,9 @@ model Delivery {
   updatedById     String?   @map("updated_by") @db.Uuid
 
   company Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  branch  CompanyBranch @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  client  Client        @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  booking Booking       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  branch  CompanyBranch @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
+  client  Client        @relation(fields: [companyId, clientId], references: [companyId, id], onDelete: Restrict)
+  booking Booking       @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: Restrict)
   album   Album?        @relation(fields: [albumId], references: [id], onDelete: SetNull)
 
   @@index([companyId, status])
@@ -953,6 +964,7 @@ model Equipment {
   history     EquipmentHistory[]
 
   @@unique([companyId, code])
+  @@unique([companyId, id])
   @@index([companyId, category])
   @@index([companyId, status])
   @@index([companyId, isActive])
@@ -978,13 +990,14 @@ model EquipmentIssue {
   updatedById  String?   @map("updated_by") @db.Uuid
 
   company Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  booking Booking              @relation(fields: [bookingId], references: [id], onDelete: Restrict)
-  staff   Staff                @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  booking Booking              @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: Restrict)
+  staff   Staff                @relation(fields: [companyId, staffId], references: [companyId, id], onDelete: Restrict)
   items   EquipmentIssueItem[]
   returns EquipmentReturn[]
   history EquipmentHistory[]
 
   @@unique([companyId, issueNumber])
+  @@unique([companyId, id])
   @@index([bookingId, status])
   @@index([staffId, issuedAt])
   @@index([companyId, status])
@@ -1029,12 +1042,13 @@ model EquipmentReturn {
   createdById String?  @map("created_by") @db.Uuid
 
   company Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  issue   EquipmentIssue        @relation(fields: [issueId], references: [id], onDelete: Restrict)
+  issue   EquipmentIssue        @relation(fields: [companyId, issueId], references: [companyId, id], onDelete: Restrict)
   items   EquipmentReturnItem[]
   history EquipmentHistory[]
 
   @@index([issueId, returnedAt])
   @@index([companyId, returnedAt])
+  @@unique([companyId, id])
   @@map("equipment_returns")
   @@schema("transaction")
 }
@@ -1078,11 +1092,11 @@ model EquipmentHistory {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   company   Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  equipment Equipment       @relation(fields: [equipmentId], references: [id], onDelete: Restrict)
-  issue     EquipmentIssue? @relation(fields: [issueId], references: [id], onDelete: SetNull)
-  return    EquipmentReturn? @relation(fields: [returnId], references: [id], onDelete: SetNull)
-  booking   Booking?        @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  staff     Staff?          @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  equipment Equipment       @relation(fields: [companyId, equipmentId], references: [companyId, id], onDelete: Restrict)
+  issue     EquipmentIssue? @relation(fields: [companyId, issueId], references: [companyId, id], onDelete: SetNull)
+  return    EquipmentReturn? @relation(fields: [companyId, returnId], references: [companyId, id], onDelete: SetNull)
+  booking   Booking?        @relation(fields: [companyId, bookingId], references: [companyId, id], onDelete: SetNull)
+  staff     Staff?          @relation(fields: [companyId, staffId], references: [companyId, id], onDelete: SetNull)
 
   @@index([equipmentId, occurredAt])
   @@index([bookingId, occurredAt])

@@ -1,3 +1,4 @@
+import { resolveApiBaseUrl } from '@/config/api-base-url';
 import { apiClient, ApiResponse } from './api-client';
 import {
   GALLERY_UPLOAD_TIMEOUT_MS,
@@ -70,8 +71,7 @@ export const GALLERY_STATUS_OPTIONS = [
   { value: 'delivered', label: 'Delivered' },
 ] as const;
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:3000/api/v1';
+const API_BASE_URL = resolveApiBaseUrl(import.meta.env);
 
 export function canViewOriginalPhoto(
   allowClientDownload: boolean,

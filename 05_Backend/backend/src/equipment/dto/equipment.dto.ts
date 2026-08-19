@@ -203,6 +203,13 @@ export class ReturnIssueItemDto {
   @Min(0)
   quantityReturned!: number;
 
+  @ApiPropertyOptional({ default: 0, description: 'Units to mark missing. Defaults to 0; leftover outstanding is not treated as missing.' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  quantityMissing?: number;
+
   @ApiProperty({ enum: EQUIPMENT_CONDITIONS })
   @IsIn([...EQUIPMENT_CONDITIONS])
   conditionIn!: string;

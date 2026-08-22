@@ -1,16 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import {
-  LOCAL_DEV_API_BASE_URL,
+  LOCAL_DEV_API_PROXY_PATH,
   assertProductionApiBaseUrl,
   resolveApiBaseUrl,
 } from './api-base-url';
 
 describe('resolveApiBaseUrl', () => {
-  it('falls back to localhost in development when VITE_API_BASE_URL is missing', () => {
-    expect(resolveApiBaseUrl({ MODE: 'development' })).toBe(LOCAL_DEV_API_BASE_URL);
+  it('falls back to the Vite proxy path in development when VITE_API_BASE_URL is missing', () => {
+    expect(resolveApiBaseUrl({ MODE: 'development' })).toBe(LOCAL_DEV_API_PROXY_PATH);
   });
 
-  it('uses the configured URL in development', () => {
+  it('uses the Vite proxy path when VITE_API_BASE_URL points at the local API', () => {
+    expect(
+      resolveApiBaseUrl({
+        MODE: 'development',
+        VITE_API_BASE_URL: 'http://localhost:3000/api/v1',
+      }),
+    ).toBe(LOCAL_DEV_API_PROXY_PATH);
+    expect(
+      resolveApiBaseUrl({
+        MODE: 'development',
+        VITE_API_BASE_URL: 'http://127.0.0.1:3000/api/v1',
+      }),
+    ).toBe(LOCAL_DEV_API_PROXY_PATH);
+  });
+
+  it('uses a non-default configured URL in development', () => {
     expect(
       resolveApiBaseUrl({ MODE: 'development', VITE_API_BASE_URL: 'http://localhost:4000/api/v1' }),
     ).toBe('http://localhost:4000/api/v1');

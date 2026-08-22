@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import {
+  addPaginatedCanvasToPdf,
+  applyInvoicePdfSafePaint,
   assertInvoicePdfCaptureTarget,
   buildInvoicePdfFilename,
   containsUnsupportedCssColorFunction,
@@ -12,6 +14,7 @@ import {
   flattenPdfClonePaintSources,
   getInvoicePdfCaptureTargetSize,
   INVOICE_PDF_A4_WIDTH_PX,
+  INVOICE_PDF_SAFE_CSS,
   normalizeInvoiceSubtreeForPdfCapture,
   replaceUnsupportedCssColors,
   sanitizeZeroSizeCanvasesForPdfCapture,
@@ -473,6 +476,83 @@ describe('invoice PDF download', () => {
     expect(captureArg.textContent).toContain('INV-000005');
     expect(getInvoicePdfCaptureTargetSize(captureArg).width).toBeGreaterThan(0);
     expect(getInvoicePdfCaptureTargetSize(captureArg).height).toBeGreaterThan(0);
+  });
+
+  it('does not copy ERP cream text onto invoice table cells in the PDF clone', async () => {
+    const source = document.createElement('div');
+    source.id = 'invoice-document-print';
+    source.className = 'dhara-inv-paper';
+    source.style.color = '#fffdf8';
+    source.innerHTML = `
+      <table class="dhara-inv-paper-table">
+        <thead><tr>
+          <th>Service</th>
+          <th class="is-amt">Rate</th>
+          <th class="is-amt">Amount</th>
+        </tr></thead>
+        <tbody><tr>
+          <td class="is-service">Candid Photography</td>
+          <td class="is-amt">₹2,500</td>
+        </tr></tbody>
+      </table>
+      <div class="dhara-inv-paper-goldline" style="background: linear-gradient(90deg, #6b1d3a 0%, #c4a35a 50%, #6b1d3a 100%); height: 3px;"></div>
+    `;
+    document.body.appendChild(source);
+
+    const session = await createInvoicePdfCaptureTarget(source);
+    try {
+      const service = session.captureTarget.querySelector('.is-service') as HTMLElement;
+      const goldline = session.captureTarget.querySelector('.dhara-inv-paper-goldline') as HTMLElement;
+      expect(session.captureTarget.querySelector('style[data-invoice-pdf-safe]')?.textContent).toContain(
+        'border-collapse: separate',
+      );
+      expect(service.textContent).toContain('Candid Photography');
+      expect(service.getAttribute('style') ?? '').not.toMatch(/#fffdf8|rgb\(\s*255,\s*253,\s*248\)/i);
+      expect(session.captureTarget.textContent).toContain('Rate');
+      expect(session.captureTarget.textContent).toContain('Amount');
+      expect(goldline.getAttribute('style') ?? '').toMatch(/#c4a35a|rgb\(\s*196,\s*163,\s*90\)/i);
+      expect(goldline.getAttribute('style') ?? '').not.toContain('linear-gradient');
+      expect(goldline.style.width).not.toBe('2px');
+    } finally {
+      session.cleanup();
+    }
+  });
+
+  it('keeps PDF-safe paint rules for readable table headers and body text', () => {
+    const root = document.createElement('div');
+    root.className = 'dhara-inv-paper';
+    applyInvoicePdfSafePaint(root);
+    expect(INVOICE_PDF_SAFE_CSS).toContain('.dhara-inv-paper-table th');
+    expect(INVOICE_PDF_SAFE_CSS).toContain('#faf4e8');
+    expect(INVOICE_PDF_SAFE_CSS).toContain('#2c211c');
+    expect(root.querySelector('style[data-invoice-pdf-safe]')).not.toBeNull();
+  });
+
+  it('does not add a blank second page for a slightly taller A4 capture', () => {
+    const canvas = createCanvas(1588, 2400);
+    const addImage = vi.fn();
+    const addPage = vi.fn();
+    const pdf = { addImage, addPage } as unknown as InstanceType<typeof jsPDF>;
+
+    addPaginatedCanvasToPdf(pdf, canvas);
+
+    expect(addPage).not.toHaveBeenCalled();
+    expect(addImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('still paginates when the invoice capture is genuinely two pages tall', () => {
+    const canvas = createCanvas(1588, 4200);
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D);
+    const addImage = vi.fn();
+    const addPage = vi.fn();
+    const pdf = { addImage, addPage } as unknown as InstanceType<typeof jsPDF>;
+
+    addPaginatedCanvasToPdf(pdf, canvas);
+
+    expect(addPage).toHaveBeenCalledTimes(1);
+    expect(addImage).toHaveBeenCalledTimes(2);
   });
 });
 

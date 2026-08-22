@@ -38,6 +38,11 @@ function isUnreachableApiError(error: unknown): boolean {
     return false;
   }
 
+  const status = error.response?.status;
+  if (status === 500 || status === 502 || status === 503 || status === 504) {
+    return true;
+  }
+
   if (error.response) {
     return false;
   }

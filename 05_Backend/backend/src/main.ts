@@ -19,8 +19,10 @@ async function bootstrap(): Promise<void> {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('BACKEND_PORT', 3000);
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
+  const nodeEnv = configService.get<string>('NODE_ENV', 'development');
+  const isProduction = nodeEnv === 'production';
   const allowedOrigins = parseCorsOrigins(configService.get<string>('CORS_ORIGIN'), 'http://localhost:5173', {
-    production: configService.get<string>('NODE_ENV') === 'production',
+    production: isProduction,
   });
 
   app.setGlobalPrefix(apiPrefix);
@@ -38,7 +40,7 @@ async function bootstrap(): Promise<void> {
   });
   app.enableCors({
     origin: (origin, callback) => {
-      if (isCorsOriginAllowed(origin, allowedOrigins)) {
+      if (isCorsOriginAllowed(origin, allowedOrigins, { allowLocalNetwork: !isProduction })) {
         callback(null, true);
         return;
       }
@@ -60,8 +62,6 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  const nodeEnv = configService.get<string>('NODE_ENV', 'development');
-
   if (nodeEnv !== 'production') {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('Dhara Photography ERP Pro V2')
@@ -74,8 +74,8 @@ async function bootstrap(): Promise<void> {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  await app.listen(port);
-  console.log(`Dhara ERP API running on http://localhost:${port}/${apiPrefix}`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`Dhara ERP API running on http://127.0.0.1:${port}/${apiPrefix}`);
   if (nodeEnv !== 'production') {
     console.log(`Swagger docs at http://localhost:${port}/api/docs`);
   }

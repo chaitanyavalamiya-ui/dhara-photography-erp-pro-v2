@@ -20,6 +20,7 @@ vi.mock('@/services/equipment-service', async () => {
       update: vi.fn(),
       archive: vi.fn(),
       getById: vi.fn(),
+      getDashboard: vi.fn(),
       createCategory: vi.fn(),
       updateCategory: vi.fn(),
     },
@@ -91,6 +92,14 @@ describe('EquipmentPage categories', () => {
       isAuthenticated: true,
     });
     vi.mocked(equipmentService.listCategories).mockResolvedValue(categories);
+    vi.mocked(equipmentService.getDashboard).mockResolvedValue({
+      onShoot: 0,
+      withStaff: 0,
+      missing: 0,
+      damaged: 0,
+      underRepair: 0,
+      available: 1,
+    });
     vi.mocked(equipmentService.list).mockResolvedValue({
       items: [lensItem],
       total: 1,
@@ -245,6 +254,14 @@ describe('EquipmentPage list UX', () => {
       isAuthenticated: true,
     });
     vi.mocked(equipmentService.listCategories).mockResolvedValue(categories);
+    vi.mocked(equipmentService.getDashboard).mockResolvedValue({
+      onShoot: 0,
+      withStaff: 0,
+      missing: 0,
+      damaged: 0,
+      underRepair: 0,
+      available: 0,
+    });
     vi.mocked(bookingsService.list).mockResolvedValue({
       items: [
         {

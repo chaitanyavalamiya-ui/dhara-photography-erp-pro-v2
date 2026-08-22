@@ -1,0 +1,968 @@
+/* Albums Management preview styles — scoped to .dhara-albums only. */
+
+.dhara-albums {
+  --alb-gold: #ffd45a;
+  --alb-amber: #ff9a3c;
+  --alb-maroon: #9f1239;
+  --alb-cyan: #22d3ee;
+  --alb-purple: #c084fc;
+  --alb-magenta: #ff4ec8;
+  --alb-green: #4ade80;
+  --alb-glass:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03) 38%, rgba(10, 4, 8, 0.36)),
+    rgba(16, 6, 10, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  color: #fffdf8;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.dhara-albums *,
+.dhara-albums *::before,
+.dhara-albums *::after {
+  box-sizing: border-box;
+}
+
+.dhara-albums svg {
+  shape-rendering: geometricPrecision;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.dhara-alb-hero,
+.dhara-alb-panel,
+.dhara-alb-kpi,
+.dhara-alb-card,
+.dhara-alb-empty,
+.dhara-alb-error,
+.dhara-alb-modal-card,
+.dhara-alb-dialog,
+.dhara-alb-skeleton {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(255, 212, 90, 0.28);
+  background: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 16px 36px rgba(0, 0, 0, 0.3);
+}
+
+.dhara-alb-hero::before,
+.dhara-alb-panel::before,
+.dhara-alb-kpi::before,
+.dhara-alb-card::before,
+.dhara-alb-empty::before,
+.dhara-alb-error::before,
+.dhara-alb-modal-card::before,
+.dhara-alb-dialog::before,
+.dhara-alb-skeleton::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--alb-glass);
+  backdrop-filter: blur(18px) saturate(1.16);
+  pointer-events: none;
+}
+
+.dhara-alb-hero > *,
+.dhara-alb-panel > *,
+.dhara-alb-kpi > *,
+.dhara-alb-card > *,
+.dhara-alb-empty > *,
+.dhara-alb-error > *,
+.dhara-alb-modal-card > *,
+.dhara-alb-dialog > *,
+.dhara-alb-skeleton > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dhara-alb-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 11.5rem;
+  width: 100%;
+  padding: 1.7rem 1.8rem 1.55rem;
+  border-radius: 1.25rem;
+  animation: dhara-alb-rise 560ms ease both;
+}
+
+.dhara-alb-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(108deg, transparent 12%, rgba(255, 212, 90, 0.12) 32%, transparent 46%),
+    radial-gradient(480px 200px at 92% 8%, rgba(255, 212, 90, 0.22), transparent 60%),
+    radial-gradient(320px 180px at 6% 90%, rgba(159, 18, 57, 0.4), transparent 64%),
+    radial-gradient(280px 150px at 72% 100%, rgba(192, 132, 252, 0.18), transparent 62%),
+    radial-gradient(circle, rgba(255, 212, 90, 0.48) 0.7px, transparent 1.15px);
+  background-size: auto, auto, auto, auto, 30px 30px;
+  animation: dhara-alb-drift 26s linear infinite;
+}
+
+.dhara-alb-kicker {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-alb-hero h2 {
+  margin: 0.4rem 0 0;
+  font-family: 'Cormorant Garamond', 'Noto Serif Gujarati', serif;
+  font-size: clamp(2.4rem, 4.2vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.05;
+  color: #fffdf8;
+}
+
+.dhara-alb-hero-copy {
+  margin: 0.55rem 0 0;
+  max-width: 46rem;
+  font-size: clamp(1.12rem, 1.5vw, 1.28rem);
+  font-weight: 700;
+  line-height: 1.5;
+  color: #fff1c9;
+}
+
+.dhara-alb-hero-art {
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.dhara-alb-hero-art svg {
+  width: min(9.8rem, 100%);
+  height: auto;
+}
+
+@media (min-width: 900px) {
+  .dhara-alb-hero {
+    grid-template-columns: minmax(0, 1.6fr) minmax(140px, 0.5fr);
+    align-items: center;
+  }
+  .dhara-alb-hero-art {
+    display: flex;
+  }
+}
+
+.dhara-alb-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13.5rem, 1fr));
+  gap: 0.9rem;
+  width: 100%;
+}
+
+.dhara-alb-kpi {
+  padding: 1.15rem 1.15rem 1.05rem;
+  border-radius: 1.1rem;
+  overflow: visible;
+  animation: dhara-alb-rise 560ms ease both;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.dhara-alb-kpi:nth-child(2) { animation-delay: 60ms; }
+.dhara-alb-kpi:nth-child(3) { animation-delay: 120ms; }
+.dhara-alb-kpi:nth-child(4) { animation-delay: 180ms; }
+.dhara-alb-kpi:nth-child(5) { animation-delay: 240ms; }
+
+.dhara-alb-kpi:hover {
+  transform: translateY(-3px);
+}
+
+.dhara-alb-kpi.is-gold { --kpi: #ffd45a; --glow: rgba(255, 212, 90, 0.45); }
+.dhara-alb-kpi.is-amber { --kpi: #ff9a3c; --glow: rgba(255, 154, 60, 0.45); }
+.dhara-alb-kpi.is-cyan { --kpi: #22d3ee; --glow: rgba(34, 211, 238, 0.45); }
+.dhara-alb-kpi.is-green { --kpi: #4ade80; --glow: rgba(74, 222, 128, 0.4); }
+.dhara-alb-kpi.is-purple { --kpi: #c084fc; --glow: rgba(192, 132, 252, 0.42); }
+
+.dhara-alb-kpi {
+  border-color: color-mix(in srgb, var(--kpi, var(--alb-gold)) 70%, white 8%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 16px var(--glow, rgba(255, 212, 90, 0.24));
+}
+
+.dhara-alb-kpi-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.dhara-alb-kpi h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff6d6;
+}
+
+.dhara-alb-kpi p {
+  margin: 0.25rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffe7b8;
+}
+
+.dhara-alb-kpi strong {
+  display: block;
+  margin-top: 0.45rem;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.9rem, 2.5vw, 2.4rem);
+  line-height: 1;
+  color: #fffdf8;
+}
+
+.dhara-alb-icon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  min-width: 3.5rem;
+  border-radius: 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--kpi, var(--alb-gold)) 85%, white);
+  color: var(--kpi, var(--alb-gold));
+  background: color-mix(in srgb, var(--kpi, var(--alb-gold)) 22%, transparent);
+  box-shadow: 0 0 14px var(--glow, rgba(255, 212, 90, 0.32));
+}
+
+.dhara-alb-icon svg {
+  width: 1.9rem;
+  height: 1.9rem;
+  stroke-width: 2.35;
+}
+
+.dhara-alb-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  padding: 1.2rem 1.25rem;
+  border-radius: 1.15rem;
+}
+
+.dhara-alb-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.dhara-alb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.dhara-alb-field.is-search {
+  flex: 1 1 18rem;
+}
+
+.dhara-alb-field label {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff1c9;
+}
+
+.dhara-alb-input-wrap {
+  position: relative;
+}
+
+.dhara-alb-input-wrap svg {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  width: 1.45rem;
+  height: 1.45rem;
+  transform: translateY(-50%);
+  color: #ffd45a;
+  pointer-events: none;
+}
+
+.dhara-albums .dhara-alb-input,
+.dhara-albums .dhara-alb-field .input-field,
+.dhara-albums .dhara-alb-field select.input-field,
+.dhara-albums .dhara-alb-form .input-field {
+  width: 100%;
+  min-height: 3.25rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.28);
+  background: rgba(10, 4, 8, 0.48);
+  color: #fffdf8;
+  font-size: 1.08rem;
+  font-weight: 700;
+  padding: 0.55rem 0.9rem;
+}
+
+.dhara-albums .dhara-alb-input.is-icon {
+  padding-left: 2.7rem;
+}
+
+.dhara-albums .dhara-alb-input:focus,
+.dhara-albums .dhara-alb-field .input-field:focus,
+.dhara-albums .dhara-alb-form .input-field:focus {
+  outline: none;
+  border-color: var(--alb-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18), 0 0 16px rgba(255, 212, 90, 0.18);
+}
+
+.dhara-alb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3.25rem;
+  min-width: 3.25rem;
+  padding: 0.62rem 1.15rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.28);
+  background: rgba(10, 4, 8, 0.42);
+  color: #fffdf8;
+  font-size: 1.12rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.dhara-alb-btn svg {
+  width: 1.55rem;
+  height: 1.55rem;
+  stroke-width: 2.4;
+}
+
+.dhara-alb-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(255, 212, 90, 0.55);
+  box-shadow: 0 0 18px rgba(255, 212, 90, 0.28);
+}
+
+.dhara-alb-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.dhara-alb-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dhara-alb-btn.is-gold {
+  background: linear-gradient(135deg, #9f1239, #c9a227);
+  border-color: rgba(255, 212, 90, 0.55);
+  box-shadow: 0 0 18px rgba(255, 212, 90, 0.3);
+}
+
+.dhara-alb-btn.is-cyan {
+  border-color: rgba(34, 211, 238, 0.45);
+  color: #a5f3fc;
+}
+
+.dhara-alb-btn.is-danger {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fecaca;
+}
+
+.dhara-alb-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1.05rem;
+}
+
+.dhara-alb-flash {
+  padding: 0.9rem 1.05rem;
+  border-radius: 0.9rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.dhara-alb-flash.is-ok {
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+  color: #bbf7d0;
+}
+
+.dhara-alb-flash.is-bad {
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
+.dhara-alb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.dhara-alb-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 18rem;
+  padding: 0;
+  border-radius: 1.1rem;
+  overflow: hidden;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.dhara-alb-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 212, 90, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 22px rgba(255, 212, 90, 0.2);
+}
+
+.dhara-alb-cover {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 6.4rem;
+  padding: 1rem 1.05rem 0.9rem;
+  overflow: hidden;
+  background:
+    radial-gradient(180px 90px at 16% 20%, rgba(255, 212, 90, 0.18), transparent 70%),
+    linear-gradient(180deg, rgba(20, 8, 12, 0.12), rgba(6, 2, 4, 0.55));
+}
+
+.dhara-alb-cover.is-premium {
+  background:
+    radial-gradient(180px 90px at 16% 20%, rgba(34, 211, 238, 0.18), transparent 70%),
+    linear-gradient(180deg, rgba(8, 16, 22, 0.16), rgba(6, 2, 4, 0.55));
+}
+
+.dhara-alb-cover.is-luxury {
+  background:
+    radial-gradient(180px 90px at 16% 20%, rgba(192, 132, 252, 0.2), transparent 70%),
+    linear-gradient(180deg, rgba(16, 8, 24, 0.16), rgba(6, 2, 4, 0.55));
+}
+
+.dhara-alb-cover.is-royal {
+  background:
+    radial-gradient(180px 90px at 16% 20%, rgba(255, 212, 90, 0.28), transparent 70%),
+    linear-gradient(180deg, rgba(40, 12, 16, 0.2), rgba(6, 2, 4, 0.55));
+}
+
+.dhara-alb-mark {
+  display: grid;
+  place-items: center;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 212, 90, 0.45);
+  background: rgba(10, 4, 8, 0.5);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #ffe08a;
+  box-shadow: 0 0 14px rgba(255, 212, 90, 0.22);
+}
+
+.dhara-alb-cover-copy {
+  min-width: 0;
+}
+
+.dhara-alb-cover-copy p {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-alb-cover-copy h3 {
+  margin: 0.2rem 0 0;
+  font-size: 1.22rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #fffdf8;
+}
+
+.dhara-alb-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.9rem 1rem 1rem;
+}
+
+.dhara-alb-card-client {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff1c9;
+}
+
+.dhara-alb-card-meta {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  color: #f8f4ea;
+}
+
+.dhara-alb-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.dhara-alb-chip,
+.dhara-alb-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.32rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fffdf8;
+}
+
+.dhara-alb-chip.is-standard { border-color: rgba(226, 232, 240, 0.45); color: #e2e8f0; }
+.dhara-alb-chip.is-premium { border-color: rgba(34, 211, 238, 0.5); color: #a5f3fc; }
+.dhara-alb-chip.is-luxury { border-color: rgba(192, 132, 252, 0.5); color: #e9d5ff; }
+.dhara-alb-chip.is-royal { border-color: rgba(255, 212, 90, 0.55); color: #ffd45a; }
+
+.dhara-alb-status.is-pending { border-color: rgba(148, 163, 184, 0.5); color: #e2e8f0; }
+.dhara-alb-status.is-designing { border-color: rgba(56, 189, 248, 0.5); color: #7dd3fc; }
+.dhara-alb-status.is-printing { border-color: rgba(255, 154, 60, 0.55); color: #fdba74; }
+.dhara-alb-status.is-ready { border-color: rgba(74, 222, 128, 0.5); color: #86efac; }
+.dhara-alb-status.is-delivered { border-color: rgba(255, 212, 90, 0.55); color: #ffd45a; }
+.dhara-alb-status.is-cancelled { border-color: rgba(248, 113, 113, 0.55); color: #fecaca; }
+
+.dhara-alb-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+}
+
+.dhara-alb-card-actions .dhara-alb-btn {
+  min-height: 2.9rem;
+  font-size: 1.02rem;
+}
+
+.dhara-alb-skeleton {
+  min-height: 18rem;
+  border-radius: 1.1rem;
+  animation: dhara-alb-pulse 1.4s ease-in-out infinite;
+}
+
+.dhara-alb-empty,
+.dhara-alb-error {
+  min-height: 18rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 2rem 1.4rem;
+  border-radius: 1.15rem;
+  text-align: center;
+}
+
+.dhara-alb-empty svg,
+.dhara-alb-error svg {
+  width: 3.6rem;
+  height: 3.6rem;
+  color: #ffd45a;
+}
+
+.dhara-alb-error svg {
+  color: #fecaca;
+}
+
+.dhara-alb-empty p,
+.dhara-alb-error p {
+  margin: 0;
+  font-size: 1.16rem;
+  font-weight: 700;
+  color: #fff1c9;
+}
+
+.dhara-alb-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.dhara-alb-pager span {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff1c9;
+}
+
+.dhara-alb-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.74);
+}
+
+.dhara-alb-modal.is-archive {
+  z-index: 60;
+}
+
+.dhara-alb-modal-card {
+  width: 100%;
+  max-width: 42rem;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 1.4rem 1.45rem;
+  border-radius: 1.15rem;
+}
+
+.dhara-alb-icon.is-warn {
+  --kpi: #fecaca;
+  --glow: rgba(248, 113, 113, 0.35);
+}
+
+.dhara-alb-modal-card.is-wide {
+  max-width: 76rem;
+  height: min(96vh, 58rem);
+  max-height: 96vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.dhara-alb-modal-card h2,
+.dhara-alb-dialog h2 {
+  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #ffe08a;
+}
+
+.dhara-alb-modal-sub {
+  margin: 0.35rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: #fff1c9;
+}
+
+.dhara-alb-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.15rem 1.35rem;
+  border-bottom: 1px solid rgba(255, 212, 90, 0.16);
+}
+
+.dhara-alb-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.dhara-alb-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.15rem 1.3rem 1.35rem;
+}
+
+.dhara-alb-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.dhara-alb-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .dhara-alb-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dhara-alb-span-2 {
+    grid-column: span 2;
+  }
+}
+
+.dhara-alb-form label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #fff1c9;
+}
+
+.dhara-alb-error-text {
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fecaca;
+}
+
+.dhara-alb-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: #ffe7b8;
+}
+
+.dhara-alb-booking-preview {
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.2);
+  background: rgba(8, 3, 6, 0.35);
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: #fff1c9;
+}
+
+.dhara-alb-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 212, 90, 0.16);
+}
+
+.dhara-alb-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff1c9;
+  cursor: pointer;
+}
+
+.dhara-alb-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.dhara-alb-stat {
+  padding: 0.95rem 1rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 212, 90, 0.2);
+  background: rgba(8, 3, 6, 0.32);
+}
+
+.dhara-alb-stat span {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-alb-stat strong {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 1.28rem;
+  font-weight: 800;
+  color: #fffdf8;
+}
+
+.dhara-alb-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.65rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.dhara-alb-facts p {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 650;
+  color: #ffe7b8;
+}
+
+.dhara-alb-facts b {
+  color: #fffdf8;
+  font-weight: 800;
+}
+
+.dhara-alb-notes {
+  margin-bottom: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(255, 212, 90, 0.18);
+  background: rgba(8, 3, 6, 0.28);
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: #fff1c9;
+  white-space: pre-wrap;
+}
+
+.dhara-alb-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0 0 1.1rem;
+}
+
+.dhara-alb-flow-step {
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff1c9;
+  opacity: 0.55;
+}
+
+.dhara-alb-flow-step.is-current {
+  opacity: 1;
+  border-color: rgba(255, 212, 90, 0.55);
+  color: #ffd45a;
+  box-shadow: 0 0 12px rgba(255, 212, 90, 0.22);
+}
+
+.dhara-alb-flow-step.is-done {
+  opacity: 1;
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #86efac;
+}
+
+.dhara-alb-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.dhara-alb-section-head h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fffdf8;
+}
+
+.dhara-alb-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.7rem;
+}
+
+.dhara-alb-photo {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 212, 90, 0.22);
+  background: rgba(8, 3, 6, 0.4);
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.dhara-alb-photo.is-on {
+  border-color: rgba(255, 212, 90, 0.7);
+  box-shadow: 0 0 0 1px rgba(255, 212, 90, 0.35);
+}
+
+.dhara-alb-photo:disabled {
+  cursor: default;
+}
+
+.dhara-alb-check {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  background: #ffd45a;
+  color: #5b1024;
+}
+
+.dhara-alb-photo-name {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0.45rem 0.5rem;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.82));
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fffdf8;
+}
+
+.dhara-alb-dialog {
+  width: 100%;
+  max-width: 28rem;
+  padding: 1.3rem 1.35rem;
+  border-radius: 1.15rem;
+}
+
+.dhara-alb-dialog p {
+  margin: 0.45rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: #fff1c9;
+}
+
+@keyframes dhara-alb-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes dhara-alb-drift {
+  from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; }
+  to { background-position: 0 0, 0 0, 0 0, 0 0, 30px 30px; }
+}
+
+@keyframes dhara-alb-pulse {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 0.42; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dhara-albums *,
+  .dhara-albums *::before,
+  .dhara-albums *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

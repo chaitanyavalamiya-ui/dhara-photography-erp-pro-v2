@@ -50,6 +50,7 @@ export function GalleryDetailModal({
   );
   const [photoPage, setPhotoPage] = useState(1);
   const [loadedPhotos, setLoadedPhotos] = useState<GalleryPhoto[]>([]);
+  const [dragOver, setDragOver] = useState(false);
 
   const photosQuery = useQuery({
     queryKey: ['galleries', gallery?.id, 'photos', photoPage],
@@ -196,10 +197,10 @@ export function GalleryDetailModal({
 
   if (!gallery) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-        <div className="card w-full max-w-md text-center">
-          <p className="text-sm text-gray-400">Loading gallery...</p>
-          <button type="button" className="btn-secondary mt-4" onClick={onClose}>
+      <div className="dhara-gal-modal">
+        <div className="dhara-gal-modal-card text-center">
+          <p className="dhara-gal-modal-sub">Loading gallery...</p>
+          <button type="button" className="dhara-gal-btn mt-4" onClick={onClose}>
             Close
           </button>
         </div>
@@ -219,21 +220,22 @@ export function GalleryDetailModal({
   const isUploading = uploadItems.some((item) => item.status === 'uploading' || item.status === 'pending');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-card">
-        <div className="flex items-start justify-between gap-4 border-b border-surface-border px-6 py-4">
+    <div className="dhara-gal-modal is-detail">
+      <div className="dhara-gal-modal-card is-wide" style={{ maxHeight: '96vh' }}>
+        <div className="dhara-gal-modal-head">
           <div>
-            <p className="text-xs uppercase tracking-wider text-gray-500">{gallery.bookingNumber}</p>
-            <h2 className="font-display text-xl font-semibold text-gold">{gallery.name}</h2>
-            <p className="text-sm text-gray-400">
+            <p>{gallery.bookingNumber}</p>
+            <h2>{gallery.name}</h2>
+            <p className="dhara-gal-modal-sub">
               {gallery.clientName} · {gallery.eventType} · {totalPhotos} photos
             </p>
             {canUpdate && (
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <label className="text-xs text-gray-400">
+              <div className="dhara-gal-settings">
+                <label>
                   Status
                   <select
-                    className="input-field ml-2 w-40 py-1 text-sm"
+                    className="input-field"
+                    style={{ marginLeft: '0.5rem', width: '11rem' }}
                     value={gallery.status}
                     disabled={updateMutation.isPending}
                     onChange={(event) =>
@@ -249,7 +251,7 @@ export function GalleryDetailModal({
                     ))}
                   </select>
                 </label>
-                <label className="flex items-center gap-2 text-xs text-gray-300">
+                <label>
                   <input
                     type="checkbox"
                     checked={gallery.allowClientDownload}
@@ -279,51 +281,68 @@ export function GalleryDetailModal({
                 />
                 <button
                   type="button"
-                  className="btn-primary px-3 py-1.5 text-xs"
+                  className="dhara-gal-btn is-gold"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="mr-1.5 inline h-3.5 w-3.5" />
+                  <Upload strokeWidth={2.4} absoluteStrokeWidth />
                   Upload Photos
                 </button>
               </>
             )}
             {canArchive && onArchive && (
-              <button type="button" className="btn-secondary px-3 py-1.5 text-xs text-red-400" onClick={onArchive}>
+              <button type="button" className="dhara-gal-btn is-danger" onClick={onArchive}>
                 Archive
               </button>
             )}
-            <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
-              <X className="h-5 w-5" />
+            <button type="button" onClick={onClose} className="dhara-gal-icon-btn" aria-label="Close">
+              <X strokeWidth={2.4} absoluteStrokeWidth />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="dhara-gal-modal-body">
           {feedback && (
-            <div
-              className={cn(
-                'mb-4 rounded-lg border px-4 py-3 text-sm',
-                feedback.type === 'success'
-                  ? 'border-green-500/30 bg-green-500/10 text-green-400'
-                  : 'border-red-500/30 bg-red-500/10 text-red-400',
-              )}
-            >
+            <div className={cn('dhara-gal-flash', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
               {feedback.message}
             </div>
           )}
 
+          {canUpdate && (
+            <div
+              className={cn('dhara-gal-drop', dragOver && 'is-over')}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setDragOver(true);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragOver(false);
+                handleFiles(event.dataTransfer.files);
+              }}
+            >
+              <Upload strokeWidth={2.4} absoluteStrokeWidth />
+              <p>Drop photos here or use Upload Photos</p>
+              <small>JPEG, PNG, WebP or GIF · real upload progress shown below</small>
+            </div>
+          )}
+
           {uploadItems.length > 0 && (
-            <div className="mb-4 space-y-2 rounded-lg border border-surface-border bg-surface-elevated p-3">
-              <p className="text-xs uppercase tracking-wider text-gray-500">
+            <div className="dhara-gal-upload-list">
+              <p className="dhara-gal-kicker" style={{ fontSize: '0.82rem' }}>
                 {isUploading ? 'Uploading originals…' : 'Upload status'}
               </p>
               {uploadItems.map((item) => (
-                <div key={item.id} className="rounded-md border border-surface-border px-3 py-2">
+                <div key={item.id} className="dhara-gal-upload-item">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-xs text-gray-200">{item.file.name}</p>
+                    <p className="truncate font-bold text-[#fffdf8]">{item.file.name}</p>
                     <span
                       className={cn(
-                        'shrink-0 text-[10px] uppercase tracking-wide',
+                        'shrink-0 text-[0.78rem] uppercase tracking-wide',
                         item.status === 'uploaded' && 'text-green-400',
                         item.status === 'failed' && 'text-red-400',
                         item.status === 'uploading' && 'text-gold',
@@ -334,19 +353,20 @@ export function GalleryDetailModal({
                     </span>
                   </div>
                   {item.status === 'uploading' && (
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-card">
-                      <div className="h-full bg-gold transition-all" style={{ width: `${item.progress}%` }} />
+                    <div className="dhara-gal-progress">
+                      <span style={{ width: `${item.progress}%` }} />
                     </div>
                   )}
                   {item.status === 'failed' && (
                     <div className="mt-1 flex items-start justify-between gap-2">
-                      <p className="text-[11px] text-red-400">{item.error ?? 'Upload failed.'}</p>
+                      <p className="dhara-gal-hint">{item.error ?? 'Upload failed.'}</p>
                       <button
                         type="button"
-                        className="shrink-0 text-[11px] text-gold hover:underline"
+                        className="dhara-gal-btn"
+                        style={{ minHeight: '2.4rem', padding: '0.3rem 0.7rem' }}
                         onClick={() => retryFailedUpload(item.id)}
                       >
-                        <RotateCcw className="mr-1 inline h-3 w-3" />
+                        <RotateCcw strokeWidth={2.4} absoluteStrokeWidth />
                         Retry
                       </button>
                     </div>
@@ -357,62 +377,57 @@ export function GalleryDetailModal({
           )}
 
           {photosQuery.isError ? (
-            <div className="rounded-lg border border-red-500/30 p-4 text-sm text-red-400">
-              {getApiErrorMessage(photosQuery.error, 'Failed to load photos.')}
+            <div className="dhara-gal-error">
+              <p>{getApiErrorMessage(photosQuery.error, 'Failed to load photos.')}</p>
             </div>
           ) : photosQuery.isLoading && photos.length === 0 ? (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <div className="dhara-gal-photos">
               {Array.from({ length: 8 }).map((_, index) => (
-                <div key={index} className="aspect-square animate-pulse rounded-lg bg-surface-elevated" />
+                <div key={index} className="dhara-gal-thumb dhara-gal-skeleton" style={{ minHeight: '9.5rem' }} />
               ))}
             </div>
           ) : photos.length === 0 ? (
-            <div className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-surface-border text-center">
-              <ImagePlus className="h-12 w-12 text-gray-600" />
-              <p className="mt-3 text-sm text-gray-400">No photos yet. Upload images to start this gallery.</p>
+            <div className="dhara-gal-empty" style={{ minHeight: '14rem' }}>
+              <ImagePlus strokeWidth={2.4} absoluteStrokeWidth />
+              <p>No photos yet. Upload images to start this gallery.</p>
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              <div className="dhara-gal-photos">
                 {photos.map((photo, index) => (
-                  <div
-                    key={photo.id}
-                    className="group relative overflow-hidden rounded-lg border border-surface-border bg-surface-elevated"
-                  >
+                  <div key={photo.id} className="dhara-gal-thumb">
                     <GalleryPhotoImage
                       galleryId={gallery.id}
                       photoId={photo.id}
                       alt={photo.originalName}
                       variant="thumbnail"
-                      className="aspect-square w-full cursor-pointer"
+                      className="dhara-gal-thumb-media aspect-square w-full cursor-pointer"
                       onClick={() => setLightboxIndex(index)}
                     />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 transition group-hover:opacity-100">
-                      <p className="truncate text-xs text-gray-200">{photo.originalName}</p>
-                      <div className="mt-1 flex gap-1">
+                    <div className="dhara-gal-thumb-bar">
+                      <p>{photo.originalName}</p>
+                      <div className="dhara-gal-thumb-actions">
                         <button
                           type="button"
-                          className="rounded bg-black/40 p-1 text-gray-200 hover:text-gold"
+                          className="dhara-gal-icon-btn"
                           onClick={() => setLightboxIndex(index)}
+                          aria-label="View photo"
                         >
-                          <ZoomIn className="h-3.5 w-3.5" />
+                          <ZoomIn strokeWidth={2.4} absoluteStrokeWidth />
                         </button>
                         {canUpdate && (
                           <button
                             type="button"
-                            className="rounded bg-black/40 p-1 text-gray-200 hover:text-red-400"
+                            className="dhara-gal-icon-btn is-danger"
                             onClick={() => deleteMutation.mutate(photo.id)}
+                            aria-label="Delete photo"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 strokeWidth={2.4} absoluteStrokeWidth />
                           </button>
                         )}
                       </div>
                     </div>
-                    {photo.clientSelected && (
-                      <span className="absolute left-2 top-2 rounded bg-gold/90 px-1.5 py-0.5 text-[10px] font-semibold text-maroon-dark">
-                        Selected
-                      </span>
-                    )}
+                    {photo.clientSelected && <span className="dhara-gal-selected">Selected</span>}
                   </div>
                 ))}
               </div>
@@ -420,7 +435,7 @@ export function GalleryDetailModal({
                 <div className="mt-4 flex justify-center">
                   <button
                     type="button"
-                    className="btn-secondary text-xs"
+                    className="dhara-gal-btn is-cyan"
                     disabled={photosQuery.isFetching}
                     onClick={() => setPhotoPage((page) => page + 1)}
                   >

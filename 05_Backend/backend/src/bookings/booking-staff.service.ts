@@ -69,7 +69,8 @@ export class BookingStaffService {
     const agreedRate = dto.agreedRate ?? Number(staffMember.defaultRate);
     const assignmentDate = parseOptionalDate(dto.assignmentDate) ?? booking.eventDate;
 
-    let assignment = await this.prisma.bookingStaff.create({
+    // Agreed rate is assigned cost / payable only. Cash expense is created when a staff payment is marked paid.
+    const assignment = await this.prisma.bookingStaff.create({
       data: {
         bookingId,
         staffId: dto.staffId,
@@ -84,40 +85,6 @@ export class BookingStaffService {
         staff: { select: { id: true, staffCode: true, fullName: true } },
       },
     });
-
-    if (dto.syncExpense !== false && agreedRate > 0) {
-      const expenseId = await this.expenseSync.syncAssignmentExpense(
-        companyId,
-        userId,
-        {
-          id: assignment.id,
-          companyId: booking.companyId,
-          branchId: booking.branchId,
-          clientId: booking.clientId,
-          bookingId: booking.id,
-          bookingNumber: booking.bookingNumber,
-          staffId: staffMember.id,
-          staffName: staffMember.fullName,
-          role,
-          roleLabel: getStaffRoleLabel(role),
-          agreedRate: assignment.agreedRate,
-          expenseId: null,
-          assignmentDate,
-        },
-        ipAddress,
-        userAgent,
-      );
-
-      if (expenseId) {
-        assignment = await this.prisma.bookingStaff.update({
-          where: { id: assignment.id },
-          data: { expenseId },
-          include: {
-            staff: { select: { id: true, staffCode: true, fullName: true } },
-          },
-        });
-      }
-    }
 
     await this.auditService.log({
       companyId,
@@ -153,7 +120,7 @@ export class BookingStaffService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<BookingStaffMemberDto> {
-    const booking = await this.assertBooking(companyId, bookingId);
+    await this.assertBooking(companyId, bookingId);
 
     const assignment = await this.prisma.bookingStaff.findFirst({
       where: { id: assignmentId, bookingId, archivedAt: null },
@@ -166,7 +133,6 @@ export class BookingStaffService {
       throw new NotFoundException('Staff assignment not found.');
     }
 
-    let staffMember = assignment.staff;
     if (dto.staffId && dto.staffId !== assignment.staffId) {
       const replacement = await this.prisma.staff.findFirst({
         where: { id: dto.staffId, companyId, archivedAt: null, isActive: true },
@@ -175,8 +141,6 @@ export class BookingStaffService {
       if (!replacement) {
         throw new NotFoundException('Staff member not found.');
       }
-
-      staffMember = replacement;
     }
 
     const role = dto.role ? assertStaffRole(dto.role) : assignment.role;
@@ -204,7 +168,7 @@ export class BookingStaffService {
         ? parseOptionalDate(dto.assignmentDate)
         : assignment.assignmentDate;
 
-    let updated = await this.prisma.bookingStaff.update({
+    const updated = await this.prisma.bookingStaff.update({
       where: { id: assignmentId },
       data: {
         ...(dto.staffId ? { staffId: dto.staffId } : {}),
@@ -220,40 +184,6 @@ export class BookingStaffService {
         staff: { select: { id: true, staffCode: true, fullName: true } },
       },
     });
-
-    if (dto.syncExpense !== false) {
-      const expenseId = await this.expenseSync.syncAssignmentExpense(
-        companyId,
-        userId,
-        {
-          id: updated.id,
-          companyId: booking.companyId,
-          branchId: booking.branchId,
-          clientId: booking.clientId,
-          bookingId: booking.id,
-          bookingNumber: booking.bookingNumber,
-          staffId: updated.staffId,
-          staffName: staffMember.fullName,
-          role: updated.role,
-          roleLabel: getStaffRoleLabel(updated.role),
-          agreedRate: updated.agreedRate,
-          expenseId: updated.expenseId,
-          assignmentDate: updated.assignmentDate,
-        },
-        ipAddress,
-        userAgent,
-      );
-
-      if (expenseId !== updated.expenseId) {
-        updated = await this.prisma.bookingStaff.update({
-          where: { id: assignmentId },
-          data: { expenseId },
-          include: {
-            staff: { select: { id: true, staffCode: true, fullName: true } },
-          },
-        });
-      }
-    }
 
     await this.auditService.log({
       companyId,
@@ -291,27 +221,40 @@ export class BookingStaffService {
       throw new NotFoundException('Staff assignment not found.');
     }
 
-    await this.expenseSync.archiveLinkedExpense(
-      companyId,
-      userId,
-      {
-        id: assignment.id,
-        companyId: booking.companyId,
-        branchId: booking.branchId,
-        clientId: booking.clientId,
-        bookingId: booking.id,
-        bookingNumber: booking.bookingNumber,
-        staffId: assignment.staffId,
-        staffName: assignment.staff.fullName,
-        role: assignment.role,
-        roleLabel: getStaffRoleLabel(assignment.role),
-        agreedRate: assignment.agreedRate,
-        expenseId: assignment.expenseId,
-        assignmentDate: assignment.assignmentDate,
-      },
-      ipAddress,
-      userAgent,
-    );
+    const claimedByPayment = assignment.expenseId
+      ? await this.prisma.bookingStaffPayment.findFirst({
+          where: {
+            companyId,
+            expenseId: assignment.expenseId,
+            archivedAt: null,
+            isActive: true,
+          },
+        })
+      : null;
+
+    if (assignment.expenseId && !claimedByPayment) {
+      await this.expenseSync.archiveLinkedExpense(
+        companyId,
+        userId,
+        {
+          id: assignment.id,
+          companyId: booking.companyId,
+          branchId: booking.branchId,
+          clientId: booking.clientId,
+          bookingId: booking.id,
+          bookingNumber: booking.bookingNumber,
+          staffId: assignment.staffId,
+          staffName: assignment.staff.fullName,
+          role: assignment.role,
+          roleLabel: getStaffRoleLabel(assignment.role),
+          agreedRate: assignment.agreedRate,
+          expenseId: assignment.expenseId,
+          assignmentDate: assignment.assignmentDate,
+        },
+        ipAddress,
+        userAgent,
+      );
+    }
 
     await this.prisma.bookingStaff.update({
       where: { id: assignmentId },

@@ -1,3 +1,10 @@
+/**
+ * FINAL LOCKED LOGIN PAGE — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
+ *
+ * Keep these tests aligned with the locked Login Page. Do not change expected
+ * copy, layout markers, or login behavior unless the user explicitly requests
+ * a specific Login Page change.
+ */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -40,27 +47,41 @@ function axiosError(status: number, data: Record<string, unknown>) {
 }
 
 async function submitLogin() {
-  fireEvent.change(screen.getByLabelText('Studio code'), {
+  fireEvent.change(screen.getByLabelText('સ્ટુડિયો કોડ'), {
     target: { value: 'DHARA-PATAN' },
   });
-  fireEvent.change(screen.getByLabelText('Email'), {
+  fireEvent.change(screen.getByLabelText('ઈમેઈલ'), {
     target: { value: 'admin@example.com' },
   });
-  fireEvent.change(screen.getByLabelText('Password'), {
+  fireEvent.change(screen.getByLabelText('પાસવર્ડ'), {
     target: { value: 'CurrentPass1' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+  fireEvent.click(screen.getByRole('button', { name: 'સાઇન ઇન કરો' }));
 }
 
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     useAuthStore.setState({
       user: null,
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
     });
+  });
+
+  it('renders a single Gujarati premium login layout', () => {
+    renderLogin();
+    expect(screen.getByRole('heading', { name: /ધારા/ })).toBeInTheDocument();
+    expect(screen.getByText('સ્વાગત છે')).toBeInTheDocument();
+    expect(screen.getByText('ERP PRO')).toBeInTheDocument();
+    expect(screen.queryByText('PHOTOGRAPHY')).not.toBeInTheDocument();
+    expect(screen.getByText('સાઇન ઇન કરો')).toBeInTheDocument();
+    expect(screen.queryByText('Welcome back')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Manage your studio/)).not.toBeInTheDocument();
+    expect(document.querySelectorAll('form')).toHaveLength(1);
+    expect(document.querySelector('.dhara-login')).toBeInTheDocument();
   });
 
   it('shows a generic invalid-credentials message', async () => {

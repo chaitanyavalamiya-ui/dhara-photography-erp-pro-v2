@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { X } from 'lucide-react';
 import { Client, ClientFormData } from '@/services/clients-service';
 import { ClientFormValues, clientFormSchema } from '@/utils/client-form';
+import '@/pages/clients/clients-page.css';
 
 interface ClientFormModalProps {
   open: boolean;
@@ -55,14 +56,14 @@ export function ClientFormModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-2xl overflow-y-auto">
+    <div className="dhara-clients-modal">
+      <div className="dhara-clients-modal-card">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">
+            <h2>
               {mode === 'create' ? 'Add Client' : 'Edit Client'}
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm" style={{ color: '#ffe7b8' }}>
               {mode === 'create'
                 ? 'Create a new studio client record.'
                 : 'Update client contact and profile details.'}
@@ -173,10 +174,10 @@ export function ClientFormModal({
           </div>
 
           <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+            <button type="button" className="dhara-clients-ghost" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" data-robo-target="save-client" disabled={isSubmitting}>
+            <button type="submit" className="dhara-clients-add" data-robo-target="save-client" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : mode === 'create' ? 'Add Client' : 'Save Changes'}
             </button>
           </div>

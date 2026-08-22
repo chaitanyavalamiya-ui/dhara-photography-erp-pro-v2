@@ -18,6 +18,13 @@ describe('http-security', () => {
     expect(isCorsOriginAllowed(undefined, allowed)).toBe(true);
     expect(isCorsOriginAllowed('http://localhost:5173', allowed)).toBe(true);
     expect(isCorsOriginAllowed('https://evil.example', allowed)).toBe(false);
+    expect(isCorsOriginAllowed('http://192.168.1.2:5173', allowed)).toBe(false);
+    expect(
+      isCorsOriginAllowed('http://192.168.1.2:5173', allowed, { allowLocalNetwork: true }),
+    ).toBe(true);
+    expect(
+      isCorsOriginAllowed('https://evil.example', allowed, { allowLocalNetwork: true }),
+    ).toBe(false);
   });
 
   it('keeps Helmet compatible with cross-origin authenticated image fetches', () => {

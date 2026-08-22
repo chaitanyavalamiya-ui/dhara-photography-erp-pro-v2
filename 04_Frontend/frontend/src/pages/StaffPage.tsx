@@ -1,6 +1,23 @@
-import { useState } from 'react';
+import { useState, type ComponentType, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Pencil, Plus, Search, Trash2, UserCog } from 'lucide-react';
+import {
+  Camera,
+  Car,
+  CheckCircle2,
+  Eye,
+  Film,
+  Image,
+  Pencil,
+  Plane,
+  Plus,
+  Search,
+  Tags,
+  Trash2,
+  UserCog,
+  Users,
+  UserX,
+  Video,
+} from 'lucide-react';
 import {
   StaffDetail,
   StaffFormData,
@@ -12,11 +29,62 @@ import { useAuthStore } from '@/stores/auth-store';
 import { StaffFormModal } from '@/components/staff/StaffFormModal';
 import { StaffViewModal } from '@/components/staff/StaffViewModal';
 import { ArchiveStaffDialog } from '@/components/staff/ArchiveStaffDialog';
+import { StaffCountUp } from '@/components/staff/StaffCountUp';
+import {
+  staffInitials,
+  staffRoleGlyph,
+  staffRoleTone,
+  staffStatusTone,
+  type StaffRoleGlyph,
+} from '@/components/staff/staff-visual';
 import { formatDate, formatStaffPayment, STAFF_ROLES } from '@/utils/staff-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
+import './staff/staff-page.css';
 
 type StatusFilter = 'active' | 'inactive' | 'all';
+
+function StaffHeroArt() {
+  return (
+    <svg viewBox="0 0 240 190" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="stfHeroGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ffe08a" />
+          <stop offset="100%" stopColor="#c9a227" />
+        </linearGradient>
+        <linearGradient id="stfHeroCyan" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#67e8f9" />
+          <stop offset="100%" stopColor="#22d3ee" />
+        </linearGradient>
+      </defs>
+      <circle cx="128" cy="96" r="78" stroke="url(#stfHeroGold)" strokeOpacity="0.2" />
+      <circle cx="128" cy="96" r="56" stroke="url(#stfHeroGold)" strokeOpacity="0.42" strokeWidth="1.5" />
+      <circle cx="92" cy="88" r="18" stroke="url(#stfHeroGold)" strokeWidth="2" />
+      <path d="M68 128 C72 108 112 108 116 128" stroke="url(#stfHeroGold)" strokeWidth="2" />
+      <circle cx="148" cy="82" r="16" stroke="url(#stfHeroCyan)" strokeWidth="2" />
+      <path d="M126 120 C130 102 166 102 170 120" stroke="url(#stfHeroCyan)" strokeWidth="2" />
+      <rect x="168" y="118" width="28" height="20" rx="5" stroke="url(#stfHeroGold)" strokeWidth="1.8" />
+      <circle cx="182" cy="128" r="5" stroke="url(#stfHeroCyan)" />
+    </svg>
+  );
+}
+
+function RoleIcon({ kind }: { kind: StaffRoleGlyph }) {
+  const icons: Record<StaffRoleGlyph, ComponentType> = {
+    photographer: Camera,
+    videographer: Video,
+    cinematographer: Film,
+    editor: Film,
+    drone: Plane,
+    helper: Users,
+    album: Image,
+    assistant: UserCog,
+    driver: Car,
+    other: Users,
+  };
+  const Icon = icons[kind];
+  return <Icon />;
+}
 
 export function StaffPage() {
   const queryClient = useQueryClient();
@@ -55,6 +123,27 @@ export function StaffPage() {
         sortBy,
         sortOrder,
       }),
+  });
+
+  const countKey = ['staff', 'counts', search, roleFilter] as const;
+  const countBase = {
+    page: 1,
+    limit: 1,
+    search: search || undefined,
+    role: roleFilter || undefined,
+  };
+
+  const allCountQuery = useQuery({
+    queryKey: [...countKey, 'all'],
+    queryFn: () => staffService.list({ ...countBase, status: 'all' }),
+  });
+  const activeCountQuery = useQuery({
+    queryKey: [...countKey, 'active'],
+    queryFn: () => staffService.list({ ...countBase, status: 'active' }),
+  });
+  const inactiveCountQuery = useQuery({
+    queryKey: [...countKey, 'inactive'],
+    queryFn: () => staffService.list({ ...countBase, status: 'inactive' }),
   });
 
   const detailQuery = useQuery({
@@ -116,20 +205,10 @@ export function StaffPage() {
   const staffMembers = listQuery.data?.items ?? [];
   const totalPages = listQuery.data?.totalPages ?? 1;
 
-  const handleSearchSubmit = (event: React.FormEvent) => {
+  const handleSearchSubmit = (event: FormEvent) => {
     event.preventDefault();
     setPage(1);
     setSearch(searchInput.trim());
-  };
-
-  const toggleSort = (field: StaffSortField) => {
-    setPage(1);
-    if (sortBy === field) {
-      setSortOrder((current) => (current === 'asc' ? 'desc' : 'asc'));
-      return;
-    }
-    setSortBy(field);
-    setSortOrder('asc');
   };
 
   const openCreate = () => {
@@ -156,50 +235,163 @@ export function StaffPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-gray-100">Staff</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage photographers, editors, assistants, and booking team assignments.
-          </p>
-        </div>
-        {canCreate && (
-          <button type="button" className="btn-primary" onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Staff
-          </button>
-        )}
+    <>
+    <div className="dhara-stf">
+      <div className="dhara-stf-ambient" aria-hidden>
+        <span className="dhara-stf-orb is-maroon" />
+        <span className="dhara-stf-orb is-gold" />
+        <span className="dhara-stf-orb is-cyan" />
+        <span className="dhara-stf-grid-bg" />
       </div>
 
-      {feedback && (
-        <div
-          className={cn(
-            'rounded-lg border px-4 py-3 text-sm',
-            feedback.type === 'success'
-              ? 'border-green-500/30 bg-green-500/10 text-green-400'
-              : 'border-red-500/30 bg-red-500/10 text-red-400',
+      <section className="dhara-stf-hero">
+        <span className="dhara-stf-lens" aria-hidden />
+        <span className="dhara-stf-particles" aria-hidden />
+        <div>
+          <p className="dhara-stf-kicker">DHARA PHOTOGRAPHY ERP PRO</p>
+          <h2>Staff Management</h2>
+          <p className="dhara-stf-hero-copy">સ્ટાફ — ફોટોગ્રાફર અને પ્રોડક્શન ટીમ</p>
+          {canCreate && (
+            <div className="dhara-stf-hero-actions">
+              <button type="button" className="dhara-stf-btn is-gold" onClick={openCreate}>
+                <Plus />
+                Add Staff
+              </button>
+            </div>
           )}
-        >
+        </div>
+        <div className="dhara-stf-hero-art">
+          <span className="dhara-stf-hero-halo" aria-hidden />
+          <StaffHeroArt />
+        </div>
+      </section>
+
+      {feedback && (
+        <div className={cn('dhara-stf-flash', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
           {feedback.message}
         </div>
       )}
 
-      <div className="card">
-        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <form onSubmit={handleSearchSubmit} className="relative w-full lg:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+      <div className="dhara-stf-kpis">
+        <article className="dhara-stf-kpi is-gold">
+          <div className="dhara-stf-kpi-top">
+            <div>
+              <h3>Total Staff</h3>
+              <p>All team members</p>
+            </div>
+            <span className="dhara-stf-icon">
+              <Users />
+            </span>
+          </div>
+          <strong>
+            <StaffCountUp value={allCountQuery.data?.total ?? 0} />
+          </strong>
+        </article>
+        <article className="dhara-stf-kpi is-green">
+          <div className="dhara-stf-kpi-top">
+            <div>
+              <h3>Active Staff</h3>
+              <p>Available for assignments</p>
+            </div>
+            <span className="dhara-stf-icon">
+              <CheckCircle2 />
+            </span>
+          </div>
+          <strong>
+            <StaffCountUp value={activeCountQuery.data?.total ?? 0} />
+          </strong>
+        </article>
+        <article className="dhara-stf-kpi is-amber">
+          <div className="dhara-stf-kpi-top">
+            <div>
+              <h3>Inactive Staff</h3>
+              <p>Archived / disabled</p>
+            </div>
+            <span className="dhara-stf-icon">
+              <UserX />
+            </span>
+          </div>
+          <strong>
+            <StaffCountUp value={inactiveCountQuery.data?.total ?? 0} />
+          </strong>
+        </article>
+        <article className="dhara-stf-kpi is-cyan">
+          <div className="dhara-stf-kpi-top">
+            <div>
+              <h3>Designations</h3>
+              <p>Role catalog</p>
+            </div>
+            <span className="dhara-stf-icon">
+              <Tags />
+            </span>
+          </div>
+          <strong>
+            <StaffCountUp value={STAFF_ROLES.length} />
+          </strong>
+        </article>
+      </div>
+
+      <section className="dhara-stf-panel">
+        <p className="dhara-stf-section-title">Roles</p>
+        <div className="dhara-stf-cats">
+          <button
+            type="button"
+            className={cn('dhara-stf-cat-tile', !roleFilter && 'is-on')}
+            onClick={() => {
+              setRoleFilter('');
+              setPage(1);
+            }}
+          >
+            <span className="dhara-stf-icon">
+              <Users />
+            </span>
+            <span>
+              <strong>All Roles</strong>
+              <em>{listQuery.data?.total ?? staffMembers.length} in this list</em>
+            </span>
+          </button>
+          {STAFF_ROLES.map((role) => (
+            <button
+              key={role.code}
+              type="button"
+              className={cn(
+                'dhara-stf-cat-tile',
+                staffRoleTone(role.code),
+                roleFilter === role.code && 'is-on',
+              )}
+              onClick={() => {
+                setRoleFilter(role.code);
+                setPage(1);
+              }}
+            >
+              <span className="dhara-stf-icon">
+                <RoleIcon kind={staffRoleGlyph(role.code)} />
+              </span>
+              <span>
+                <strong>{role.label}</strong>
+                <em>{role.code}</em>
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="dhara-stf-panel">
+        <form className="dhara-stf-toolbar-row" onSubmit={handleSearchSubmit}>
+          <div className="dhara-stf-input-wrap" style={{ flex: '1 1 18rem' }}>
+            <Search />
             <input
-              className="input-field pl-10"
+              className="dhara-stf-input is-icon"
               placeholder="Search by name, code, mobile, or email"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
             />
-          </form>
-
-          <div className="flex flex-wrap items-center gap-3">
+          </div>
+          <div className="dhara-stf-field">
+            <label htmlFor="staff-status-filter">Status</label>
             <select
-              className="input-field w-auto"
+              id="staff-status-filter"
+              className="dhara-stf-input"
               value={statusFilter}
               onChange={(event) => {
                 setPage(1);
@@ -210,9 +402,12 @@ export function StaffPage() {
               <option value="inactive">Inactive</option>
               <option value="all">All</option>
             </select>
-
+          </div>
+          <div className="dhara-stf-field">
+            <label htmlFor="staff-role-filter">Role</label>
             <select
-              className="input-field w-auto"
+              id="staff-role-filter"
+              className="dhara-stf-input"
               value={roleFilter}
               onChange={(event) => {
                 setPage(1);
@@ -227,148 +422,152 @@ export function StaffPage() {
               ))}
             </select>
           </div>
-        </div>
-
-        <div className="overflow-x-auto rounded-lg border border-surface-border">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-surface-elevated text-xs uppercase tracking-wider text-gray-500">
-              <tr>
-                <th className="px-4 py-3">
-                  <button type="button" onClick={() => toggleSort('staffCode')}>
-                    Staff Code
-                  </button>
-                </th>
-                <th className="px-4 py-3">
-                  <button type="button" onClick={() => toggleSort('fullName')}>
-                    Name
-                  </button>
-                </th>
-                <th className="px-4 py-3">
-                  <button type="button" onClick={() => toggleSort('role')}>
-                    Role
-                  </button>
-                </th>
-                <th className="px-4 py-3">
-                  <button type="button" onClick={() => toggleSort('mobile')}>
-                    Mobile
-                  </button>
-                </th>
-                <th className="px-4 py-3">
-                  <button type="button" onClick={() => toggleSort('joiningDate')}>
-                    Joining Date
-                  </button>
-                </th>
-                <th className="px-4 py-3">Payment / Rate</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                    Loading staff...
-                  </td>
-                </tr>
-              ) : listQuery.isError ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-red-400">
-                    Failed to load staff members.
-                  </td>
-                </tr>
-              ) : staffMembers.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                    <UserCog className="mx-auto mb-2 h-8 w-8 text-gray-600" />
-                    No staff members found.
-                  </td>
-                </tr>
-              ) : (
-                staffMembers.map((member) => (
-                  <tr key={member.id} className="border-t border-surface-border">
-                    <td className="px-4 py-3 font-medium text-gold">{member.staffCode}</td>
-                    <td className="px-4 py-3 text-gray-100">{member.fullName}</td>
-                    <td className="px-4 py-3 text-gray-300">{member.roleLabel}</td>
-                    <td className="px-4 py-3 text-gray-300">{member.mobile || '—'}</td>
-                    <td className="px-4 py-3 text-gray-300">{formatDate(member.joiningDate)}</td>
-                    <td className="px-4 py-3 text-gray-300">{formatStaffPayment(member)}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          'rounded-full px-2.5 py-1 text-xs font-medium',
-                          member.isActive
-                            ? 'bg-green-500/10 text-green-400'
-                            : 'bg-gray-500/10 text-gray-400',
-                        )}
-                      >
-                        {member.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          type="button"
-                          className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-                          onClick={() => setViewStaffId(member.id)}
-                          aria-label="View staff"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        {canUpdate && (
-                          <button
-                            type="button"
-                            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-                            onClick={() => openEdit(member)}
-                            aria-label="Edit staff"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                        )}
-                        {canArchive && (
-                          <button
-                            type="button"
-                            className="rounded-lg p-2 text-gray-400 transition hover:bg-red-400/10 hover:text-red-400"
-                            onClick={() => setArchiveStaff(member)}
-                            aria-label="Archive staff"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-between text-sm text-gray-400">
-            <p>
-              Page {page} of {totalPages}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={page <= 1}
-                onClick={() => setPage((current) => current - 1)}
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={page >= totalPages}
-                onClick={() => setPage((current) => current + 1)}
-              >
-                Next
-              </button>
-            </div>
+          <div className="dhara-stf-field">
+            <label htmlFor="staff-sort">Sort</label>
+            <select
+              id="staff-sort"
+              className="dhara-stf-input"
+              value={`${sortBy}:${sortOrder}`}
+              onChange={(event) => {
+                const [field, order] = event.target.value.split(':') as [StaffSortField, 'asc' | 'desc'];
+                setPage(1);
+                setSortBy(field);
+                setSortOrder(order);
+              }}
+            >
+              <option value="createdAt:desc">Newest</option>
+              <option value="createdAt:asc">Oldest</option>
+              <option value="fullName:asc">Name A–Z</option>
+              <option value="fullName:desc">Name Z–A</option>
+              <option value="staffCode:asc">Code</option>
+              <option value="role:asc">Role</option>
+              <option value="mobile:asc">Mobile</option>
+              <option value="joiningDate:desc">Joining date</option>
+            </select>
           </div>
-        )}
-      </div>
+          <button type="submit" className="dhara-stf-btn is-gold">
+            Search
+          </button>
+        </form>
+      </section>
+
+      {listQuery.isLoading ? (
+        <>
+          <p className="dhara-stf-note">Loading staff...</p>
+          <div className="dhara-stf-grid">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="dhara-stf-skeleton" style={{ minHeight: '16rem' }} />
+            ))}
+          </div>
+        </>
+      ) : listQuery.isError ? (
+        <div className="dhara-stf-error">
+          <UserCog />
+          <p>{getApiErrorMessage(listQuery.error, 'Failed to load staff members.')}</p>
+          <button type="button" className="dhara-stf-btn is-gold" onClick={() => void listQuery.refetch()}>
+            Retry
+          </button>
+        </div>
+      ) : staffMembers.length === 0 ? (
+        <div className="dhara-stf-empty">
+          <Users />
+          <h3>No staff members found.</h3>
+          {canCreate && (
+            <button type="button" className="dhara-stf-btn is-gold" onClick={openCreate}>
+              <Plus />
+              Add Staff
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="dhara-stf-grid">
+            {staffMembers.map((member) => (
+              <article key={member.id} className={cn('dhara-stf-gear', staffRoleTone(member.role))}>
+                <div className="dhara-stf-gear-top">
+                  <span className={cn('dhara-stf-gear-art', staffRoleTone(member.role))}>
+                    <span className="dhara-stf-avatar">{staffInitials(member.fullName)}</span>
+                  </span>
+                  <span className={cn('dhara-stf-pill', staffStatusTone(member.isActive))}>
+                    {member.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div>
+                  <h3>{member.fullName}</h3>
+                  <p className="dhara-stf-gear-meta">
+                    {member.staffCode} · {member.roleLabel}
+                  </p>
+                  <p className="dhara-stf-gear-meta">{member.mobile || '—'}</p>
+                  <p className="dhara-stf-gear-meta">{formatStaffPayment(member)}</p>
+                  <p className="dhara-stf-gear-meta">
+                    Joined {formatDate(member.joiningDate)} · {member.totalAssignments} assignments
+                  </p>
+                </div>
+                <div className="dhara-stf-gear-actions">
+                  <button
+                    type="button"
+                    className="dhara-stf-btn"
+                    onClick={() => setViewStaffId(member.id)}
+                    aria-label="View staff"
+                  >
+                    <Eye />
+                    View
+                  </button>
+                  {canUpdate && (
+                    <button
+                      type="button"
+                      className="dhara-stf-btn"
+                      onClick={() => openEdit(member)}
+                      aria-label="Edit staff"
+                    >
+                      <Pencil />
+                      Edit
+                    </button>
+                  )}
+                  {canArchive && (
+                    <button
+                      type="button"
+                      className="dhara-stf-btn"
+                      onClick={() => setArchiveStaff(member)}
+                      aria-label="Archive staff"
+                    >
+                      <Trash2 />
+                      Archive
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <div className="mt-2 flex items-center justify-between">
+              <p className="dhara-stf-note" style={{ margin: 0 }}>
+                Page {page} of {totalPages}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="dhara-stf-btn"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => current - 1)}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="dhara-stf-btn"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+    </div>
 
       <StaffFormModal
         open={formOpen}
@@ -400,6 +599,6 @@ export function StaffPage() {
         onClose={() => setArchiveStaff(null)}
         onConfirm={() => archiveStaff && archiveMutation.mutate(archiveStaff.id)}
       />
-    </div>
+    </>
   );
 }

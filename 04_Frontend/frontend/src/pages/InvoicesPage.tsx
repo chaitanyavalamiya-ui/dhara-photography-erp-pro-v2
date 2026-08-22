@@ -1,6 +1,19 @@
+/**
+ * LOCKED APPROVED BASELINE:
+ * Do not modify this Invoice module without an explicit user request.
+ */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, FileText, Pencil, Plus, Search } from 'lucide-react';
+import {
+  AlertCircle,
+  Eye,
+  FileText,
+  IndianRupee,
+  Pencil,
+  Plus,
+  Search,
+  Wallet,
+} from 'lucide-react';
 import { INVOICE_STATUS_OPTIONS, Invoice, invoicesService } from '@/services/invoices-service';
 import { Payment, paymentsService } from '@/services/payments-service';
 import { useAuthStore } from '@/stores/auth-store';
@@ -9,10 +22,12 @@ import { PaymentReceiptModal } from '@/components/accounts/PaymentReceiptModal';
 import { GenerateInvoiceModal } from '@/components/invoices/GenerateInvoiceModal';
 import { InvoiceViewModal } from '@/components/invoices/InvoiceViewModal';
 import { EditInvoiceModal } from '@/components/invoices/EditInvoiceModal';
+import { invoiceStatusTone } from '@/components/invoices/invoice-visual';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
-import { getInvoiceStatusClass, getInvoiceStatusLabel } from '@/utils/invoice';
+import { getInvoiceStatusLabel } from '@/utils/invoice';
 import { cn } from '@/utils/cn';
+import './invoices/invoices-page.css';
 
 export function InvoicesPage() {
   const queryClient = useQueryClient();
@@ -147,189 +162,233 @@ export function InvoicesPage() {
   };
 
   const displayedInvoice = viewQuery.data ?? null;
+  const pageItems = listQuery.data?.items ?? [];
+  const pageInvoiced = pageItems.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
+  const pagePaid = pageItems.reduce((sum, invoice) => sum + invoice.advanceAmount, 0);
+  const pagePending = pageItems.reduce((sum, invoice) => sum + invoice.balanceAmount, 0);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="dhara-inv">
+      <section className="dhara-inv-hero">
         <div>
-          <h2 className="font-display text-2xl font-bold text-gray-100">Invoices</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Generate and manage studio invoices from bookings.
+          <p className="dhara-inv-kicker">DHARA PHOTOGRAPHY ERP PRO</p>
+          <h2>Invoice Management</h2>
+          <p className="dhara-inv-hero-copy">
+            સ્ટુડિયોના બિલ, ચુકવણી અને બાકી રકમનું રાજસી અને સ્પષ્ટ વ્યવસ્થાપન.
           </p>
         </div>
-        {canCreate && (
-          <button type="button" className="btn-primary" data-robo-target="add-invoice" onClick={() => setGenerateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Generate Invoice
-          </button>
-        )}
+        <div className="dhara-inv-hero-art" aria-hidden>
+          <svg viewBox="0 0 120 120" fill="none">
+            <rect x="28" y="18" width="64" height="84" rx="10" stroke="#ffd45a" strokeWidth="2.4" />
+            <path d="M40 38h40" stroke="#ffe7b8" strokeWidth="2.1" strokeLinecap="round" />
+            <path d="M40 52h28" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" />
+            <path d="M40 66h34" stroke="#ff4ec8" strokeWidth="2" strokeLinecap="round" />
+            <rect x="40" y="80" width="22" height="10" rx="3" fill="rgba(255,212,90,0.28)" stroke="#ffd45a" />
+          </svg>
+        </div>
+      </section>
+
+      <div className="dhara-inv-kpis">
+        <article className="dhara-inv-kpi is-gold">
+          <div className="dhara-inv-kpi-top">
+            <h3>Invoice Count</h3>
+            <span className="dhara-inv-icon">
+              <FileText strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : listQuery.data?.total ?? 0}</strong>
+        </article>
+        <article className="dhara-inv-kpi is-cyan">
+          <div className="dhara-inv-kpi-top">
+            <h3>Invoiced On This Page</h3>
+            <span className="dhara-inv-icon">
+              <IndianRupee strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : formatCurrency(pageInvoiced)}</strong>
+        </article>
+        <article className="dhara-inv-kpi is-green">
+          <div className="dhara-inv-kpi-top">
+            <h3>Paid On This Page</h3>
+            <span className="dhara-inv-icon">
+              <Wallet strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : formatCurrency(pagePaid)}</strong>
+        </article>
+        <article className="dhara-inv-kpi is-amber">
+          <div className="dhara-inv-kpi-top">
+            <h3>Pending On This Page</h3>
+            <span className="dhara-inv-icon">
+              <IndianRupee strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : formatCurrency(pagePending)}</strong>
+        </article>
       </div>
 
       {feedback && (
-        <div
-          className={cn(
-            'rounded-lg border px-4 py-3 text-sm',
-            feedback.type === 'success'
-              ? 'border-green-500/30 bg-green-500/10 text-green-400'
-              : 'border-red-500/30 bg-red-500/10 text-red-400',
-          )}
-        >
+        <div className={cn('dhara-inv-flash', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
           {feedback.message}
         </div>
       )}
 
-      <div className="card border-gold/20">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gold/15">
-              <FileText className="h-5 w-5 text-gold" />
-            </div>
-            <div>
-              <h3 className="font-display text-lg font-semibold text-gold">Invoice Register</h3>
-              <p className="text-sm text-gray-500">
-                {listQuery.data?.total ?? 0} invoice{(listQuery.data?.total ?? 0) === 1 ? '' : 's'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <form onSubmit={handleSearch} className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-              <input
-                className="input-field w-full pl-10 sm:w-64"
-                placeholder="Invoice, booking, client..."
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-              />
-            </form>
-            <select
-              className="input-field w-full sm:w-40"
-              value={statusFilter}
-              onChange={(event) => {
-                setStatusFilter(event.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="all">All statuses</option>
-              {INVOICE_STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+      <form className="dhara-inv-panel dhara-inv-toolbar" onSubmit={handleSearch}>
+        <div className="dhara-inv-field is-search">
+          <label htmlFor="invoice-search">Search</label>
+          <div className="dhara-inv-input-wrap">
+            <Search aria-hidden />
             <input
-              type="date"
-              className="input-field w-full sm:w-40"
-              value={dateFrom}
-              onChange={(event) => {
-                setDateFrom(event.target.value);
-                setPage(1);
-              }}
-            />
-            <input
-              type="date"
-              className="input-field w-full sm:w-40"
-              value={dateTo}
-              onChange={(event) => {
-                setDateTo(event.target.value);
-                setPage(1);
-              }}
+              id="invoice-search"
+              className="dhara-inv-input is-icon"
+              placeholder="Invoice, booking, client..."
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
             />
           </div>
         </div>
+        <div className="dhara-inv-field">
+          <label htmlFor="invoice-status">Status</label>
+          <select
+            id="invoice-status"
+            className="input-field"
+            value={statusFilter}
+            onChange={(event) => {
+              setStatusFilter(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="all">All statuses</option>
+            {INVOICE_STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="dhara-inv-field">
+          <label htmlFor="invoice-date-from">From</label>
+          <input
+            id="invoice-date-from"
+            type="date"
+            className="input-field"
+            value={dateFrom}
+            onChange={(event) => {
+              setDateFrom(event.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div className="dhara-inv-field">
+          <label htmlFor="invoice-date-to">To</label>
+          <input
+            id="invoice-date-to"
+            type="date"
+            className="input-field"
+            value={dateTo}
+            onChange={(event) => {
+              setDateTo(event.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <button type="submit" className="dhara-inv-btn is-cyan">
+          Search
+        </button>
+        {canCreate && (
+          <button
+            type="button"
+            className="dhara-inv-btn is-gold"
+            data-robo-target="add-invoice"
+            onClick={() => setGenerateOpen(true)}
+          >
+            <Plus strokeWidth={2.5} absoluteStrokeWidth />
+            Generate Invoice
+          </button>
+        )}
+      </form>
 
+      <section className="dhara-inv-panel dhara-inv-register">
         {listQuery.isLoading ? (
-          <div className="flex min-h-48 items-center justify-center text-gray-500">
-            Loading invoices...
+          <div className="dhara-inv-empty">
+            <p>Loading invoices...</p>
           </div>
         ) : listQuery.isError ? (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-8 text-center text-red-400">
-            Failed to load invoices.
+          <div className="dhara-inv-error">
+            <AlertCircle strokeWidth={2.4} absoluteStrokeWidth />
+            <p>Failed to load invoices.</p>
+            <button type="button" className="dhara-inv-btn is-cyan" onClick={() => void listQuery.refetch()}>
+              Retry
+            </button>
           </div>
-        ) : (listQuery.data?.items.length ?? 0) === 0 ? (
-          <div className="rounded-lg border border-dashed border-surface-border px-6 py-12 text-center">
-            <FileText className="mx-auto h-10 w-10 text-gray-600" />
-            <p className="mt-3 text-sm text-gray-400">No invoices found.</p>
+        ) : pageItems.length === 0 ? (
+          <div className="dhara-inv-empty">
+            <FileText strokeWidth={2.4} absoluteStrokeWidth />
+            <p>No invoices found.</p>
             {canCreate && (
-              <button
-                type="button"
-                className="btn-primary mt-4"
-                onClick={() => setGenerateOpen(true)}
-              >
+              <button type="button" className="dhara-inv-btn is-gold" onClick={() => setGenerateOpen(true)}>
                 Generate from Booking
               </button>
             )}
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
+            <div className="dhara-inv-table-wrap">
+              <table className="dhara-inv-table">
                 <thead>
-                  <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-                    <th className="px-3 py-3 font-medium">Invoice #</th>
-                    <th className="px-3 py-3 font-medium">Invoice Date</th>
-                    <th className="px-3 py-3 font-medium">Booking #</th>
-                    <th className="px-3 py-3 font-medium">Client</th>
-                    <th className="px-3 py-3 font-medium">Total</th>
-                    <th className="px-3 py-3 font-medium">Paid</th>
-                    <th className="px-3 py-3 font-medium">Balance</th>
-                    <th className="px-3 py-3 font-medium">Status</th>
-                    <th className="px-3 py-3 font-medium">Actions</th>
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Invoice Date</th>
+                    <th>Booking #</th>
+                    <th>Client</th>
+                    <th>Total</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {listQuery.data?.items.map((invoice) => (
-                    <tr
-                      key={invoice.id}
-                      className="border-b border-surface-border/70 transition hover:bg-white/[0.02]"
-                    >
-                      <td className="px-3 py-4 font-medium text-gold">{invoice.invoiceNumber}</td>
-                      <td className="px-3 py-4 text-gray-400">{formatDate(invoice.invoiceDate)}</td>
-                      <td className="px-3 py-4 text-gray-300">{invoice.bookingNumber}</td>
-                      <td className="px-3 py-4">
-                        <p className="text-gray-100">{invoice.clientName}</p>
-                        <p className="text-xs text-gray-500">{invoice.clientMobile}</p>
+                  {pageItems.map((invoice) => (
+                    <tr key={invoice.id}>
+                      <td className="dhara-inv-number">{invoice.invoiceNumber}</td>
+                      <td>{formatDate(invoice.invoiceDate)}</td>
+                      <td>{invoice.bookingNumber}</td>
+                      <td>
+                        <p className="dhara-inv-client">{invoice.clientName}</p>
+                        <p className="dhara-inv-client-sub">{invoice.clientMobile}</p>
                       </td>
-                      <td className="px-3 py-4 font-medium text-gray-100">
-                        {formatCurrency(invoice.totalAmount)}
-                      </td>
-                      <td className="px-3 py-4 text-gray-300">
-                        {formatCurrency(invoice.advanceAmount)}
-                      </td>
-                      <td className="px-3 py-4 font-semibold text-gold">
-                        {formatCurrency(invoice.balanceAmount)}
-                      </td>
-                      <td className="px-3 py-4">
-                        <span
-                          className={cn(
-                            'rounded-full px-2.5 py-1 text-xs font-medium',
-                            getInvoiceStatusClass(invoice.status),
-                          )}
-                        >
+                      <td className="dhara-inv-money">{formatCurrency(invoice.totalAmount)}</td>
+                      <td className="dhara-inv-money is-paid">{formatCurrency(invoice.advanceAmount)}</td>
+                      <td className="dhara-inv-money is-due">{formatCurrency(invoice.balanceAmount)}</td>
+                      <td>
+                        <span className={cn('dhara-inv-status', invoiceStatusTone(invoice.status))}>
                           {getInvoiceStatusLabel(invoice.status)}
                         </span>
                       </td>
-                      <td className="px-3 py-4">
-                        <div className="flex gap-1">
+                      <td>
+                        <div className="dhara-inv-actions">
                           <button
                             type="button"
-                            className="rounded-lg border border-surface-border p-1.5 text-gray-400 transition hover:border-gold/40 hover:text-gold"
+                            className="dhara-inv-icon-btn"
                             title="View"
+                            aria-label="View"
                             onClick={() => setViewInvoiceId(invoice.id)}
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye strokeWidth={2.4} absoluteStrokeWidth />
                           </button>
                           {canUpdate && (
                             <button
                               type="button"
-                              className="rounded-lg border border-surface-border p-1.5 text-gray-400 transition hover:border-gold/40 hover:text-gold"
+                              className="dhara-inv-icon-btn"
                               title="Edit"
+                              aria-label="Edit invoice"
                               onClick={async () => {
                                 const full = await invoicesService.getById(invoice.id);
                                 setEditInvoice(full);
                               }}
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil strokeWidth={2.4} absoluteStrokeWidth />
                             </button>
                           )}
                         </div>
@@ -341,14 +400,14 @@ export function InvoicesPage() {
             </div>
 
             {(listQuery.data?.totalPages ?? 1) > 1 && (
-              <div className="mt-6 flex items-center justify-between border-t border-surface-border pt-4">
-                <p className="text-sm text-gray-500">
+              <div className="dhara-inv-pager">
+                <span>
                   Page {listQuery.data?.page} of {listQuery.data?.totalPages}
-                </p>
+                </span>
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="btn-secondary px-3 py-1.5 text-xs"
+                    className="dhara-inv-btn"
                     disabled={page <= 1}
                     onClick={() => setPage((p) => p - 1)}
                   >
@@ -356,7 +415,7 @@ export function InvoicesPage() {
                   </button>
                   <button
                     type="button"
-                    className="btn-secondary px-3 py-1.5 text-xs"
+                    className="dhara-inv-btn"
                     disabled={page >= (listQuery.data?.totalPages ?? 1)}
                     onClick={() => setPage((p) => p + 1)}
                   >
@@ -367,7 +426,7 @@ export function InvoicesPage() {
             )}
           </>
         )}
-      </div>
+      </section>
 
       <GenerateInvoiceModal
         open={generateOpen}

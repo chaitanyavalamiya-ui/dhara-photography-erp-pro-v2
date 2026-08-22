@@ -1,9 +1,22 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpDown, Eye, Pencil, Plus, Receipt, Search, Trash2, Wallet } from 'lucide-react';
+import {
+  ArrowUpDown,
+  Eye,
+  Hash,
+  Pencil,
+  Plus,
+  Receipt,
+  Search,
+  Trash2,
+  TrendingDown,
+  Wallet,
+} from 'lucide-react';
 import { AddExpenseModal, ExpenseFormValues } from '@/components/accounts/AddExpenseModal';
 import { ArchiveExpenseDialog } from '@/components/accounts/ArchiveExpenseDialog';
 import { ExpenseViewModal } from '@/components/accounts/ExpenseViewModal';
+import { AccountsCountUp } from '@/components/accounts/AccountsCountUp';
+import { expenseCategoryTone } from '@/components/expenses/expense-visual';
 import { useMasterDataOptions } from '@/hooks/use-master-data-options';
 import {
   Expense,
@@ -17,8 +30,38 @@ import { useAuthStore } from '@/stores/auth-store';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { formatCurrency } from '@/utils/booking-form';
 import { cn } from '@/utils/cn';
+import { invalidateAfterAccountsExpense } from '@/utils/invalidate-financial-queries';
+import './expenses/expenses-page.css';
 
 type ExpenseSortField = 'expenseDate' | 'amount' | 'createdAt';
+
+function ExpensesHeroArt() {
+  return (
+    <svg viewBox="0 0 220 180" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="expHeroGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ffe08a" />
+          <stop offset="100%" stopColor="#ff9a3c" />
+        </linearGradient>
+      </defs>
+      <circle cx="118" cy="92" r="78" stroke="url(#expHeroGold)" strokeOpacity="0.2" />
+      <circle cx="118" cy="92" r="56" stroke="url(#expHeroGold)" strokeOpacity="0.4" strokeWidth="1.4" />
+      <rect x="78" y="54" width="80" height="84" rx="10" stroke="url(#expHeroGold)" strokeWidth="2" />
+      <path d="M92 72h52M92 90h52M92 108h36" stroke="rgba(255,241,201,0.5)" strokeWidth="1.8" strokeLinecap="round" />
+      <text
+        x="118"
+        y="148"
+        textAnchor="middle"
+        fill="url(#expHeroGold)"
+        fontSize="28"
+        fontFamily="Cormorant Garamond, serif"
+        fontWeight="700"
+      >
+        ₹
+      </text>
+    </svg>
+  );
+}
 
 export function ExpensesPage() {
   const queryClient = useQueryClient();
@@ -51,8 +94,7 @@ export function ExpensesPage() {
   const createMutation = useMutation({
     mutationFn: expensesService.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setFormOpen(false);
       setSelectedExpense(null);
       setFeedback({ type: 'success', message: 'Expense recorded successfully.' });
@@ -69,8 +111,7 @@ export function ExpensesPage() {
     mutationFn: ({ id, payload }: { id: string; payload: ReturnType<typeof toExpensePayload> }) =>
       expensesService.update(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setFormOpen(false);
       setSelectedExpense(null);
       setViewExpense(null);
@@ -87,8 +128,7 @@ export function ExpensesPage() {
   const archiveMutation = useMutation({
     mutationFn: expensesService.archive,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setArchiveExpense(null);
       setViewExpense(null);
       setFeedback({ type: 'success', message: 'Expense archived successfully.' });
@@ -141,6 +181,24 @@ export function ExpensesPage() {
     if (!totalCount) return 0;
     return totalAmount / totalCount;
   }, [totalAmount, totalCount]);
+
+  const pageCategories = useMemo(() => {
+    const map = new Map<string, { code: string; label: string; amount: number; count: number }>();
+    for (const expense of expenses) {
+      const current = map.get(expense.categoryCode) ?? {
+        code: expense.categoryCode,
+        label: expense.categoryLabel,
+        amount: 0,
+        count: 0,
+      };
+      current.amount += expense.amount;
+      current.count += 1;
+      map.set(expense.categoryCode, current);
+    }
+    return [...map.values()].sort((a, b) => b.amount - a.amount);
+  }, [expenses]);
+
+  const pageCategoryMax = pageCategories[0]?.amount ?? 0;
 
   const handleSearchSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -198,313 +256,359 @@ export function ExpensesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-gray-100">Expenses</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Record studio costs, vendor payments, and operational expenses against the live ledger.
-          </p>
-        </div>
-        {canCreate && (
-          <button
-            type="button"
-            className="btn-primary"
-            data-robo-target="add-expense"
-            onClick={openCreate}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Expense
-          </button>
-        )}
+    <>
+    <div className="dhara-exp">
+      <div className="dhara-exp-ambient" aria-hidden>
+        <span className="dhara-exp-orb is-maroon" />
+        <span className="dhara-exp-orb is-gold" />
+        <span className="dhara-exp-orb is-cyan" />
       </div>
 
-      {feedback && (
-        <div
-          className={cn(
-            'rounded-lg border px-4 py-3 text-sm',
-            feedback.type === 'success'
-              ? 'border-green-500/30 bg-green-500/10 text-green-400'
-              : 'border-red-500/30 bg-red-500/10 text-red-400',
+      <section className="dhara-exp-hero">
+        <span className="dhara-exp-lens" aria-hidden />
+        <div>
+          <p className="dhara-exp-kicker">Dhara Photography ERP Pro</p>
+          <h2>Expenses Management</h2>
+          <p className="dhara-exp-hero-copy">ખર્ચ — સ્ટુડિયો ખર્ચ અને વેન્ડર ચુકવણીનું કમાન્ડ સેન્ટર</p>
+          {canCreate && (
+            <div className="dhara-exp-hero-actions">
+              <button
+                type="button"
+                className="dhara-exp-btn is-gold"
+                data-robo-target="add-expense"
+                onClick={openCreate}
+              >
+                <Plus />
+                Add Expense
+              </button>
+            </div>
           )}
-        >
+        </div>
+        <div className="dhara-exp-hero-art">
+          <span className="dhara-exp-hero-halo" aria-hidden />
+          <ExpensesHeroArt />
+        </div>
+      </section>
+
+      {feedback && (
+        <div className={cn('dhara-exp-flash', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
           {feedback.message}
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="card border-red-500/20 p-4">
-          <p className="text-xs uppercase tracking-wider text-gray-500">Filtered Total</p>
-          <p className="mt-1 text-xl font-bold text-red-400">{formatCurrency(totalAmount)}</p>
-        </div>
-        <div className="card border-gold/20 p-4">
-          <p className="text-xs uppercase tracking-wider text-gray-500">Entries</p>
-          <p className="mt-1 text-xl font-bold text-gold">{totalCount}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs uppercase tracking-wider text-gray-500">Average Amount</p>
-          <p className="mt-1 text-xl font-semibold text-gray-100">
-            {formatCurrency(averageAmount)}
-          </p>
-        </div>
+      <div className="dhara-exp-kpis">
+        <article className="dhara-exp-kpi is-amber">
+          <div className="dhara-exp-kpi-top">
+            <div>
+              <h3>Filtered Total</h3>
+              <p>Matching current search and filters</p>
+            </div>
+            <span className="dhara-exp-icon">
+              <TrendingDown />
+            </span>
+          </div>
+          <strong>
+            <AccountsCountUp value={totalAmount} />
+          </strong>
+        </article>
+        <article className="dhara-exp-kpi is-gold">
+          <div className="dhara-exp-kpi-top">
+            <div>
+              <h3>Entries</h3>
+              <p>Active ledger rows in this filter</p>
+            </div>
+            <span className="dhara-exp-icon">
+              <Hash />
+            </span>
+          </div>
+          <strong>{totalCount}</strong>
+        </article>
+        <article className="dhara-exp-kpi is-rose">
+          <div className="dhara-exp-kpi-top">
+            <div>
+              <h3>Average Amount</h3>
+              <p>Filtered total ÷ entry count</p>
+            </div>
+            <span className="dhara-exp-icon">
+              <Wallet />
+            </span>
+          </div>
+          <strong>
+            <AccountsCountUp value={averageAmount} />
+          </strong>
+        </article>
       </div>
 
-      <div className="card">
-        <div className="mb-5 flex flex-col gap-4">
-          <form onSubmit={handleSearchSubmit} className="relative w-full lg:max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-            <input
-              className="input-field pl-10"
-              placeholder="Search vendor, description, booking, or reference"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-            />
-          </form>
+      {expenses.length > 0 && pageCategories.length > 0 && (
+        <section className="dhara-exp-card">
+          <h3>Category mix on this page</h3>
+          <p className="dhara-exp-note" style={{ marginTop: 0, marginBottom: '1rem' }}>
+            Built only from the {expenses.length} loaded rows below — not a full-ledger chart.
+          </p>
+          <div className="dhara-exp-bars">
+            {pageCategories.map((cat) => (
+              <div key={cat.code} className="dhara-exp-bar">
+                <span>{cat.label}</span>
+                <div className="dhara-exp-bar-track">
+                  <i
+                    style={{
+                      width: `${pageCategoryMax > 0 ? Math.max(8, (cat.amount / pageCategoryMax) * 100) : 8}%`,
+                    }}
+                  />
+                </div>
+                <strong className="dhara-exp-amt is-out">
+                  {formatCurrency(cat.amount)} · {cat.count}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div>
-              <label
-                className="mb-1.5 block text-xs text-gray-500"
-                htmlFor="expense-category-filter"
-              >
-                Category
-              </label>
-              <select
-                id="expense-category-filter"
-                className="input-field"
-                value={categoryCode}
-                onChange={(event) => {
-                  setPage(1);
-                  setCategoryCode(event.target.value);
-                }}
-              >
-                <option value="">All categories</option>
-                {categoryOptions.options.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500" htmlFor="expense-method-filter">
-                Payment Method
-              </label>
-              <select
-                id="expense-method-filter"
-                className="input-field"
-                value={paymentModeCode}
-                onChange={(event) => {
-                  setPage(1);
-                  setPaymentModeCode(event.target.value);
-                }}
-              >
-                <option value="">All methods</option>
-                {paymentModeOptions.options.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500" htmlFor="expense-date-from">
-                From
-              </label>
-              <input
-                id="expense-date-from"
-                type="date"
-                className="input-field"
-                value={dateFrom}
-                onChange={(event) => {
-                  setPage(1);
-                  setDateFrom(event.target.value);
-                }}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500" htmlFor="expense-date-to">
-                To
-              </label>
-              <input
-                id="expense-date-to"
-                type="date"
-                className="input-field"
-                value={dateTo}
-                onChange={(event) => {
-                  setPage(1);
-                  setDateTo(event.target.value);
-                }}
-              />
-            </div>
+      <section className="dhara-exp-panel">
+        <form onSubmit={handleSearchSubmit} className="dhara-exp-input-wrap" style={{ maxWidth: '36rem' }}>
+          <Search />
+          <input
+            className="dhara-exp-input is-icon"
+            placeholder="Search vendor, description, booking, or reference"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+          />
+        </form>
+
+        <div className="dhara-exp-toolbar-row" style={{ marginTop: '1rem' }}>
+          <div className="dhara-exp-field">
+            <label htmlFor="expense-category-filter">Category</label>
+            <select
+              id="expense-category-filter"
+              className="dhara-exp-input"
+              value={categoryCode}
+              onChange={(event) => {
+                setPage(1);
+                setCategoryCode(event.target.value);
+              }}
+            >
+              <option value="">All categories</option>
+              {categoryOptions.options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="dhara-exp-field">
+            <label htmlFor="expense-method-filter">Payment Method</label>
+            <select
+              id="expense-method-filter"
+              className="dhara-exp-input"
+              value={paymentModeCode}
+              onChange={(event) => {
+                setPage(1);
+                setPaymentModeCode(event.target.value);
+              }}
+            >
+              <option value="">All methods</option>
+              {paymentModeOptions.options.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="dhara-exp-field">
+            <label htmlFor="expense-date-from">From</label>
+            <input
+              id="expense-date-from"
+              type="date"
+              className="dhara-exp-input"
+              value={dateFrom}
+              onChange={(event) => {
+                setPage(1);
+                setDateFrom(event.target.value);
+              }}
+            />
+          </div>
+          <div className="dhara-exp-field">
+            <label htmlFor="expense-date-to">To</label>
+            <input
+              id="expense-date-to"
+              type="date"
+              className="dhara-exp-input"
+              value={dateTo}
+              onChange={(event) => {
+                setPage(1);
+                setDateTo(event.target.value);
+              }}
+            />
           </div>
         </div>
+      </section>
 
-        {dateRangeError ? (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-8 text-center text-red-400">
-            {dateRangeError}
-          </div>
-        ) : listQuery.isLoading ? (
-          <div className="flex min-h-48 items-center justify-center text-gray-500">
-            Loading expenses...
-          </div>
-        ) : listQuery.isError ? (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-8 text-center text-red-400">
-            {getApiErrorMessage(listQuery.error, 'Failed to load expenses. Please try again.')}
-          </div>
-        ) : expenses.length === 0 ? (
-          <div className="flex min-h-48 flex-col items-center justify-center rounded-lg border border-dashed border-surface-border px-6 py-10 text-center">
-            {hasFilters ? (
-              <Search className="mb-3 h-10 w-10 text-gray-600" />
-            ) : (
-              <Wallet className="mb-3 h-10 w-10 text-gray-600" />
-            )}
-            <h3 className="font-display text-lg font-semibold text-gray-200">
-              {hasFilters ? 'No expenses match your search.' : 'No expenses yet.'}
-            </h3>
-            <p className="mt-2 max-w-md text-sm text-gray-500">
-              {hasFilters
-                ? 'Try a different vendor, category, payment method, or date range.'
-                : 'Start the studio expense ledger by recording your first cost.'}
-            </p>
-            {canCreate && !hasFilters && (
-              <button
-                type="button"
-                className="btn-primary mt-5"
-                data-robo-target="add-expense"
-                onClick={openCreate}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Expense
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-                    <th className="px-3 py-3 font-medium">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-gold"
-                        onClick={() => toggleSort('expenseDate')}
-                      >
-                        Date
-                        <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </th>
-                    <th className="px-3 py-3 font-medium">Category</th>
-                    <th className="px-3 py-3 font-medium">Vendor / Person</th>
-                    <th className="px-3 py-3 font-medium">Description</th>
-                    <th className="px-3 py-3 font-medium">Payment Method</th>
-                    <th className="px-3 py-3 font-medium">Receipt / Ref</th>
-                    <th className="px-3 py-3 font-medium">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 hover:text-gold"
-                        onClick={() => toggleSort('amount')}
-                      >
-                        Amount
-                        <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </th>
-                    <th className="px-3 py-3 text-right font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {expenses.map((expense) => (
-                    <tr
-                      key={expense.id}
-                      className="border-b border-surface-border/70 transition hover:bg-white/[0.02]"
+      {dateRangeError ? (
+        <div className="dhara-exp-error">
+          <Wallet />
+          <p>{dateRangeError}</p>
+        </div>
+      ) : listQuery.isLoading ? (
+        <div className="dhara-exp-kpis">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="dhara-exp-skeleton" />
+          ))}
+        </div>
+      ) : listQuery.isError ? (
+        <div className="dhara-exp-error">
+          <Wallet />
+          <p>{getApiErrorMessage(listQuery.error, 'Failed to load expenses. Please try again.')}</p>
+          <button type="button" className="dhara-exp-btn is-gold" onClick={() => void listQuery.refetch()}>
+            Retry
+          </button>
+        </div>
+      ) : expenses.length === 0 ? (
+        <div className="dhara-exp-empty">
+          {hasFilters ? <Search /> : <Wallet />}
+          <h3>{hasFilters ? 'No expenses match your search.' : 'No expenses yet.'}</h3>
+          <p>
+            {hasFilters
+              ? 'Try a different vendor, category, payment method, or date range.'
+              : 'Start the studio expense ledger by recording your first cost.'}
+          </p>
+          {canCreate && !hasFilters && (
+            <button
+              type="button"
+              className="dhara-exp-btn is-gold"
+              data-robo-target="add-expense"
+              onClick={openCreate}
+            >
+              <Plus />
+              Add Expense
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="dhara-exp-card">
+          <div className="dhara-exp-table-wrap">
+            <table className="dhara-exp-table">
+              <thead>
+                <tr>
+                  <th>
+                    <button
+                      type="button"
+                      className="dhara-exp-link"
+                      style={{ marginTop: 0 }}
+                      onClick={() => toggleSort('expenseDate')}
                     >
-                      <td className="px-3 py-4 text-gray-400">{expense.expenseDate}</td>
-                      <td className="px-3 py-4">
-                        <p className="text-gray-100">{expense.categoryLabel}</p>
-                        <p className="text-xs text-gray-500">
-                          {getExpenseSourceLabel(getExpenseSource(expense))}
-                        </p>
-                      </td>
-                      <td className="px-3 py-4 text-gray-300">{expense.vendorPerson || '—'}</td>
-                      <td className="px-3 py-4 text-gray-300">{expense.description || '—'}</td>
-                      <td className="px-3 py-4 text-gray-400">{expense.paymentModeLabel || '—'}</td>
-                      <td className="px-3 py-4 text-gray-400">{expense.referenceNumber || '—'}</td>
-                      <td className="px-3 py-4 font-semibold text-red-400">
-                        {formatCurrency(expense.amount)}
-                      </td>
-                      <td className="px-3 py-4">
-                        <div className="flex justify-end gap-1">
+                      Date
+                      <ArrowUpDown />
+                    </button>
+                  </th>
+                  <th>Category</th>
+                  <th>Vendor / Person</th>
+                  <th>Description</th>
+                  <th>Booking</th>
+                  <th>Payment Method</th>
+                  <th>Receipt / Ref</th>
+                  <th>
+                    <button
+                      type="button"
+                      className="dhara-exp-link"
+                      style={{ marginTop: 0 }}
+                      onClick={() => toggleSort('amount')}
+                    >
+                      Amount
+                      <ArrowUpDown />
+                    </button>
+                  </th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {expenses.map((expense) => (
+                  <tr key={expense.id}>
+                    <td>{expense.expenseDate}</td>
+                    <td>
+                      <span className={cn('dhara-exp-cat', expenseCategoryTone(expense.categoryCode))}>
+                        {expense.categoryLabel}
+                      </span>
+                      <p className="dhara-exp-source">{getExpenseSourceLabel(getExpenseSource(expense))}</p>
+                    </td>
+                    <td>{expense.vendorPerson || '—'}</td>
+                    <td>{expense.description || '—'}</td>
+                    <td>{expense.bookingNumber || '—'}</td>
+                    <td>{expense.paymentModeLabel || '—'}</td>
+                    <td>{expense.referenceNumber || '—'}</td>
+                    <td className="dhara-exp-amt is-out">{formatCurrency(expense.amount)}</td>
+                    <td>
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          className="dhara-exp-icon-btn"
+                          onClick={() => setViewExpense(expense)}
+                          aria-label="View expense"
+                        >
+                          <Eye />
+                        </button>
+                        {canUpdate && (
                           <button
                             type="button"
-                            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-                            onClick={() => setViewExpense(expense)}
-                            aria-label="View expense"
+                            className="dhara-exp-icon-btn"
+                            onClick={() => openEdit(expense)}
+                            aria-label="Edit expense"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Pencil />
                           </button>
-                          {canUpdate && (
-                            <button
-                              type="button"
-                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-                              onClick={() => openEdit(expense)}
-                              aria-label="Edit expense"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          )}
-                          {canUpdate && (
-                            <button
-                              type="button"
-                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-red-400"
-                              onClick={() => openArchive(expense)}
-                              aria-label="Archive expense"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        )}
+                        {canUpdate && (
+                          <button
+                            type="button"
+                            className="dhara-exp-icon-btn"
+                            onClick={() => openArchive(expense)}
+                            aria-label="Archive expense"
+                          >
+                            <Trash2 />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-            {totalPages > 1 && (
-              <div className="mt-5 flex items-center justify-between text-sm text-gray-400">
-                <p>
-                  Page {page} of {totalPages}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    disabled={page <= 1}
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                  >
-                    Next
-                  </button>
-                </div>
+          {totalPages > 1 && (
+            <div className="mt-5 flex items-center justify-between">
+              <p className="dhara-exp-note">
+                Page {page} of {totalPages}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="dhara-exp-btn"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="dhara-exp-btn"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                >
+                  Next
+                </button>
               </div>
-            )}
-          </>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
 
-      <p className="flex items-center gap-2 text-xs text-gray-500">
-        <Receipt className="h-3.5 w-3.5" />
+      <p className="dhara-exp-note" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <Receipt />
         Receipt files are not stored on the expense record. Use Receipt / Reference for bill or UTR
         numbers.
       </p>
+    </div>
 
       <AddExpenseModal
         open={formOpen}
@@ -540,6 +644,6 @@ export function ExpensesPage() {
           }
         }}
       />
-    </div>
+    </>
   );
 }

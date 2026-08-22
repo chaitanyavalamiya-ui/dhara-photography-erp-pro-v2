@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentType } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowDownLeft,
@@ -23,10 +23,12 @@ import { withLedgerRunningBalances } from '@/utils/running-balance';
 import { BookingProfitabilityModal } from '@/components/reports/BookingProfitabilityModal';
 import { ReportChartsSection } from '@/components/reports/ReportChartsSection';
 import { ReportExportBar } from '@/components/reports/ReportExportBar';
+import { ReportsCountUp } from '@/components/reports/ReportsCountUp';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { firstOfMonthIso, getStudioDateParts, todayIso } from '@/utils/studio-date';
 import { cn } from '@/utils/cn';
+import './reports/reports-page.css';
 
 type ReportTab =
   | 'dashboard'
@@ -38,6 +40,34 @@ type ReportTab =
   | 'staff'
   | 'monthly'
   | 'transactions';
+
+type KpiTone = 'is-gold' | 'is-green' | 'is-rose' | 'is-amber' | 'is-cyan' | 'is-purple';
+
+function ReportsHeroArt() {
+  return (
+    <svg viewBox="0 0 240 190" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="rptHeroGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ffe08a" />
+          <stop offset="100%" stopColor="#c9a227" />
+        </linearGradient>
+        <linearGradient id="rptHeroCyan" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%" stopColor="#67e8f9" />
+          <stop offset="100%" stopColor="#22d3ee" />
+        </linearGradient>
+      </defs>
+      <circle cx="132" cy="96" r="78" stroke="url(#rptHeroGold)" strokeOpacity="0.22" />
+      <circle cx="132" cy="96" r="56" stroke="url(#rptHeroGold)" strokeOpacity="0.42" strokeWidth="1.5" />
+      <path d="M58 148 L86 92 L112 118 L148 58 L176 88 L204 42" stroke="url(#rptHeroCyan)" strokeWidth="2.4" />
+      <rect x="62" y="118" width="14" height="30" rx="3" fill="#4ade80" fillOpacity="0.85" />
+      <rect x="86" y="96" width="14" height="52" rx="3" fill="#ffd45a" fillOpacity="0.9" />
+      <rect x="110" y="108" width="14" height="40" rx="3" fill="#22d3ee" fillOpacity="0.85" />
+      <rect x="134" y="72" width="14" height="76" rx="3" fill="#ffd45a" fillOpacity="0.95" />
+      <rect x="158" y="88" width="14" height="60" rx="3" fill="#c084fc" fillOpacity="0.85" />
+      <circle cx="148" cy="58" r="5" fill="#ffe08a" />
+    </svg>
+  );
+}
 
 export function ReportsPage() {
   const [tab, setTab] = useState<ReportTab>('dashboard');
@@ -209,19 +239,62 @@ export function ReportsPage() {
     (tab === 'monthly' && monthlyQuery.isLoading) ||
     (tab === 'transactions' && transactionsQuery.isLoading);
 
+  const retryActive = () => {
+    if (tab === 'dashboard') {
+      void dashboardQuery.refetch();
+      void overviewQuery.refetch();
+      void chartsQuery.refetch();
+      return;
+    }
+    if (tab === 'income') void incomeQuery.refetch();
+    if (tab === 'payments') void paymentsQuery.refetch();
+    if (tab === 'expenses') void expensesQuery.refetch();
+    if (tab === 'profit') void profitQuery.refetch();
+    if (tab === 'bookings') void bookingsQuery.refetch();
+    if (tab === 'staff') void staffQuery.refetch();
+    if (tab === 'monthly') void monthlyQuery.refetch();
+    if (tab === 'transactions') void transactionsQuery.refetch();
+  };
+
   const coreSummaryCards = dashboard
     ? [
-        { label: 'Total Invoice Value', value: dashboard.totalInvoiceValue, icon: TrendingUp, color: 'text-gold' },
-        { label: 'Total Received', value: dashboard.totalPaymentsReceived, icon: ArrowDownLeft, color: 'text-green-400' },
-        { label: 'Total Expenses', value: dashboard.totalExpenses, icon: ArrowUpRight, color: 'text-red-400' },
-        { label: 'Outstanding (period invoices)', value: dashboard.totalOutstanding, icon: Wallet, color: 'text-orange-400' },
+        {
+          label: 'Total Invoice Value',
+          value: dashboard.totalInvoiceValue,
+          icon: TrendingUp,
+          tone: 'is-gold' as KpiTone,
+        },
+        {
+          label: 'Total Received',
+          value: dashboard.totalPaymentsReceived,
+          icon: ArrowDownLeft,
+          tone: 'is-green' as KpiTone,
+        },
+        {
+          label: 'Total Expenses',
+          value: dashboard.totalExpenses,
+          icon: ArrowUpRight,
+          tone: 'is-rose' as KpiTone,
+        },
+        {
+          label: 'Outstanding (period invoices)',
+          value: dashboard.totalOutstanding,
+          icon: Wallet,
+          tone: 'is-amber' as KpiTone,
+        },
         {
           label: 'Net Profit',
           value: dashboard.netProfit,
           icon: dashboard.netProfit >= 0 ? TrendingUp : TrendingDown,
-          color: dashboard.netProfit >= 0 ? 'text-green-400' : 'text-red-400',
+          tone: (dashboard.netProfit >= 0 ? 'is-green' : 'is-rose') as KpiTone,
         },
-        { label: 'Bookings', value: dashboard.bookingsCount, icon: BookOpen, color: 'text-gold', isCount: true },
+        {
+          label: 'Bookings',
+          value: dashboard.bookingsCount,
+          icon: BookOpen,
+          tone: 'is-gold' as KpiTone,
+          isCount: true,
+        },
       ]
     : [];
 
@@ -237,33 +310,75 @@ export function ReportsPage() {
               : metric.value >= 0
                 ? TrendingUp
                 : TrendingDown,
-        color:
-          metric.key === 'albumVendorCost'
-            ? 'text-red-400'
-            : metric.key === 'albumProfit'
-              ? metric.value >= 0
-                ? 'text-green-400'
-                : 'text-red-400'
-              : 'text-gold',
+        tone: (metric.key === 'albumVendorCost'
+          ? 'is-rose'
+          : metric.key === 'albumProfit'
+            ? metric.value >= 0
+              ? 'is-green'
+              : 'is-rose'
+            : 'is-gold') as KpiTone,
       }))
     : [];
 
   const dashboardCards = dashboard
     ? [
-        { label: 'Total Invoice Value', value: dashboard.totalInvoiceValue, icon: TrendingUp, color: 'text-gold' },
-        { label: 'Payments Received', value: dashboard.totalPaymentsReceived, icon: ArrowDownLeft, color: 'text-green-400' },
-        { label: 'Outstanding (period invoices)', value: dashboard.totalOutstanding, icon: Wallet, color: 'text-orange-400' },
-        { label: 'Total Expenses', value: dashboard.totalExpenses, icon: ArrowUpRight, color: 'text-red-400' },
+        {
+          label: 'Total Invoice Value',
+          value: dashboard.totalInvoiceValue,
+          icon: TrendingUp,
+          tone: 'is-gold' as KpiTone,
+        },
+        {
+          label: 'Payments Received',
+          value: dashboard.totalPaymentsReceived,
+          icon: ArrowDownLeft,
+          tone: 'is-green' as KpiTone,
+        },
+        {
+          label: 'Outstanding (period invoices)',
+          value: dashboard.totalOutstanding,
+          icon: Wallet,
+          tone: 'is-amber' as KpiTone,
+        },
+        {
+          label: 'Total Expenses',
+          value: dashboard.totalExpenses,
+          icon: ArrowUpRight,
+          tone: 'is-rose' as KpiTone,
+        },
         {
           label: 'Net Profit / Loss',
           value: dashboard.netProfit,
           icon: dashboard.netProfit >= 0 ? TrendingUp : TrendingDown,
-          color: dashboard.netProfit >= 0 ? 'text-green-400' : 'text-red-400',
+          tone: (dashboard.netProfit >= 0 ? 'is-green' : 'is-rose') as KpiTone,
         },
-        { label: 'Bookings', value: dashboard.bookingsCount, icon: BookOpen, color: 'text-gold', isCount: true },
-        { label: 'Paid Invoices', value: dashboard.paidInvoicesCount, icon: TrendingUp, color: 'text-green-400', isCount: true },
-        { label: 'Unpaid Invoices', value: dashboard.unpaidInvoicesCount, icon: TrendingDown, color: 'text-orange-400', isCount: true },
-        { label: 'Avg Booking Value', value: dashboard.averageBookingValue, icon: BarChart3, color: 'text-gold' },
+        {
+          label: 'Bookings',
+          value: dashboard.bookingsCount,
+          icon: BookOpen,
+          tone: 'is-gold' as KpiTone,
+          isCount: true,
+        },
+        {
+          label: 'Paid Invoices',
+          value: dashboard.paidInvoicesCount,
+          icon: TrendingUp,
+          tone: 'is-green' as KpiTone,
+          isCount: true,
+        },
+        {
+          label: 'Unpaid Invoices',
+          value: dashboard.unpaidInvoicesCount,
+          icon: TrendingDown,
+          tone: 'is-amber' as KpiTone,
+          isCount: true,
+        },
+        {
+          label: 'Avg Booking Value',
+          value: dashboard.averageBookingValue,
+          icon: BarChart3,
+          tone: 'is-cyan' as KpiTone,
+        },
         ...albumOverviewCards,
       ]
     : [];
@@ -342,35 +457,45 @@ export function ReportsPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <>
+    <div className="dhara-rpt">
+      <div className="dhara-rpt-ambient" aria-hidden>
+        <span className="dhara-rpt-orb is-maroon" />
+        <span className="dhara-rpt-orb is-gold" />
+        <span className="dhara-rpt-orb is-cyan" />
+        <span className="dhara-rpt-orb is-purple" />
+        <span className="dhara-rpt-grid-bg" />
+      </div>
+
+      <section className="dhara-rpt-hero">
+        <span className="dhara-rpt-lens" aria-hidden />
+        <span className="dhara-rpt-particles" aria-hidden />
         <div>
-          <h1 className="font-display text-2xl font-semibold text-gold">Reports & BI</h1>
-          <p className="text-sm text-gray-400">
-            Business intelligence — income, expenses, profitability and trends
-          </p>
+          <p className="dhara-rpt-kicker">Dhara Photography ERP Pro</p>
+          <h2>Reports & Analytics</h2>
+          <p className="dhara-rpt-hero-copy">રિપોર્ટ — આવક, ખર્ચ અને નફો</p>
           {periodLabel && tab !== 'monthly' && (
-            <p className="mt-1 text-xs text-gray-500">
-              <CalendarRange className="mr-1 inline h-3.5 w-3.5" />
+            <p className="dhara-rpt-period">
+              <CalendarRange />
               Period: {periodLabel}
             </p>
           )}
         </div>
-      </div>
+        <div className="dhara-rpt-hero-art">
+          <span className="dhara-rpt-hero-halo" aria-hidden />
+          <ReportsHeroArt />
+        </div>
+      </section>
 
       {tab !== 'monthly' && (
-        <div className="card space-y-4">
-          <div className="flex flex-wrap gap-2">
+        <section className="dhara-rpt-panel">
+          <p className="dhara-rpt-section-title">Date range</p>
+          <div className="dhara-rpt-presets">
             {REPORT_DATE_PRESETS.map((item) => (
               <button
                 key={item.value}
                 type="button"
-                className={cn(
-                  'rounded-lg px-3 py-1.5 text-xs font-medium transition',
-                  preset === item.value
-                    ? 'bg-gold/15 text-gold ring-1 ring-gold/30'
-                    : 'bg-surface-elevated text-gray-400 hover:text-gray-200',
-                )}
+                className={cn('dhara-rpt-chip', preset === item.value && 'is-on')}
                 onClick={() => selectPreset(item.value)}
               >
                 {item.label}
@@ -379,34 +504,45 @@ export function ReportsPage() {
           </div>
 
           {preset === 'custom' && (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <label className="mb-1.5 block text-xs text-gray-500">From</label>
-                <input type="date" className="input-field" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+            <div className="dhara-rpt-toolbar-row" style={{ marginTop: '1rem' }}>
+              <div className="dhara-rpt-field">
+                <label htmlFor="reports-date-from">From</label>
+                <input
+                  id="reports-date-from"
+                  type="date"
+                  className="dhara-rpt-input"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
               </div>
-              <div>
-                <label className="mb-1.5 block text-xs text-gray-500">To</label>
-                <input type="date" className="input-field" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              <div className="dhara-rpt-field">
+                <label htmlFor="reports-date-to">To</label>
+                <input
+                  id="reports-date-to"
+                  type="date"
+                  className="dhara-rpt-input"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
               </div>
             </div>
           )}
 
-          <button type="button" className="btn-primary" onClick={() => applyFilters()}>
-            Apply Filters
-          </button>
-          {filterError && <p className="text-sm text-red-400">{filterError}</p>}
-        </div>
+          <div className="dhara-rpt-hero-actions" style={{ marginTop: '1rem' }}>
+            <button type="button" className="dhara-rpt-btn is-gold" onClick={() => applyFilters()}>
+              Apply Filters
+            </button>
+          </div>
+          {filterError && <p className="dhara-rpt-err">{filterError}</p>}
+        </section>
       )}
 
-      <div className="flex flex-wrap gap-2 border-b border-surface-border pb-1">
+      <div className="dhara-rpt-tabs">
         {tabs.map((item) => (
           <button
             key={item.id}
             type="button"
-            className={cn(
-              'rounded-t-lg px-4 py-2 text-sm font-medium transition',
-              tab === item.id ? 'bg-gold/15 text-gold' : 'text-gray-500 hover:text-gray-300',
-            )}
+            className={cn('dhara-rpt-tab', tab === item.id && 'is-on')}
             onClick={() => setTab(item.id)}
           >
             {item.label}
@@ -415,63 +551,69 @@ export function ReportsPage() {
       </div>
 
       {(tab === 'income' || tab === 'payments' || tab === 'expenses' || tab === 'transactions') && (
-        <div className="card flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-            <input
-              className="input-field pl-9"
-              placeholder="Search reports…"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
-            />
-          </div>
-          <button type="button" className="btn-secondary" onClick={() => setSearch(searchInput)}>
-            Search
-          </button>
-          {tab === 'transactions' && (
-            <div className="flex gap-2">
-              {(['all', 'income', 'expense'] as const).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  className={cn(
-                    'rounded-lg px-3 py-1.5 text-xs capitalize',
-                    txnType === type ? 'bg-gold/15 text-gold' : 'bg-surface-elevated text-gray-400',
-                  )}
-                  onClick={() => setTxnType(type)}
-                >
-                  {type}
-                </button>
-              ))}
+        <section className="dhara-rpt-panel">
+          <div className="dhara-rpt-toolbar-row">
+            <div className="dhara-rpt-input-wrap" style={{ flex: '1 1 18rem' }}>
+              <Search />
+              <input
+                className="dhara-rpt-input is-icon"
+                placeholder="Search reports…"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)}
+              />
             </div>
-          )}
-        </div>
+            <button type="button" className="dhara-rpt-btn is-gold" onClick={() => setSearch(searchInput)}>
+              Search
+            </button>
+            {tab === 'transactions' && (
+              <div className="dhara-rpt-presets">
+                {(['all', 'income', 'expense'] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    className={cn('dhara-rpt-chip', txnType === type && 'is-on')}
+                    onClick={() => setTxnType(type)}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
       {tab === 'monthly' && (
-        <div className="card flex items-center gap-3">
-          <label className="text-sm text-gray-400">Year</label>
-          <select
-            className="input-field w-32"
-            value={monthlyYear}
-            onChange={(e) => setMonthlyYear(Number(e.target.value))}
-          >
-            {Array.from({ length: 5 }).map((_, i) => {
-              const year = getStudioDateParts().year - i;
-              return (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              );
-            })}
-          </select>
-        </div>
+        <section className="dhara-rpt-panel">
+          <div className="dhara-rpt-field" style={{ maxWidth: '12rem' }}>
+            <label htmlFor="reports-year">Year</label>
+            <select
+              id="reports-year"
+              className="dhara-rpt-input"
+              value={monthlyYear}
+              onChange={(e) => setMonthlyYear(Number(e.target.value))}
+            >
+              {Array.from({ length: 5 }).map((_, i) => {
+                const year = getStudioDateParts().year - i;
+                return (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </section>
       )}
 
       {activeError && (
-        <div className="card border-red-500/30 text-red-400">
-          {getApiErrorMessage(activeError, 'Failed to load report data.')}
+        <div className="dhara-rpt-error">
+          <BarChart3 />
+          <p>{getApiErrorMessage(activeError, 'Failed to load report data.')}</p>
+          <button type="button" className="dhara-rpt-btn is-gold" onClick={retryActive}>
+            Retry
+          </button>
         </div>
       )}
 
@@ -480,9 +622,9 @@ export function ReportsPage() {
       )}
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="card h-28 animate-pulse bg-surface-elevated" />
+        <div className="dhara-rpt-kpis">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="dhara-rpt-skeleton" style={{ minHeight: '8.5rem' }} />
           ))}
         </div>
       ) : (
@@ -520,17 +662,9 @@ export function ReportsPage() {
                   ))}
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="dhara-rpt-kpis">
                 {dashboardCards.map((card) => (
-                  <div key={card.label} className="card border-gold/10 p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs uppercase tracking-wider text-gray-500">{card.label}</p>
-                      <card.icon className={cn('h-4 w-4', card.color)} />
-                    </div>
-                    <p className={cn('mt-2 font-display text-xl font-bold', card.color)}>
-                      {'isCount' in card && card.isCount ? card.value : formatCurrency(card.value as number)}
-                    </p>
-                  </div>
+                  <KpiCard key={card.label} {...card} />
                 ))}
               </div>
               <ReportChartsSection charts={chartsQuery.data} />
@@ -539,10 +673,11 @@ export function ReportsPage() {
 
           {tab === 'income' && incomeQuery.data && (
             <div id="report-export-income" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-400">
-                  Total: <span className="font-semibold text-gold">{formatCurrency(incomeQuery.data.totalAmount)}</span>
-                  {' '}({incomeQuery.data.total} payments)
+              <div className="dhara-rpt-toolbar-head">
+                <p className="dhara-rpt-note" style={{ margin: 0 }}>
+                  Total:{' '}
+                  <span className="dhara-rpt-amt is-gold">{formatCurrency(incomeQuery.data.totalAmount)}</span> (
+                  {incomeQuery.data.total} payments)
                 </p>
                 <ReportExportBar
                   reportId="report-export-income"
@@ -569,10 +704,11 @@ export function ReportsPage() {
 
           {tab === 'payments' && paymentsQuery.data && (
             <div id="report-export-payments" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-400">
-                  Total: <span className="font-semibold text-gold">{formatCurrency(paymentsQuery.data.totalAmount)}</span>
-                  {' '}({paymentsQuery.data.total} payments)
+              <div className="dhara-rpt-toolbar-head">
+                <p className="dhara-rpt-note" style={{ margin: 0 }}>
+                  Total:{' '}
+                  <span className="dhara-rpt-amt is-gold">{formatCurrency(paymentsQuery.data.totalAmount)}</span> (
+                  {paymentsQuery.data.total} payments)
                 </p>
                 <ReportExportBar
                   reportId="report-export-payments"
@@ -599,9 +735,10 @@ export function ReportsPage() {
 
           {tab === 'expenses' && expensesQuery.data && (
             <div id="report-export-expenses" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-400">
-                  Total: <span className="font-semibold text-red-400">{formatCurrency(expensesQuery.data.totalAmount)}</span>
+              <div className="dhara-rpt-toolbar-head">
+                <p className="dhara-rpt-note" style={{ margin: 0 }}>
+                  Total:{' '}
+                  <span className="dhara-rpt-amt is-out">{formatCurrency(expensesQuery.data.totalAmount)}</span>
                 </p>
                 <ReportExportBar
                   reportId="report-export-expenses"
@@ -639,28 +776,42 @@ export function ReportsPage() {
                   ['Invoice Revenue (info)', profitQuery.data.invoiceRevenue],
                 ]}
               />
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  { label: 'Cash Received', value: profitQuery.data.cashReceived, color: 'text-green-400' },
-                  { label: 'Total Expenses', value: profitQuery.data.totalExpenses, color: 'text-red-400' },
-                  {
-                    label: 'Net Profit / Loss',
-                    value: profitQuery.data.netProfit,
-                    color: profitQuery.data.netProfit >= 0 ? 'text-green-400' : 'text-red-400',
-                  },
-                  { label: 'Profit Margin', value: `${profitQuery.data.profitMarginPercent}%`, color: 'text-gold', isText: true },
-                  { label: 'Invoice Revenue (info)', value: profitQuery.data.invoiceRevenue, color: 'text-gray-400' },
-                ].map((card) => (
-                  <div key={card.label} className="card border-gold/10 p-5">
-                    <p className="text-xs uppercase tracking-wider text-gray-500">{card.label}</p>
-                    <p className={cn('mt-2 font-display text-2xl font-bold', card.color)}>
-                      {'isText' in card && card.isText ? card.value : formatCurrency(card.value as number)}
-                    </p>
-                  </div>
-                ))}
+              <div className="dhara-rpt-kpis is-3">
+                <KpiCard
+                  label="Cash Received"
+                  value={profitQuery.data.cashReceived}
+                  icon={ArrowDownLeft}
+                  tone="is-green"
+                />
+                <KpiCard
+                  label="Total Expenses"
+                  value={profitQuery.data.totalExpenses}
+                  icon={ArrowUpRight}
+                  tone="is-rose"
+                />
+                <KpiCard
+                  label="Net Profit / Loss"
+                  value={profitQuery.data.netProfit}
+                  icon={profitQuery.data.netProfit >= 0 ? TrendingUp : TrendingDown}
+                  tone={profitQuery.data.netProfit >= 0 ? 'is-green' : 'is-rose'}
+                />
+                <KpiCard
+                  label="Profit Margin"
+                  value={profitQuery.data.profitMarginPercent}
+                  icon={BarChart3}
+                  tone="is-gold"
+                  isPercent
+                />
+                <KpiCard
+                  label="Invoice Revenue (info)"
+                  value={profitQuery.data.invoiceRevenue}
+                  icon={Wallet}
+                  tone="is-cyan"
+                />
               </div>
-              <p className="text-xs text-gray-500">
-                Net Profit = Cash Received − Total Expenses. Staff payments are included in expenses (not double-counted).
+              <p className="dhara-rpt-note">
+                Net Profit = Cash Received − Total Expenses. Staff payments are included in expenses (not
+                double-counted).
               </p>
             </div>
           )}
@@ -700,10 +851,10 @@ export function ReportsPage() {
 
           {tab === 'staff' && (
             <div id="report-export-staff" className="space-y-4">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <UserCog className="h-4 w-4" />
+              <p className="dhara-rpt-note" style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <UserCog />
                 Staff costs are part of total expenses — not added separately to avoid double-counting.
-              </div>
+              </p>
               <ReportExportBar
                 reportId="report-export-staff"
                 reportTitle={`Staff-Report-${staffQuery.data?.period.dateFrom ?? 'report'}`}
@@ -729,11 +880,29 @@ export function ReportsPage() {
               <ReportExportBar
                 reportId="report-export-monthly"
                 reportTitle={`Monthly-Report-${monthlyYear}`}
-                headers={['Month', 'Bookings', 'Invoice', 'Received', 'Expenses', 'Staff Payments', 'Profit', 'Outstanding']}
+                headers={[
+                  'Month',
+                  'Bookings',
+                  'Invoice',
+                  'Received',
+                  'Expenses',
+                  'Staff Payments',
+                  'Profit',
+                  'Outstanding',
+                ]}
                 rows={monthlyRows}
               />
               <ReportTable
-                headers={['Month', 'Bookings', 'Invoice', 'Received', 'Expenses', 'Staff Payments', 'Profit', 'Outstanding']}
+                headers={[
+                  'Month',
+                  'Bookings',
+                  'Invoice',
+                  'Received',
+                  'Expenses',
+                  'Staff Payments',
+                  'Profit',
+                  'Outstanding',
+                ]}
                 rows={(monthlyQuery.data ?? []).map((row) => [
                   row.label,
                   String(row.bookingsCount),
@@ -751,21 +920,47 @@ export function ReportsPage() {
 
           {tab === 'transactions' && transactionsQuery.data && (
             <div id="report-export-transactions" className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-400">
-                  Income: <span className="text-green-400">{formatCurrency(transactionsQuery.data.totalIncome)}</span>
+              <div className="dhara-rpt-toolbar-head">
+                <p className="dhara-rpt-note" style={{ margin: 0 }}>
+                  Income:{' '}
+                  <span className="dhara-rpt-amt is-in">
+                    {formatCurrency(transactionsQuery.data.totalIncome)}
+                  </span>
                   {' · '}
-                  Expenses: <span className="text-red-400">{formatCurrency(transactionsQuery.data.totalExpense)}</span>
+                  Expenses:{' '}
+                  <span className="dhara-rpt-amt is-out">
+                    {formatCurrency(transactionsQuery.data.totalExpense)}
+                  </span>
                 </p>
                 <ReportExportBar
                   reportId="report-export-transactions"
                   reportTitle={`Transactions-${transactionsQuery.data.period.dateFrom}`}
-                  headers={['Date', 'Type', 'Description', 'Client', 'Booking', 'Method', 'Income', 'Expense', 'Balance']}
+                  headers={[
+                    'Date',
+                    'Type',
+                    'Description',
+                    'Client',
+                    'Booking',
+                    'Method',
+                    'Income',
+                    'Expense',
+                    'Balance',
+                  ]}
                   rows={txnRows}
                 />
               </div>
               <ReportTable
-                headers={['Date', 'Type', 'Description', 'Client', 'Booking', 'Method', 'Income', 'Expense', 'Balance']}
+                headers={[
+                  'Date',
+                  'Type',
+                  'Description',
+                  'Client',
+                  'Booking',
+                  'Method',
+                  'Income',
+                  'Expense',
+                  'Balance',
+                ]}
                 rows={transactionItems.map((row) => [
                   row.date,
                   row.type,
@@ -783,6 +978,7 @@ export function ReportsPage() {
           )}
         </>
       )}
+    </div>
 
       <BookingProfitabilityModal
         open={Boolean(selectedBookingId)}
@@ -790,7 +986,42 @@ export function ReportsPage() {
         loading={bookingDetailQuery.isLoading}
         onClose={() => setSelectedBookingId(null)}
       />
-    </div>
+    </>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  icon: Icon,
+  tone,
+  isCount,
+  isPercent,
+}: {
+  label: string;
+  value: number;
+  icon: ComponentType<{ className?: string }>;
+  tone: KpiTone;
+  isCount?: boolean;
+  isPercent?: boolean;
+}) {
+  return (
+    <article className={cn('dhara-rpt-kpi', tone)}>
+      <div className="dhara-rpt-kpi-top">
+        <div>
+          <h3>{label}</h3>
+        </div>
+        <span className="dhara-rpt-icon">
+          <Icon />
+        </span>
+      </div>
+      <strong>
+        <ReportsCountUp
+          value={value}
+          mode={isCount ? 'integer' : isPercent ? 'percent' : 'currency'}
+        />
+      </strong>
+    </article>
   );
 }
 
@@ -801,17 +1032,17 @@ function ReportSummaryCards({
   cards: Array<{
     label: string;
     value: number;
-    icon: typeof TrendingUp;
-    color: string;
+    icon: ComponentType<{ className?: string }>;
+    tone: KpiTone;
     isCount?: boolean;
   }>;
   loading?: boolean;
 }) {
   if (loading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="dhara-rpt-kpis is-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="card h-24 animate-pulse bg-surface-elevated" />
+          <div key={i} className="dhara-rpt-skeleton" style={{ minHeight: '8.5rem' }} />
         ))}
       </div>
     );
@@ -820,17 +1051,9 @@ function ReportSummaryCards({
   if (cards.length === 0) return null;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div className="dhara-rpt-kpis is-3">
       {cards.map((card) => (
-        <div key={card.label} className="card border-gold/10 p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-wider text-gray-500">{card.label}</p>
-            <card.icon className={cn('h-4 w-4', card.color)} />
-          </div>
-          <p className={cn('mt-2 font-display text-lg font-bold', card.color)}>
-            {card.isCount ? card.value : formatCurrency(card.value)}
-          </p>
-        </div>
+        <KpiCard key={card.label} {...card} />
       ))}
     </div>
   );
@@ -838,9 +1061,9 @@ function ReportSummaryCards({
 
 function ReportEmptyState({ message }: { message: string }) {
   return (
-    <div className="card flex min-h-48 flex-col items-center justify-center text-center">
-      <BarChart3 className="h-12 w-12 text-gray-600" />
-      <p className="mt-3 text-gray-400">{message}</p>
+    <div className="dhara-rpt-empty">
+      <BarChart3 />
+      <h3>{message}</h3>
     </div>
   );
 }
@@ -861,36 +1084,31 @@ function ReportTable({
   }
 
   return (
-    <div className="card overflow-x-auto">
-      <table className="min-w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-            {headers.map((header) => (
-              <th key={header} className="whitespace-nowrap px-3 py-3">
-                {header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, index) => (
-            <tr
-              key={index}
-              className={cn(
-                'border-b border-surface-border/60 text-gray-300',
-                onRowClick && 'cursor-pointer hover:bg-gold/5',
-              )}
-              onClick={() => onRowClick?.(index)}
-            >
-              {row.map((cell, cellIndex) => (
-                <td key={cellIndex} className="whitespace-nowrap px-3 py-3">
-                  {cell}
-                </td>
+    <div className="dhara-rpt-card">
+      <div className="dhara-rpt-table-wrap">
+        <table className="dhara-rpt-table">
+          <thead>
+            <tr>
+              {headers.map((header) => (
+                <th key={header}>{header}</th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <tr
+                key={index}
+                className={cn(onRowClick && 'cursor-pointer')}
+                onClick={() => onRowClick?.(index)}
+              >
+                {row.map((cell, cellIndex) => (
+                  <td key={cellIndex}>{cell}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { RoleDetail, RoleSummary, rolesService } from '@/services/roles-service'
 import { useAuthStore } from '@/stores/auth-store';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
+import { settingsBoxTone } from '@/components/settings/settings-visual';
 
 const GROUP_NOTES: Record<string, string> = {
   Bookings: 'Includes Calendar access.',
@@ -122,56 +123,51 @@ export function RolesPermissionsPanel({ onFeedback }: RolesPermissionsPanelProps
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <div className="card h-fit">
-        <h3 className="mb-4 font-display text-sm font-semibold uppercase tracking-wider text-gray-500">
-          Roles
-        </h3>
+    <div className="dhara-set-roles-layout">
+      <section className={cn('dhara-set-panel', settingsBoxTone(8))}>
+        <h3 className="dhara-set-section-title">Roles</h3>
         {rolesQuery.isLoading ? (
-          <div className="py-8 text-center text-sm text-gray-500">Loading roles...</div>
+          <p className="dhara-set-note">Loading roles...</p>
         ) : rolesQuery.isError ? (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-6 text-center text-sm text-red-400">
-            Failed to load roles.
+          <div className="dhara-set-error">
+            <Shield />
+            <p>Failed to load roles.</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {roles.map((role: RoleSummary) => (
+          <div className="dhara-set-role-list">
+            {roles.map((role: RoleSummary, index) => (
               <button
                 key={role.id}
                 type="button"
                 onClick={() => setSelectedRoleId(role.id)}
-                className={cn(
-                  'w-full rounded-lg border px-3 py-3 text-left transition',
-                  selectedRoleId === role.id
-                    ? 'border-gold/50 bg-gold/10'
-                    : 'border-surface-border hover:border-gold/30 hover:bg-white/[0.02]',
-                )}
+                className={cn('dhara-set-nav-btn', settingsBoxTone(index), selectedRoleId === role.id && 'is-on')}
+                style={{ width: '100%' }}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-gold/80" />
-                    <span className="font-medium text-gray-100">{role.name}</span>
-                  </div>
-                  {!role.isEditable && <Lock className="h-3.5 w-3.5 text-gray-500" />}
-                </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  {role.permissionCount} permission{role.permissionCount === 1 ? '' : 's'}
-                  {role.description ? ` · ${role.description}` : ''}
-                </p>
+                <span className="dhara-set-icon">
+                  {role.isEditable ? <Shield /> : <Lock />}
+                </span>
+                <span>
+                  <strong style={{ display: 'block' }}>{role.name}</strong>
+                  <em style={{ fontStyle: 'normal', color: '#ffe7b8', fontWeight: 700 }}>
+                    {role.permissionCount} permission{role.permissionCount === 1 ? '' : 's'}
+                    {role.description ? ` · ${role.description}` : ''}
+                  </em>
+                </span>
               </button>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="card">
+      <section className={cn('dhara-set-panel', settingsBoxTone(9))}>
         {!selectedRoleId ? (
-          <div className="py-12 text-center text-sm text-gray-500">Select a role to view permissions.</div>
+          <p className="dhara-set-note">Select a role to view permissions.</p>
         ) : roleDetailQuery.isLoading ? (
-          <div className="py-12 text-center text-sm text-gray-500">Loading permissions...</div>
+          <p className="dhara-set-note">Loading permissions...</p>
         ) : roleDetailQuery.isError ? (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-8 text-center text-red-400">
-            Failed to load role permissions.
+          <div className="dhara-set-error">
+            <Shield />
+            <p>Failed to load role permissions.</p>
           </div>
         ) : selectedRole ? (
           <RolePermissionsEditor
@@ -186,7 +182,7 @@ export function RolesPermissionsPanel({ onFeedback }: RolesPermissionsPanelProps
             onReset={handleReset}
           />
         ) : null}
-      </div>
+      </section>
     </div>
   );
 }
@@ -218,17 +214,15 @@ function RolePermissionsEditor({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 border-b border-surface-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="font-display text-lg font-semibold text-gold">{role.name}</h3>
-            {!role.isEditable && (
-              <span className="rounded-full bg-gray-500/10 px-2 py-0.5 text-xs text-gray-400">
-                Locked
-              </span>
-            )}
+            <h3 className="dhara-set-section-title" style={{ margin: 0 }}>
+              {role.name}
+            </h3>
+            {!role.isEditable && <span className="dhara-set-pill is-amber">Locked</span>}
           </div>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="dhara-set-note">
             {role.isEditable
               ? 'Enable or disable module permissions for this role.'
               : 'Owner role permissions are fixed and cannot be changed.'}
@@ -236,21 +230,16 @@ function RolePermissionsEditor({
         </div>
         {canManage && role.isEditable && (
           <div className="flex gap-2">
-            <button
-              type="button"
-              className="btn-secondary"
-              disabled={!isDirty || isSaving}
-              onClick={onReset}
-            >
+            <button type="button" className="dhara-set-btn" disabled={!isDirty || isSaving} onClick={onReset}>
               Reset
             </button>
             <button
               type="button"
-              className="btn-primary inline-flex items-center"
+              className="dhara-set-btn is-gold"
               disabled={!isDirty || isSaving}
               onClick={onSave}
             >
-              <Save className="mr-2 h-4 w-4" />
+              <Save />
               {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
@@ -258,7 +247,7 @@ function RolePermissionsEditor({
       </div>
 
       <div className="space-y-5">
-        {role.permissionGroups.map((group) => {
+        {role.permissionGroups.map((group, index) => {
           const grantedInGroup = group.permissions.filter((permission) =>
             draftCodes.has(permission.code),
           ).length;
@@ -267,19 +256,16 @@ function RolePermissionsEditor({
           const note = GROUP_NOTES[group.group];
 
           return (
-            <section
-              key={group.group}
-              className="rounded-lg border border-surface-border bg-white/[0.02] p-4"
-            >
+            <section key={group.group} className={cn('dhara-set-fact', settingsBoxTone(index))}>
               <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h4 className="font-medium text-gray-100">{group.group}</h4>
-                  {note && <p className="text-xs text-gray-500">{note}</p>}
+                  <h4 className="dhara-set-name">{group.group}</h4>
+                  {note && <p className="dhara-set-note" style={{ marginTop: '0.25rem' }}>{note}</p>}
                 </div>
                 {!readOnly && group.permissions.length > 0 && (
                   <button
                     type="button"
-                    className="text-xs text-gold hover:underline"
+                    className="dhara-set-link"
                     onClick={() => onToggleGroup(group.permissions, !allGranted)}
                   >
                     {allGranted ? 'Disable all' : 'Enable all'}
@@ -288,29 +274,19 @@ function RolePermissionsEditor({
               </div>
 
               {group.permissions.length === 0 ? (
-                <p className="text-sm text-gray-500">No direct permissions in this group.</p>
+                <p className="dhara-set-note">No direct permissions in this group.</p>
               ) : (
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="dhara-set-perm-grid">
                   {group.permissions.map((permission) => {
                     const checked = draftCodes.has(permission.code);
                     return (
-                      <label
-                        key={permission.code}
-                        className={cn(
-                          'flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 transition',
-                          checked
-                            ? 'border-gold/30 bg-gold/5'
-                            : 'border-surface-border/80 bg-transparent',
-                          readOnly ? 'cursor-default' : 'cursor-pointer hover:border-gold/20',
-                        )}
-                      >
+                      <label key={permission.code} className="dhara-set-check">
                         <div>
-                          <p className="text-sm text-gray-100">{permission.label}</p>
-                          <p className="font-mono text-xs text-gray-500">{permission.code}</p>
+                          <p className="dhara-set-name">{permission.label}</p>
+                          <p className="dhara-set-gear-meta">{permission.code}</p>
                         </div>
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-surface-border bg-surface text-gold focus:ring-gold/40"
                           checked={checked}
                           disabled={readOnly}
                           onChange={(event) => onToggle(permission.code, event.target.checked)}

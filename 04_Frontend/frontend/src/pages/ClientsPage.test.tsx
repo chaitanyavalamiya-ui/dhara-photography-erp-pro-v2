@@ -65,10 +65,10 @@ describe('ClientsPage', () => {
 
   it('shows a search empty state', async () => {
     renderPage();
-    fireEvent.change(screen.getByPlaceholderText('Search by name, mobile, email, or city'), {
+    fireEvent.change(screen.getByPlaceholderText('Search by name, mobile number or city...'), {
       target: { value: 'nope' },
     });
-    fireEvent.submit(screen.getByPlaceholderText('Search by name, mobile, email, or city').closest('form')!);
+    fireEvent.submit(screen.getByPlaceholderText('Search by name, mobile number or city...').closest('form')!);
     expect(await screen.findByText('No clients match your search.')).toBeInTheDocument();
   });
 
@@ -107,7 +107,7 @@ describe('ClientsPage', () => {
     });
 
     renderPage();
-    expect(await screen.findByText('Asha')).toBeInTheDocument();
+    expect((await screen.findAllByText('Asha')).length).toBeGreaterThan(0);
     expect(screen.queryByLabelText('Edit client')).not.toBeInTheDocument();
   });
 });

@@ -27,6 +27,7 @@ import { cn } from '@/utils/cn';
 import { useAuthStore } from '@/stores/auth-store';
 import { RoboOverlay } from '@/robo/RoboOverlay';
 import { RoboProvider, useRobo } from '@/robo/RoboProvider';
+import '@/styles/erp-chrome.css';
 
 const navItems = [
   {
@@ -35,6 +36,7 @@ const navItems = [
     icon: LayoutDashboard,
     permission: 'dashboard.read',
     roboTarget: 'dashboard-nav',
+    accent: 'gold',
   },
   {
     to: '/clients',
@@ -42,6 +44,7 @@ const navItems = [
     icon: Users,
     permission: 'clients.read',
     roboTarget: 'clients-nav',
+    accent: 'cyan',
   },
   {
     to: '/bookings',
@@ -49,6 +52,7 @@ const navItems = [
     icon: BookOpen,
     permission: 'bookings.read',
     roboTarget: 'booking-nav',
+    accent: 'magenta',
   },
   {
     to: '/calendar',
@@ -56,6 +60,7 @@ const navItems = [
     icon: CalendarDays,
     permission: 'bookings.read',
     roboTarget: 'calendar-nav',
+    accent: 'amber',
   },
   {
     to: '/gallery',
@@ -63,6 +68,7 @@ const navItems = [
     icon: Image,
     permission: 'gallery.read',
     roboTarget: 'gallery-nav',
+    accent: 'cyan',
   },
   {
     to: '/invoices',
@@ -70,6 +76,7 @@ const navItems = [
     icon: FileText,
     permission: 'invoices.read',
     roboTarget: 'invoice-nav',
+    accent: 'gold',
   },
   {
     to: '/albums',
@@ -77,6 +84,7 @@ const navItems = [
     icon: BookImage,
     permission: 'album.read',
     roboTarget: 'albums-nav',
+    accent: 'purple',
   },
   {
     to: '/accounts',
@@ -84,6 +92,7 @@ const navItems = [
     icon: Wallet,
     permission: 'accounts.read',
     roboTarget: 'accounts-nav',
+    accent: 'blue',
   },
   {
     to: '/expenses',
@@ -91,6 +100,7 @@ const navItems = [
     icon: Receipt,
     permission: 'expenses.read',
     roboTarget: 'expenses-nav',
+    accent: 'pink',
   },
   {
     to: '/deliveries',
@@ -98,6 +108,7 @@ const navItems = [
     icon: Package,
     permission: 'delivery.read',
     roboTarget: 'delivery-nav',
+    accent: 'cyan',
   },
   {
     to: '/equipment',
@@ -105,6 +116,7 @@ const navItems = [
     icon: Camera,
     permission: 'equipment.read',
     roboTarget: 'equipment-nav',
+    accent: 'amber',
   },
   {
     to: '/reports',
@@ -112,6 +124,7 @@ const navItems = [
     icon: BarChart3,
     permission: 'reports.read',
     roboTarget: 'reports-nav',
+    accent: 'purple',
   },
   {
     to: '/users',
@@ -119,6 +132,7 @@ const navItems = [
     icon: Shield,
     permission: 'users.read',
     roboTarget: 'users-nav',
+    accent: 'blue',
   },
   {
     to: '/staff',
@@ -126,6 +140,7 @@ const navItems = [
     icon: UserCog,
     permission: 'staff.read',
     roboTarget: 'staff-nav',
+    accent: 'magenta',
   },
   {
     to: '/settings',
@@ -133,6 +148,7 @@ const navItems = [
     icon: Settings,
     permission: 'settings.read',
     roboTarget: 'settings-nav',
+    accent: 'gold',
   },
   {
     to: '/settings?tab=backup-restore',
@@ -140,8 +156,26 @@ const navItems = [
     icon: HardDrive,
     permission: 'settings.read',
     roboTarget: 'backup-nav',
+    accent: 'blue',
   },
 ];
+
+type NavItem = (typeof navItems)[number];
+
+function isSidebarNavActive(item: NavItem, pathname: string, search: string): boolean {
+  const [path, query = ''] = item.to.split('?');
+  if (pathname !== path) return false;
+
+  const currentTab = new URLSearchParams(search).get('tab');
+  const itemTab = new URLSearchParams(query).get('tab');
+
+  if (path === '/settings') {
+    const onBackup = currentTab === 'backup-restore';
+    return itemTab === 'backup-restore' ? onBackup : !onBackup;
+  }
+
+  return true;
+}
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -172,7 +206,7 @@ export function AppLayout() {
 
   return (
     <RoboProvider>
-      <div className="dhara-erp-shell flex min-h-screen overflow-x-hidden">
+      <div className="dhara-erp-shell flex min-h-screen w-full max-w-none overflow-x-hidden">
         {mobileNavOpen && (
           <button
             type="button"
@@ -183,46 +217,37 @@ export function AppLayout() {
         )}
         <aside
           className={cn(
-            'dhara-erp-sidebar fixed inset-y-0 left-0 z-40 flex flex-col border-r transition-transform duration-300 md:z-30 md:translate-x-0 md:transition-all',
-            collapsed ? 'w-[72px]' : 'w-64',
+            'dhara-erp-sidebar fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col border-r transition-transform duration-300 md:sticky md:top-0 md:z-30 md:h-svh md:translate-x-0 md:transition-[width]',
+            collapsed ? 'w-[72px]' : 'w-72',
             mobileNavOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           )}
-          style={{
-            background:
-              'radial-gradient(800px 240px at 0% 0%, var(--dhara-glow), transparent 60%), var(--dhara-bg-secondary)',
-            borderColor: 'var(--dhara-border)',
-          }}
+          style={{ borderColor: 'var(--dhara-border)' }}
         >
           <div
             className="flex h-[76px] items-center gap-3 px-4"
             style={{ borderBottom: '1px solid var(--dhara-border)' }}
           >
-            <div
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg font-display text-lg font-semibold"
-              style={{
-                color: 'var(--dhara-accent)',
-                border: '1px solid var(--dhara-border)',
-                background: 'color-mix(in srgb, var(--dhara-accent) 12%, transparent)',
-              }}
-            >
-              D
-            </div>
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <p
-                  className="truncate font-display text-lg font-semibold"
-                  style={{ color: 'var(--dhara-accent-soft)' }}
-                >
-                  Dhara Photography
-                </p>
-                <p
-                  className="truncate text-[13px] uppercase tracking-[0.16em]"
-                  style={{ color: 'var(--dhara-text-secondary)' }}
-                >
-                  Patan
-                </p>
+            <div className="dhara-erp-brand min-w-0 flex-1">
+              <div className="dhara-erp-mark" aria-hidden>
+                <Camera />
               </div>
-            )}
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="truncate font-display text-lg font-semibold"
+                    style={{ color: 'var(--dhara-accent-soft)' }}
+                  >
+                    Dhara Photography
+                  </p>
+                  <p
+                    className="truncate text-[12px] uppercase tracking-[0.14em]"
+                    style={{ color: 'var(--dhara-text-secondary)' }}
+                  >
+                    ERP PRO • PATAN
+                  </p>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               className="btn-secondary ml-auto h-10 w-10 px-0 md:hidden"
@@ -239,34 +264,17 @@ export function AppLayout() {
                 key={`${item.label}-${item.to}`}
                 to={item.to}
                 data-robo-target={item.roboTarget}
+                aria-current={
+                  isSidebarNavActive(item, location.pathname, location.search) ? 'page' : undefined
+                }
                 className={() => {
-                  const backupActive =
-                    item.to.includes('backup-restore') &&
-                    location.pathname === '/settings' &&
-                    location.search.includes('backup-restore');
-                  const settingsActive =
-                    item.label === 'Settings' &&
-                    location.pathname === '/settings' &&
-                    !location.search.includes('backup-restore');
-                  const expensesActive =
-                    item.label === 'Expenses' && location.pathname === '/expenses';
-                  const accountsActive =
-                    item.label === 'Accounts' && location.pathname === '/accounts';
-                  const standardActive =
-                    !item.to.includes('?') &&
-                    item.label !== 'Accounts' &&
-                    item.label !== 'Expenses' &&
-                    location.pathname === item.to.split('?')[0];
-                  const isActive =
-                    backupActive ||
-                    settingsActive ||
-                    standardActive ||
-                    expensesActive ||
-                    accountsActive;
-                  return cn('dhara-nav-item', isActive && 'is-active');
+                  const isActive = isSidebarNavActive(item, location.pathname, location.search);
+                  return cn('dhara-nav-item', `is-${item.accent}`, isActive && 'is-active');
                 }}
               >
-                <item.icon />
+                <span className="dhara-erp-nav-icon" aria-hidden>
+                  <item.icon />
+                </span>
                 {!collapsed && <span>{item.label}</span>}
               </NavLink>
             ))}
@@ -288,14 +296,9 @@ export function AppLayout() {
           </button>
         </aside>
 
-        <div
-          className={cn(
-            'flex min-w-0 flex-1 flex-col transition-all duration-300',
-            collapsed ? 'md:ml-[72px]' : 'md:ml-64',
-          )}
-        >
+        <div className="dhara-erp-workspace flex min-w-0 w-full flex-1 flex-col">
           <Header onOpenMobileNav={() => setMobileNavOpen(true)} />
-          <main className="dhara-page flex-1 p-4 sm:p-6">
+          <main className="dhara-page min-w-0 w-full flex-1 p-4 sm:p-6">
             <Outlet />
           </main>
           <footer
@@ -305,7 +308,7 @@ export function AppLayout() {
               borderTop: '1px solid var(--dhara-border)',
             }}
           >
-            Dhara Photography ERP Pro · Crafted for photographers · Patan
+            © 2026 Dhara Photography ERP Pro. All rights reserved.
           </footer>
         </div>
         <RoboOverlay />
@@ -319,7 +322,7 @@ function SidebarRoboButton({ collapsed }: { collapsed: boolean }) {
   return (
     <button
       type="button"
-      className="dhara-nav-item mx-3 mb-2"
+      className="dhara-nav-item is-magenta mx-3 mb-2"
       data-robo-target="robo-nav"
       title="Robo AI Assistant"
       aria-label="Open Robo AI Assistant from sidebar"
@@ -330,7 +333,9 @@ function SidebarRoboButton({ collapsed }: { collapsed: boolean }) {
       }}
       onClick={openChat}
     >
-      <Bot />
+      <span className="dhara-erp-nav-icon" aria-hidden>
+        <Bot />
+      </span>
       {!collapsed && <span>Robo AI Assistant</span>}
     </button>
   );

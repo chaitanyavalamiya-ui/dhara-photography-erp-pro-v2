@@ -18,19 +18,19 @@ export function ConfirmPasswordResetDialog({
   if (!open || !user) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md">
-        <h2 className="font-display text-xl font-semibold text-gold">Reset User Password</h2>
-        <p className="mt-3 text-sm text-gray-400">
-          Reset the password for <span className="text-gray-200">{user.fullName}</span> (
+    <div className="dhara-usr-modal" style={{ zIndex: 60 }}>
+      <div className="dhara-usr-modal-card">
+        <h2>Reset User Password</h2>
+        <p className="dhara-usr-modal-sub">
+          Reset the password for <span className="dhara-usr-amt is-gold">{user.fullName}</span> (
           {user.email})? The user will be signed out on all devices and must sign in again with the
           new password.
         </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+        <div className="dhara-usr-form-actions">
+          <button type="button" className="dhara-usr-btn" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="btn-primary" disabled={isSubmitting} onClick={onConfirm}>
+          <button type="button" className="dhara-usr-btn is-gold" disabled={isSubmitting} onClick={onConfirm}>
             {isSubmitting ? 'Resetting...' : 'Reset Password'}
           </button>
         </div>

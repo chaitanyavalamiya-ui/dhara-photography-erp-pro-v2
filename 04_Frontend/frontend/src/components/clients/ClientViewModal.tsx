@@ -8,6 +8,8 @@ import { albumsService } from '@/services/albums-service';
 import { paymentsService } from '@/services/payments-service';
 import { deliveriesService } from '@/services/deliveries-service';
 import { formatCurrency, formatDate } from '@/utils/client-form';
+import { ClientAvatar } from '@/components/clients/client-avatar';
+import '@/pages/clients/clients-page.css';
 
 interface ClientViewModalProps {
   open: boolean;
@@ -29,14 +31,14 @@ function HistorySection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-      <p className="text-xs uppercase tracking-wider text-gray-500">{title}</p>
+    <div className="rounded-lg border border-white/10 p-4">
+      <p className="text-xs uppercase tracking-wider" style={{ color: '#ffe7b8' }}>{title}</p>
       {loading ? (
-        <p className="mt-2 text-sm text-gray-500">Loading...</p>
+        <p className="mt-2 text-sm" style={{ color: '#ffe7b8' }}>Loading...</p>
       ) : empty ? (
-        <p className="mt-2 text-sm text-gray-500">None yet.</p>
+        <p className="mt-2 text-sm" style={{ color: '#ffe7b8' }}>None yet.</p>
       ) : (
-        <ul className="mt-2 space-y-1 text-sm text-gray-200">{children}</ul>
+        <ul className="mt-2 space-y-1 text-base text-white">{children}</ul>
       )}
     </div>
   );
@@ -86,13 +88,22 @@ export function ClientViewModal({ open, client, canEdit = false, onClose, onEdit
   const deliveries = deliveriesQuery.data?.items ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-3xl overflow-y-auto">
+    <div className="dhara-clients-modal">
+      <div className="dhara-clients-modal-card">
         <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-wider text-gray-500">{client.clientNumber}</p>
-            <h2 className="font-display text-2xl font-semibold text-gold">{client.fullName}</h2>
-            <p className="mt-1 text-sm text-gray-400">{client.status}</p>
+          <div className="dhara-clients-profile">
+            <ClientAvatar name={client.fullName} size="lg" />
+            <div>
+              <p className="dhara-clients-kicker">{client.clientNumber}</p>
+              <h2>{client.fullName}</h2>
+              <p className="mt-1 text-base" style={{ color: '#ffe7b8' }}>
+                {client.mobile}
+                {client.city ? ` · ${client.city}` : ''}
+              </p>
+              <span className={`dhara-clients-badge mt-2 inline-flex ${client.isActive ? 'is-ok' : 'is-off'}`}>
+                {client.status}
+              </span>
+            </div>
           </div>
           <button
             type="button"
@@ -104,7 +115,7 @@ export function ClientViewModal({ open, client, canEdit = false, onClose, onEdit
           </button>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="dhara-clients-facts">
           {[
             ['Mobile', client.mobile],
             ['WhatsApp', client.whatsapp || '—'],
@@ -117,9 +128,9 @@ export function ClientViewModal({ open, client, canEdit = false, onClose, onEdit
             ['Total Amount', formatCurrency(client.totalAmount)],
             ['Outstanding Balance', formatCurrency(client.outstandingBalance)],
           ].map(([label, value]) => (
-            <div key={label} className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-              <p className="text-xs uppercase tracking-wider text-gray-500">{label}</p>
-              <p className="mt-1 text-sm text-gray-100">{value}</p>
+            <div key={label} className="dhara-clients-fact">
+              <p>{label}</p>
+              <strong>{value}</strong>
             </div>
           ))}
         </div>
@@ -173,11 +184,11 @@ export function ClientViewModal({ open, client, canEdit = false, onClose, onEdit
         </div>
 
         <div className="mt-6 flex justify-end gap-3 border-t border-surface-border pt-5">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button type="button" className="dhara-clients-ghost" onClick={onClose}>
             Close
           </button>
           {canEdit && !client.archivedAt && (
-            <button type="button" className="btn-primary" onClick={() => onEdit(client)}>
+            <button type="button" className="dhara-clients-add" onClick={() => onEdit(client)}>
               Edit Client
             </button>
           )}

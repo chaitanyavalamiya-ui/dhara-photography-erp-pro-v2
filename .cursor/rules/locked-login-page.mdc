@@ -1,0 +1,31 @@
+---
+description: Login Page is a locked final design — never change it unless the user explicitly asks.
+alwaysApply: true
+---
+
+# FINAL LOCKED LOGIN PAGE — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
+
+The Login Page is an approved, frozen baseline. Do not change, redesign, remove, add, resize, reposition, restyle, or restyle-via-globals anything on it unless the user explicitly requests that specific Login Page change.
+
+## Locked files (do not edit without explicit approval)
+
+- `04_Frontend/frontend/src/pages/LoginPage.tsx`
+- `04_Frontend/frontend/src/pages/login-page.css`
+- `04_Frontend/frontend/src/pages/LoginPage.test.tsx`
+- `04_Frontend/frontend/public/krishna.png` (and other login background assets)
+
+Preserve exactly: background image, zoom, position, quality, layout, branding, Gujarati/English/Sanskrit copy, icons, login card, colors, fonts, spacing, borders, buttons, inputs, responsive rules, and auth functionality.
+
+## Other work must stay independent
+
+Work on dashboards, routes, modules, and shared components without touching the files above.
+
+If you must change shared CSS (for example `.input-field`, `.btn-primary`) or layout shells:
+
+- Do not alter `.dhara-login` or `login-page.css`.
+- Scope new styles so they cannot override `.dhara-login` descendants.
+- Prefer new class names over changing globals used by the login form.
+
+## Allowed exception
+
+Only modify the Login Page when the user clearly asks for a specific login-page change in that conversation.

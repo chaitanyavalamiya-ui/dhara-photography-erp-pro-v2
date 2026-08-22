@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { X } from 'lucide-react';
 import { SettingsServiceRate } from '@/services/settings-service';
 import { formatCurrency } from '@/utils/booking-form';
+import '@/pages/settings/settings-page.css';
 
 const editRateSchema = z.object({
   defaultRate: z
@@ -42,66 +43,59 @@ export function EditServiceRateModal({
   if (!open || !rate) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md">
-        <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="dhara-set-modal">
+      <div className="dhara-set-modal-card">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">Edit Service Rate</h2>
-            <p className="mt-1 text-sm text-gray-400">{rate.name}</p>
+            <h2>Edit Service Rate</h2>
+            <p className="dhara-set-modal-sub">{rate.name}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-set-icon-btn" aria-label="Close">
+            <X />
           </button>
         </div>
 
-        <div className="mb-5 rounded-lg border border-surface-border bg-surface-elevated p-4 text-sm">
-          <div className="grid grid-cols-2 gap-3 text-gray-400">
-            <p>Category</p>
-            <p className="text-right capitalize text-gray-200">{rate.category}</p>
-            <p>Unit</p>
-            <p className="text-right text-gray-200">{rate.unit}</p>
-            <p>Current rate</p>
-            <p className="text-right font-medium text-gold">{formatCurrency(rate.defaultRate)}</p>
+        <div className="dhara-set-facts" style={{ marginBottom: '1.1rem' }}>
+          <div className="dhara-set-fact">
+            <span>Category</span>
+            <strong className="capitalize">{rate.category}</strong>
+          </div>
+          <div className="dhara-set-fact">
+            <span>Unit</span>
+            <strong>{rate.unit}</strong>
+          </div>
+          <div className="dhara-set-fact">
+            <span>Current rate</span>
+            <strong className="dhara-set-amt is-gold">{formatCurrency(rate.defaultRate)}</strong>
           </div>
         </div>
 
-        <form
-          key={rate.id}
-          onSubmit={handleSubmit((values) => onSubmit(values))}
-          className="space-y-5"
-        >
+        <form key={rate.id} onSubmit={handleSubmit((values) => onSubmit(values))} className="dhara-set-form">
           <div>
-            <label htmlFor="defaultRate" className="mb-1.5 block text-sm font-medium text-gray-300">
-              New Rate (₹) <span className="text-gold">*</span>
+            <label htmlFor="defaultRate">
+              New Rate (₹) <span className="dhara-set-amt is-gold">*</span>
             </label>
             <input
               id="defaultRate"
               type="number"
               min="1"
               step="1"
-              className="input-field"
+              className="dhara-set-input"
               {...register('defaultRate', { valueAsNumber: true })}
             />
-            {errors.defaultRate && (
-              <p className="mt-1 text-xs text-red-400">{errors.defaultRate.message}</p>
-            )}
+            {errors.defaultRate && <p className="dhara-set-err">{errors.defaultRate.message}</p>}
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-gray-300">
-            <input type="checkbox" className="rounded border-surface-border" {...register('isActive')} />
+          <label className="dhara-set-check">
+            <input type="checkbox" {...register('isActive')} />
             Active for new bookings
           </label>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className="dhara-set-form-actions">
+            <button type="button" className="dhara-set-btn" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button type="submit" className="dhara-set-btn is-gold" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save Rate'}
             </button>
           </div>

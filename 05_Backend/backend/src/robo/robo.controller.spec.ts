@@ -12,6 +12,10 @@ describe('RoboController', () => {
     expect(source).toContain('@ApiBearerAuth()');
   });
 
+  it('requires the dedicated robo.chat permission on POST /robo/chat', () => {
+    expect(source).toContain("@RequirePermissions('robo.chat')");
+  });
+
   it('passes the authenticated user into the Robo service', async () => {
     const roboService = { chat: jest.fn().mockResolvedValue({ reply: 'ok' }) };
     const controller = new RoboController(roboService as unknown as RoboService);

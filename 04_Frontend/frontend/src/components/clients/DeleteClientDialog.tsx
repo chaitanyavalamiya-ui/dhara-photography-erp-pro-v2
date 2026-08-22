@@ -1,5 +1,6 @@
 import { AlertTriangle, X } from 'lucide-react';
 import { Client } from '@/services/clients-service';
+import '@/pages/clients/clients-page.css';
 
 interface DeleteClientDialogProps {
   open: boolean;
@@ -19,16 +20,16 @@ export function DeleteClientDialog({
   if (!open || !client) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md">
+    <div className="dhara-clients-modal">
+      <div className="dhara-clients-modal-card is-narrow">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10">
               <AlertTriangle className="h-5 w-5 text-red-400" />
             </div>
             <div>
-              <h2 className="font-display text-lg font-semibold text-gray-100">Delete Client</h2>
-              <p className="mt-1 text-sm text-gray-400">
+              <h2>Delete Client</h2>
+              <p className="mt-1 text-base" style={{ color: '#ffe7b8' }}>
                 Are you sure you want to delete <span className="text-gold">{client.fullName}</span>?
                 This will archive the client record.
               </p>
@@ -45,7 +46,7 @@ export function DeleteClientDialog({
         </div>
 
         <div className="flex justify-end gap-3">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button type="button" className="dhara-clients-ghost" onClick={onClose}>
             Cancel
           </button>
           <button

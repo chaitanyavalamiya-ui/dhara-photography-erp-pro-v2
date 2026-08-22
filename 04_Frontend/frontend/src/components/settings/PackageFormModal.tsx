@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Trash2, X } from 'lucide-react';
 import { bookingsService } from '@/services/bookings-service';
 import { CreatePackagePayload, StudioPackage, UpdatePackagePayload } from '@/services/settings-service';
 import { formatCurrency } from '@/utils/booking-form';
+import '@/pages/settings/settings-page.css';
 
 interface PackageFormModalProps {
   open: boolean;
@@ -98,7 +99,7 @@ export function PackageFormModal({
 
   if (!open) return null;
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
     if (!label.trim() || items.length === 0) return;
 
@@ -115,64 +116,58 @@ export function PackageFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-2xl overflow-y-auto">
-        <div className="mb-6 flex items-start justify-between">
+    <div className="dhara-set-modal">
+      <div className="dhara-set-modal-card is-profile">
+        <div className="mb-5 flex items-start justify-between">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">
-              {isEdit ? 'Edit Package' : 'Add Package'}
-            </h2>
-            <p className="mt-1 text-sm text-gray-400">Bundle services into a reusable booking package.</p>
+            <h2>{isEdit ? 'Edit Package' : 'Add Package'}</h2>
+            <p className="dhara-set-modal-sub">Bundle services into a reusable booking package.</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-set-icon-btn" aria-label="Close">
+            <X />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={handleSubmit} className="dhara-set-form">
+          <div className="dhara-set-form-grid">
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Package Name</label>
-              <input className="input-field" value={label} onChange={(e) => setLabel(e.target.value)} />
+              <label>Package Name</label>
+              <input className="dhara-set-input" value={label} onChange={(e) => setLabel(e.target.value)} />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Code</label>
+              <label>Code</label>
               <input
-                className="input-field font-mono text-sm"
+                className="dhara-set-input"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 disabled={isEdit}
               />
             </div>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Description</label>
-            <textarea
-              rows={2}
-              className="input-field resize-none"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="dhara-set-span-2">
+              <label>Description</label>
+              <textarea
+                rows={2}
+                className="dhara-set-input"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Default Price (₹)</label>
+              <label>Default Price (₹)</label>
               <input
                 type="number"
                 min="0"
-                className="input-field"
+                className="dhara-set-input"
                 value={defaultPrice || estimatedSubtotal}
                 onChange={(e) => setDefaultPrice(Number(e.target.value) || 0)}
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Offer Price (₹)</label>
+              <label>Offer Price (₹)</label>
               <input
                 type="number"
                 min="0"
-                className="input-field"
+                className="dhara-set-input"
                 value={offerPrice}
                 onChange={(e) => setOfferPrice(e.target.value)}
                 placeholder="Optional"
@@ -181,10 +176,9 @@ export function PackageFormModal({
           </div>
 
           {isEdit && (
-            <label className="flex items-center gap-2 text-sm text-gray-300">
+            <label className="dhara-set-check">
               <input
                 type="checkbox"
-                className="rounded border-surface-border"
                 checked={isActive}
                 onChange={(e) => setIsActive(e.target.checked)}
               />
@@ -194,17 +188,17 @@ export function PackageFormModal({
 
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="text-sm text-gray-300">Included Services</label>
+              <label>Included Services</label>
               <button
                 type="button"
-                className="btn-secondary text-xs"
+                className="dhara-set-btn"
                 onClick={() => {
                   if (!serviceRates[0]) return;
                   setItems([...items, { serviceRateId: serviceRates[0].id, quantity: 1, days: 1 }]);
                 }}
                 disabled={serviceRates.length === 0}
               >
-                <Plus className="mr-1 h-3.5 w-3.5" />
+                <Plus />
                 Add Service
               </button>
             </div>
@@ -212,9 +206,10 @@ export function PackageFormModal({
               {items.map((item, index) => {
                 const rate = serviceRates.find((entry) => entry.id === item.serviceRateId);
                 return (
-                  <div key={`${item.serviceRateId}-${index}`} className="flex flex-wrap items-center gap-2 rounded-lg border border-surface-border p-3">
+                  <div key={`${item.serviceRateId}-${index}`} className="dhara-set-toolbar-row">
                     <select
-                      className="input-field min-w-[180px] flex-1"
+                      className="dhara-set-input"
+                      style={{ flex: '1 1 12rem' }}
                       value={item.serviceRateId}
                       onChange={(e) => {
                         const next = [...items];
@@ -232,7 +227,8 @@ export function PackageFormModal({
                       <input
                         type="number"
                         min="1"
-                        className="input-field w-24"
+                        className="dhara-set-input"
+                        style={{ maxWidth: '6.5rem' }}
                         value={item.days}
                         onChange={(e) => {
                           const next = [...items];
@@ -244,7 +240,8 @@ export function PackageFormModal({
                       <input
                         type="number"
                         min="1"
-                        className="input-field w-24"
+                        className="dhara-set-input"
+                        style={{ maxWidth: '6.5rem' }}
                         value={item.quantity}
                         onChange={(e) => {
                           const next = [...items];
@@ -253,31 +250,32 @@ export function PackageFormModal({
                         }}
                       />
                     )}
-                    <span className="text-xs text-gray-500">
+                    <span className="dhara-set-amt is-gold">
                       {rate ? formatCurrency(rate.defaultRate) : '—'}
                     </span>
                     <button
                       type="button"
-                      className="rounded-lg p-2 text-gray-400 hover:text-red-400"
+                      className="dhara-set-icon-btn"
                       onClick={() => setItems(items.filter((_, i) => i !== index))}
                       disabled={items.length === 1}
+                      aria-label="Remove service"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 />
                     </button>
                   </div>
                 );
               })}
             </div>
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="dhara-set-note">
               Estimated subtotal from services: {formatCurrency(estimatedSubtotal)}
             </p>
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className="dhara-set-form-actions">
+            <button type="button" className="dhara-set-btn" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting || items.length === 0}>
+            <button type="submit" className="dhara-set-btn is-gold" disabled={isSubmitting || items.length === 0}>
               {isSubmitting ? 'Saving...' : isEdit ? 'Save Package' : 'Create Package'}
             </button>
           </div>

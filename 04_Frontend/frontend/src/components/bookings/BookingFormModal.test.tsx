@@ -166,4 +166,89 @@ describe('BookingFormModal', () => {
     expect(await screen.findByText('Event end date cannot be before the start date.')).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
   });
+
+  it('submits a new booking when required fields are present', async () => {
+    const onSubmit = vi.fn();
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    vi.mocked(clientsService.list).mockResolvedValue({
+      items: [
+        {
+          id: 'client-current',
+          clientNumber: 'CLT-000002',
+          fullName: 'Rahul Patel',
+          mobile: '9999999999',
+          status: 'Active',
+          isActive: true,
+          totalBookings: 0,
+          totalAmount: 0,
+          outstandingBalance: 0,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+      totalPages: 1,
+    } as never);
+    vi.mocked(settingsService.getPackages).mockResolvedValue([]);
+
+    render(
+      <QueryClientProvider client={client}>
+        <BookingFormModal
+          open
+          mode="create"
+          serviceRates={[
+            {
+              id: 'rate-1',
+              code: 'photo',
+              name: 'Photography',
+              category: 'photo',
+              defaultRate: 2000,
+              unit: 'day',
+              sortOrder: 1,
+            },
+          ]}
+          onClose={() => undefined}
+          onSubmit={onSubmit}
+        />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Event Start Date/), {
+      target: { value: '2026-12-15' },
+    });
+    const clientSelect = await screen.findByRole('combobox', { name: /Client/ });
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: /Rahul Patel/ })).toBeInTheDocument();
+    });
+    fireEvent.change(clientSelect, {
+      target: { value: 'client-current' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Photography/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create Booking' }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({
+      clientId: 'client-current',
+      eventDate: '2026-12-15',
+      items: [expect.objectContaining({ serviceName: 'Photography', rate: 2000 })],
+    });
+  });
+
+  it('shows a visible error instead of staying silent when services are missing', async () => {
+    const { onSubmit } = renderForm({ items: [] });
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /Client/ })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(await screen.findByText('Add at least one service item.')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });

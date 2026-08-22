@@ -55,5 +55,56 @@ describe('InvoiceDocument', () => {
     expect(screen.getByText('• Album')).toBeInTheDocument();
     expect(screen.getByText('Handle with care.')).toBeInTheDocument();
     expect(screen.queryByText(/DHARA_DELIVERABLES/)).not.toBeInTheDocument();
+    expect(screen.getByText('Tax Invoice')).toBeInTheDocument();
+    expect(screen.getByText('Bill To')).toBeInTheDocument();
+    expect(screen.getByText('Event Details')).toBeInTheDocument();
+    expect(screen.getByText('Asha Patel')).toBeInTheDocument();
+    expect(screen.getByText('Grand Total')).toBeInTheDocument();
+    expect(screen.getAllByText('Balance Due')).toHaveLength(2);
+    expect(screen.getByText('Authorized Signature')).toBeInTheDocument();
+    expect(screen.getByText('Payment due as per agreed schedule.')).toBeInTheDocument();
+  });
+
+  it('keeps long names, due dates, and extra service rows readable', () => {
+    render(
+      <InvoiceDocument
+        invoice={{
+          ...invoice,
+          status: 'paid',
+          dueDate: '2026-09-01',
+          discount: 500,
+          client: {
+            ...invoice.client,
+            fullName: 'Asha Ben Maheshkumar Patel-Trivedi',
+            email: 'asha@example.com',
+            city: 'Patan',
+          },
+          booking: {
+            ...invoice.booking,
+            eventType: 'Engagement & Reception',
+            venue: 'Rajpath Club',
+            city: 'Ahmedabad',
+            items: [
+              ...invoice.booking.items,
+              {
+                id: 'i2',
+                serviceName: 'Cinematography Coverage',
+                quantity: 2,
+                unit: 'day',
+                rate: 8000,
+                days: 2,
+                amount: 16000,
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Asha Ben Maheshkumar Patel-Trivedi')).toBeInTheDocument();
+    expect(screen.getByText('Cinematography Coverage')).toBeInTheDocument();
+    expect(screen.getAllByText('Paid').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Discount')).toBeInTheDocument();
+    expect(screen.getByText(/Rajpath Club/)).toBeInTheDocument();
   });
 });

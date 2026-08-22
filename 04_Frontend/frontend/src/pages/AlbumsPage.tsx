@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookImage, Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  BookImage,
+  CheckCircle2,
+  Clock3,
+  Eye,
+  Pencil,
+  Plus,
+  Printer,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { ClientSearchSelect } from '@/components/clients/ClientSearchSelect';
 import { bookingsService } from '@/services/bookings-service';
 import {
@@ -15,9 +26,18 @@ import { CreateAlbumModal } from '@/components/albums/CreateAlbumModal';
 import { EditAlbumModal } from '@/components/albums/EditAlbumModal';
 import { AlbumDetailModal } from '@/components/albums/AlbumDetailModal';
 import { ArchiveAlbumDialog } from '@/components/albums/ArchiveAlbumDialog';
+import {
+  albumInitials,
+  albumStatusLabel,
+  albumStatusTone,
+  albumTypeLabel,
+  albumTypeTone,
+} from '@/components/albums/album-visual';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
+import { invalidateAfterAccountsExpense } from '@/utils/invalidate-financial-queries';
+import './albums/albums-page.css';
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -26,23 +46,6 @@ function formatDate(value?: string | null) {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function statusBadgeClass(status: string) {
-  switch (status) {
-    case 'designing':
-      return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
-    case 'printing':
-      return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
-    case 'ready':
-      return 'bg-green-500/15 text-green-400 border-green-500/30';
-    case 'delivered':
-      return 'bg-gold/15 text-gold border-gold/30';
-    case 'cancelled':
-      return 'bg-red-500/15 text-red-400 border-red-500/30';
-    default:
-      return 'bg-gray-500/15 text-gray-400 border-gray-500/30';
-  }
 }
 
 export function AlbumsPage() {
@@ -106,8 +109,7 @@ export function AlbumsPage() {
     mutationFn: albumsService.create,
     onSuccess: (album) => {
       queryClient.invalidateQueries({ queryKey: ['albums'] });
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setCreateOpen(false);
       setDetailAlbumId(album.id);
       setFeedback({ type: 'success', message: 'Album created successfully.' });
@@ -122,8 +124,7 @@ export function AlbumsPage() {
       albumsService.update(id, data),
     onSuccess: (album) => {
       queryClient.invalidateQueries({ queryKey: ['albums'] });
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setEditAlbum(null);
       setDetailAlbumId(album.id);
       setFeedback({ type: 'success', message: 'Album updated successfully.' });
@@ -137,8 +138,7 @@ export function AlbumsPage() {
     mutationFn: (id: string) => albumsService.archive(id),
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['albums'] });
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setArchiveAlbum(null);
       if (detailAlbumId === id) {
         setDetailAlbumId(null);
@@ -172,210 +172,304 @@ export function AlbumsPage() {
     bookingOptions.unshift(selectedBookingQuery.data);
   }
 
+  const matchingAlbums = listQuery.data?.total;
+  const pendingOnPage = albums.filter((album) => album.status === 'pending').length;
+  const productionOnPage = albums.filter(
+    (album) => album.status === 'designing' || album.status === 'printing',
+  ).length;
+  const readyOnPage = albums.filter((album) => album.status === 'ready').length;
+  const deliveredOnPage = albums.filter((album) => album.status === 'delivered').length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="dhara-albums">
+      <section className="dhara-alb-hero">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-gold">Albums</h1>
-          <p className="text-sm text-gray-400">Manage album orders, photo selection, and printing workflow</p>
+          <p className="dhara-alb-kicker">DHARA PHOTOGRAPHY ERP PRO</p>
+          <h2>Albums Management</h2>
+          <p className="dhara-alb-hero-copy">
+            Manage album orders, photo selection, and printing workflow.
+          </p>
+          {canCreate && (
+            <div className="dhara-alb-hero-actions">
+              <button type="button" className="dhara-alb-btn is-gold" onClick={() => setCreateOpen(true)}>
+                <Plus strokeWidth={2.4} absoluteStrokeWidth />
+                Add New Album
+              </button>
+            </div>
+          )}
         </div>
-        {canCreate && (
-          <button type="button" className="btn-primary" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 inline h-4 w-4" />
-            Create Album
-          </button>
-        )}
+        <div className="dhara-alb-hero-art" aria-hidden>
+          <svg viewBox="0 0 120 120" fill="none">
+            <rect x="28" y="22" width="64" height="80" rx="6" fill="rgba(255,212,90,0.08)" stroke="#ffd45a" strokeWidth="2.3" />
+            <rect x="22" y="28" width="64" height="80" rx="6" fill="rgba(159,18,57,0.28)" stroke="#c084fc" strokeWidth="2" />
+            <rect x="34" y="18" width="64" height="80" rx="6" fill="rgba(10,4,8,0.55)" stroke="#ffe08a" strokeWidth="2.4" />
+            <path d="M46 38h40" stroke="#22d3ee" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M46 50h28" stroke="#fff1c9" strokeWidth="2" strokeLinecap="round" />
+            <path d="M46 62h34" stroke="#fff1c9" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </div>
+      </section>
+
+      <div className="dhara-alb-kpis">
+        <article className="dhara-alb-kpi is-gold">
+          <div className="dhara-alb-kpi-top">
+            <h3>Matching Albums</h3>
+            <span className="dhara-alb-icon">
+              <BookImage strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : matchingAlbums ?? 0}</strong>
+        </article>
+        <article className="dhara-alb-kpi is-amber">
+          <div className="dhara-alb-kpi-top">
+            <div>
+              <h3>Pending</h3>
+              <p>On this page</p>
+            </div>
+            <span className="dhara-alb-icon">
+              <Clock3 strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : pendingOnPage}</strong>
+        </article>
+        <article className="dhara-alb-kpi is-cyan">
+          <div className="dhara-alb-kpi-top">
+            <div>
+              <h3>In Production</h3>
+              <p>Designing + Printing</p>
+            </div>
+            <span className="dhara-alb-icon">
+              <Printer strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : productionOnPage}</strong>
+        </article>
+        <article className="dhara-alb-kpi is-green">
+          <div className="dhara-alb-kpi-top">
+            <div>
+              <h3>Ready</h3>
+              <p>On this page</p>
+            </div>
+            <span className="dhara-alb-icon">
+              <CheckCircle2 strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : readyOnPage}</strong>
+        </article>
+        <article className="dhara-alb-kpi is-purple">
+          <div className="dhara-alb-kpi-top">
+            <div>
+              <h3>Delivered</h3>
+              <p>On this page</p>
+            </div>
+            <span className="dhara-alb-icon">
+              <BookImage strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : deliveredOnPage}</strong>
+        </article>
       </div>
 
       {feedback && (
-        <div
-          className={cn(
-            'rounded-lg border px-4 py-3 text-sm',
-            feedback.type === 'success'
-              ? 'border-green-500/30 bg-green-500/10 text-green-400'
-              : 'border-red-500/30 bg-red-500/10 text-red-400',
-          )}
-        >
+        <div className={cn('dhara-alb-flash', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
           {feedback.message}
         </div>
       )}
 
-      <div className="card space-y-4">
-        <form onSubmit={handleSearch} className="flex flex-col gap-3 xl:flex-row xl:items-end">
-          <div className="flex-1">
-            <label className="mb-1.5 block text-xs text-gray-500">Search</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+      <form className="dhara-alb-panel dhara-alb-toolbar" onSubmit={handleSearch}>
+        <div className="dhara-alb-toolbar-row">
+          <div className="dhara-alb-field is-search">
+            <label htmlFor="album-search">Search</label>
+            <div className="dhara-alb-input-wrap">
+              <Search aria-hidden />
               <input
-                className="input-field pl-10"
+                id="album-search"
+                className="dhara-alb-input is-icon"
                 placeholder="Album name, client, booking, vendor..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
           </div>
-
-          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500">Client</label>
-              <ClientSearchSelect
-                value={clientFilter}
-                onChange={(clientId) => {
-                  setClientFilter(clientId);
-                  setPage(1);
-                }}
-                emptyLabel="All clients"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500">Booking</label>
-              <select
-                className="input-field"
-                value={bookingFilter}
-                onChange={(e) => { setBookingFilter(e.target.value); setPage(1); }}
-              >
-                <option value="">All bookings</option>
-                {(bookingOptions).map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.bookingNumber} — {b.client.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500">Status</label>
-              <select
-                className="input-field"
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-              >
-                <option value="all">All statuses</option>
-                {ALBUM_STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500">Album Type</label>
-              <select
-                className="input-field"
-                value={typeFilter}
-                onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}
-              >
-                <option value="all">All types</option>
-                {ALBUM_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
+          <div className="dhara-alb-field">
+            <label>Client</label>
+            <ClientSearchSelect
+              value={clientFilter}
+              onChange={(clientId) => {
+                setClientFilter(clientId);
+                setPage(1);
+              }}
+              emptyLabel="All clients"
+            />
           </div>
-
-          <button type="submit" className="btn-secondary whitespace-nowrap">Search</button>
-        </form>
-      </div>
+          <div className="dhara-alb-field">
+            <label htmlFor="album-booking">Booking</label>
+            <select
+              id="album-booking"
+              className="input-field"
+              value={bookingFilter}
+              onChange={(e) => {
+                setBookingFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All bookings</option>
+              {bookingOptions.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.bookingNumber} — {b.client.fullName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="dhara-alb-field">
+            <label htmlFor="album-status">Status</label>
+            <select
+              id="album-status"
+              className="input-field"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">All statuses</option>
+              {ALBUM_STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="dhara-alb-field">
+            <label htmlFor="album-type">Album Type</label>
+            <select
+              id="album-type"
+              className="input-field"
+              value={typeFilter}
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">All types</option>
+              {ALBUM_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" className="dhara-alb-btn is-cyan">
+            Search
+          </button>
+        </div>
+      </form>
 
       {listQuery.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="dhara-alb-grid">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="card h-48 animate-pulse bg-surface-elevated" />
+            <div key={i} className="dhara-alb-skeleton" />
           ))}
         </div>
       ) : listQuery.isError ? (
-        <div className="card border-red-500/30 text-red-400">
-          {getApiErrorMessage(listQuery.error, 'Failed to load albums.')}
+        <div className="dhara-alb-error">
+          <AlertCircle strokeWidth={2.35} absoluteStrokeWidth />
+          <p>{getApiErrorMessage(listQuery.error, 'Failed to load albums.')}</p>
+          <button type="button" className="dhara-alb-btn" onClick={() => void listQuery.refetch()}>
+            Retry
+          </button>
         </div>
       ) : albums.length === 0 ? (
-        <div className="card flex min-h-64 flex-col items-center justify-center text-center">
-          <BookImage className="h-12 w-12 text-gray-600" />
-          <p className="mt-3 text-gray-400">
-            {hasFilters ? 'No albums match your filters.' : 'No albums yet.'}
-          </p>
+        <div className="dhara-alb-empty">
+          <BookImage strokeWidth={2.35} absoluteStrokeWidth />
+          <p>{hasFilters ? 'No albums match your filters.' : 'No albums yet.'}</p>
           {canCreate && !hasFilters && (
-            <button type="button" className="btn-primary mt-4" onClick={() => setCreateOpen(true)}>
+            <button type="button" className="dhara-alb-btn is-gold" onClick={() => setCreateOpen(true)}>
+              <Plus strokeWidth={2.4} absoluteStrokeWidth />
               Create your first album
             </button>
           )}
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="dhara-alb-grid">
             {albums.map((album: Album) => (
-              <div key={album.id} className="card transition hover:border-gold/40">
-                <div className="mb-3 flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-500">{album.bookingNumber}</p>
-                    <h3 className="truncate font-medium text-gray-100">{album.name}</h3>
-                    <p className="truncate text-sm text-gray-400">{album.clientName}</p>
+              <article key={album.id} className="dhara-alb-card">
+                <div className={cn('dhara-alb-cover', albumTypeTone(album.albumType))}>
+                  <span className="dhara-alb-mark">{albumInitials(album.name)}</span>
+                  <div className="dhara-alb-cover-copy">
+                    <p>{album.bookingNumber}</p>
+                    <h3>{album.name}</h3>
                   </div>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize',
-                      statusBadgeClass(album.status),
+                </div>
+                <div className="dhara-alb-card-body">
+                  <p className="dhara-alb-card-client">{album.clientName}</p>
+                  <p className="dhara-alb-card-meta">
+                    {album.pageCount} pages · {album.selectedPhotoCount} photos
+                  </p>
+                  <p className="dhara-alb-card-meta">
+                    {formatCurrency(album.albumPrice)} · Profit {formatCurrency(album.profit)}
+                  </p>
+                  <p className="dhara-alb-card-meta">Expected {formatDate(album.expectedDeliveryDate)}</p>
+                  <div className="dhara-alb-badges">
+                    <span className={cn('dhara-alb-chip', albumTypeTone(album.albumType))}>
+                      {albumTypeLabel(album.albumType)}
+                    </span>
+                    <span className={cn('dhara-alb-status', albumStatusTone(album.status))}>
+                      {albumStatusLabel(album.status)}
+                    </span>
+                  </div>
+                  <div className="dhara-alb-card-actions">
+                    <button
+                      type="button"
+                      className="dhara-alb-btn is-cyan"
+                      onClick={() => setDetailAlbumId(album.id)}
+                    >
+                      <Eye strokeWidth={2.4} absoluteStrokeWidth />
+                      Open
+                    </button>
+                    {canUpdate && (
+                      <button
+                        type="button"
+                        className="dhara-alb-btn"
+                        onClick={() => setEditAlbum(album)}
+                        aria-label="Edit album"
+                      >
+                        <Pencil strokeWidth={2.4} absoluteStrokeWidth />
+                      </button>
                     )}
-                  >
-                    {album.status}
-                  </span>
+                    {canArchive && (
+                      <button
+                        type="button"
+                        className="dhara-alb-btn is-danger"
+                        onClick={() => setArchiveAlbum(album)}
+                        aria-label="Archive album"
+                      >
+                        <Trash2 strokeWidth={2.4} absoluteStrokeWidth />
+                      </button>
+                    )}
+                  </div>
                 </div>
-
-                <div className="mb-4 space-y-1 text-sm text-gray-400">
-                  <p>Type: <span className="capitalize text-gray-300">{album.albumType}</span></p>
-                  <p>Pages: {album.pageCount} · Photos: {album.selectedPhotoCount}</p>
-                  <p>Price: {formatCurrency(album.albumPrice)} · Profit: <span className="text-gold">{formatCurrency(album.profit)}</span></p>
-                  <p>Expected: {formatDate(album.expectedDeliveryDate)}</p>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary flex-1 text-xs"
-                    onClick={() => setDetailAlbumId(album.id)}
-                  >
-                    <Eye className="mr-1.5 inline h-3.5 w-3.5" />
-                    Open
-                  </button>
-                  {canUpdate && (
-                    <button
-                      type="button"
-                      className="btn-secondary px-3 text-xs"
-                      onClick={() => setEditAlbum(album)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                  {canArchive && (
-                    <button
-                      type="button"
-                      className="btn-secondary px-3 text-xs text-red-400 hover:text-red-300"
-                      onClick={() => setArchiveAlbum(album)}
-                      aria-label="Archive album"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
+              </article>
             ))}
           </div>
 
           {(listQuery.data?.totalPages ?? 1) > 1 && (
-            <div className="flex items-center justify-center gap-2">
+            <div className="dhara-alb-pager">
               <button
                 type="button"
-                className="btn-secondary px-3 py-1 text-xs"
+                className="dhara-alb-btn"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
               >
                 Previous
               </button>
-              <span className="text-sm text-gray-400">
+              <span>
                 Page {page} of {listQuery.data?.totalPages}
               </span>
               <button
                 type="button"
-                className="btn-secondary px-3 py-1 text-xs"
+                className="dhara-alb-btn"
                 disabled={page >= (listQuery.data?.totalPages ?? 1)}
                 onClick={() => setPage((p) => p + 1)}
               >

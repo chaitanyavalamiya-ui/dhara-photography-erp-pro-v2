@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+html:has(.dhara-erp-shell),
+body:has(.dhara-erp-shell),
+#root:has(.dhara-erp-shell) {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+#root:has(.dhara-erp-shell) {
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+.dhara-erp-shell :where(h1, h2, h3, h4, p, strong, small, td, th, label, li, a) {
+  text-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
 @layer base {
   html {
     color-scheme: dark;

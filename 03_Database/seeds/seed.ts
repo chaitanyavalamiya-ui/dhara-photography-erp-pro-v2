@@ -63,6 +63,7 @@ const PERMISSIONS = [
   { code: 'users.manage', module: 'users', action: 'manage' },
   { code: 'roles.read', module: 'roles', action: 'read' },
   { code: 'roles.manage', module: 'roles', action: 'manage' },
+  { code: 'robo.chat', module: 'robo', action: 'chat' },
 ] as const;
 
 const ROLE_PERMISSION_MAP: Record<string, string[]> = {

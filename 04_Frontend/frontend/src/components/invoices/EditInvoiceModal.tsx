@@ -75,42 +75,29 @@ export function EditInvoiceModal({
   if (!open || !invoice) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-md overflow-y-auto">
-        <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="dhara-inv-modal is-edit">
+      <div className="dhara-inv-modal-card">
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">Update Invoice</h2>
-            <p className="mt-1 text-sm text-gray-400">{invoice.invoiceNumber}</p>
+            <h2>Update Invoice</h2>
+            <p className="dhara-inv-modal-sub">{invoice.invoiceNumber}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-inv-icon-btn" aria-label="Close">
+            <X strokeWidth={2.4} absoluteStrokeWidth />
           </button>
         </div>
 
-        <div className="mb-5 rounded-lg border border-surface-border bg-surface-elevated p-4 text-sm">
-          <div className="grid grid-cols-2 gap-2 text-gray-400">
-            <p>Grand Total</p>
-            <p className="text-right font-medium text-gray-200">
-              {formatCurrency(invoice.totalAmount)}
-            </p>
-            <p>Paid</p>
-            <p className="text-right font-medium text-green-400">
-              {formatCurrency(invoice.advanceAmount)}
-            </p>
-            <p>Balance</p>
-            <p className="text-right font-medium text-gold">
-              {formatCurrency(invoice.balanceAmount)}
-            </p>
-          </div>
-          <p className="mt-3 text-xs text-gray-500">
-            Paid amounts are updated automatically when payments are recorded.
-          </p>
+        <div className="dhara-inv-breakdown mb-5">
+          <p>Grand Total</p>
+          <strong>{formatCurrency(invoice.totalAmount)}</strong>
+          <p>Paid</p>
+          <strong style={{ color: '#86efac' }}>{formatCurrency(invoice.advanceAmount)}</strong>
+          <p>Balance</p>
+          <strong>{formatCurrency(invoice.balanceAmount)}</strong>
         </div>
+        <p className="dhara-inv-hint mb-4">
+          Paid amounts are updated automatically when payments are recorded.
+        </p>
 
         <form
           onSubmit={handleSubmit((values) =>
@@ -120,37 +107,28 @@ export function EditInvoiceModal({
               deliverables,
             }),
           )}
-          className="space-y-4"
+          className="dhara-inv-form"
         >
-          <div>
-            <label htmlFor="dueDate" className="mb-1.5 block text-sm font-medium text-gray-300">
-              Due Date
-            </label>
+          <div className="dhara-inv-field">
+            <label htmlFor="dueDate">Due Date</label>
             <input id="dueDate" type="date" className="input-field" {...register('dueDate')} />
-            {errors.dueDate && (
-              <p className="mt-1 text-xs text-red-400">{errors.dueDate.message}</p>
-            )}
+            {errors.dueDate && <p className="dhara-inv-hint" style={{ color: '#fecaca' }}>{errors.dueDate.message}</p>}
           </div>
 
-          <InvoiceDeliverablesFields value={deliverables} onChange={setDeliverables} />
-
-          <div>
-            <label htmlFor="notes" className="mb-1.5 block text-sm font-medium text-gray-300">
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              rows={3}
-              className="input-field resize-none"
-              {...register('notes')}
-            />
+          <div className="dhara-inv-deliverables">
+            <InvoiceDeliverablesFields value={deliverables} onChange={setDeliverables} />
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className="dhara-inv-field">
+            <label htmlFor="notes">Notes</label>
+            <textarea id="notes" rows={3} className="dhara-inv-input" style={{ resize: 'none', minHeight: '6.2rem' }} {...register('notes')} />
+          </div>
+
+          <div className="mt-2 flex justify-end gap-3">
+            <button type="button" className="dhara-inv-btn" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button type="submit" className="dhara-inv-btn is-gold" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>

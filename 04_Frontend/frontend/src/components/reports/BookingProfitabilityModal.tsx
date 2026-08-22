@@ -19,27 +19,22 @@ export function BookingProfitabilityModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-lg rounded-xl border border-surface-border bg-surface-card shadow-2xl">
-        <div className="flex items-center justify-between border-b border-surface-border px-6 py-4">
+    <div className="dhara-rpt-modal">
+      <div className="dhara-rpt-modal-card">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wider text-gray-500">Booking Profitability</p>
-            <h2 className="font-display text-lg font-semibold text-gold">
-              {data?.bookingNumber ?? 'Loading…'}
-            </h2>
+            <p className="dhara-rpt-kicker" style={{ letterSpacing: '0.14em' }}>
+              Booking Profitability
+            </p>
+            <h2>{data?.bookingNumber ?? 'Loading…'}</h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 hover:text-gold"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
+          <button type="button" className="dhara-rpt-icon-btn" onClick={onClose} aria-label="Close">
+            <X />
           </button>
         </div>
 
-        <div className="space-y-3 p-6 text-sm">
-          {loading && <p className="text-gray-400">Loading booking details…</p>}
+        <div className="mt-4 space-y-2">
+          {loading && <p className="dhara-rpt-note">Loading booking details…</p>}
           {data && (
             <>
               <Row label="Client" value={data.clientName} />
@@ -78,19 +73,17 @@ function Row({
   negative?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-surface-border/60 py-2">
-      <span className="text-gray-500">{label}</span>
-      <span
+    <div className="dhara-rpt-fact" style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+      <span>{label}</span>
+      <strong
         className={cn(
-          'font-medium',
-          highlight && 'font-display text-base font-bold',
-          positive && 'text-green-400',
-          negative && 'text-red-400',
-          highlight && !positive && !negative && 'text-gold',
+          positive && 'dhara-rpt-amt is-in',
+          negative && 'dhara-rpt-amt is-out',
+          highlight && !positive && !negative && 'dhara-rpt-amt is-gold',
         )}
       >
         {value}
-      </span>
+      </strong>
     </div>
   );
 }

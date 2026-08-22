@@ -21,6 +21,12 @@ describe('ReportsService uses accounts calculations', () => {
     expect(source).not.toContain('ACTIVE_BOOKING_FILTER');
   });
 
+  it('does not create financial rows on report reads', () => {
+    expect(source).not.toContain('this.prisma.expense.create');
+    expect(source).not.toContain('this.prisma.payment.create');
+    expect(source).not.toContain('this.prisma.bookingStaffPayment.create');
+  });
+
   it('reuses accounts payment queries that already exclude inactive/voided receipts', () => {
     const accounts = readFileSync(join(__dirname, '../accounts/accounts.service.ts'), 'utf8');
     expect(accounts).toContain('...ACTIVE_FILTER');

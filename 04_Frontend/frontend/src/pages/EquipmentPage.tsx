@@ -1,7 +1,25 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Camera, Eye, Pencil, Plus, Search, Tags } from 'lucide-react';
+import {
+  Aperture,
+  Archive,
+  Camera,
+  CheckCircle2,
+  Eye,
+  HardDrive,
+  Lightbulb,
+  Mic,
+  Package,
+  Pencil,
+  Plane,
+  Plus,
+  Search,
+  Tags,
+  Users,
+  Video,
+  Wrench,
+} from 'lucide-react';
 import {
   EQUIPMENT_CONDITIONS,
   EQUIPMENT_TRACKING_TYPES,
@@ -13,7 +31,14 @@ import {
   equipmentService,
 } from '@/services/equipment-service';
 import { bookingsService } from '@/services/bookings-service';
+import { EquipmentCountUp } from '@/components/equipment/EquipmentCountUp';
 import { EquipmentIssueModal } from '@/components/equipment/EquipmentIssueModal';
+import {
+  equipmentCategoryGlyph,
+  equipmentCategoryTone,
+  equipmentStatusTone,
+  type EquipmentCategoryGlyph,
+} from '@/components/equipment/equipment-visual';
 import { useAuthStore } from '@/stores/auth-store';
 import { formatDate } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
@@ -23,6 +48,54 @@ import {
   getEquipmentSpecFields,
   parseEquipmentSpecifications,
 } from '@/utils/equipment-specifications';
+import './equipment/equipment-page.css';
+
+function EquipmentHeroArt() {
+  return (
+    <svg viewBox="0 0 240 200" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="eqHeroGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ffe08a" />
+          <stop offset="100%" stopColor="#c9a227" />
+        </linearGradient>
+        <linearGradient id="eqHeroCyan" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#67e8f9" />
+          <stop offset="100%" stopColor="#22d3ee" />
+        </linearGradient>
+      </defs>
+      <circle cx="128" cy="102" r="82" stroke="url(#eqHeroGold)" strokeOpacity="0.22" />
+      <circle cx="128" cy="102" r="62" stroke="url(#eqHeroGold)" strokeOpacity="0.45" strokeWidth="1.5" />
+      <circle cx="128" cy="102" r="38" stroke="url(#eqHeroCyan)" strokeOpacity="0.55" strokeWidth="2" />
+      <circle cx="128" cy="102" r="14" fill="rgba(255,212,90,0.18)" stroke="url(#eqHeroGold)" strokeWidth="2.2" />
+      <rect x="46" y="78" width="72" height="52" rx="8" stroke="url(#eqHeroGold)" strokeWidth="2.2" />
+      <path d="M58 78 L68 62 H92 L102 78" stroke="url(#eqHeroGold)" strokeWidth="2" />
+      <circle cx="82" cy="104" r="12" stroke="url(#eqHeroCyan)" strokeWidth="1.8" />
+      <path d="M176 58 L188 78 L208 86" stroke="rgba(255,241,201,0.45)" strokeWidth="1.6" />
+      <path d="M188 148 L206 132" stroke="rgba(34,211,238,0.4)" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function CategoryIcon({ kind }: { kind: EquipmentCategoryGlyph }) {
+  switch (kind) {
+    case 'camera':
+      return <Camera />;
+    case 'lens':
+      return <Aperture />;
+    case 'memory':
+      return <HardDrive />;
+    case 'drone':
+      return <Plane />;
+    case 'light':
+      return <Lightbulb />;
+    case 'audio':
+      return <Mic />;
+    case 'tripod':
+      return <Video />;
+    default:
+      return <Package />;
+  }
+}
 
 export function EquipmentPage() {
   const queryClient = useQueryClient();
@@ -56,6 +129,11 @@ export function EquipmentPage() {
   const categoriesQuery = useQuery({
     queryKey: ['equipment', 'categories', true],
     queryFn: () => equipmentService.listCategories(true),
+  });
+
+  const dashboardQuery = useQuery({
+    queryKey: ['equipment', 'dashboard'],
+    queryFn: () => equipmentService.getDashboard(),
   });
 
   const detailQuery = useQuery({
@@ -102,191 +180,366 @@ export function EquipmentPage() {
   const activeCategories = categories.filter((item) => item.isActive);
   const mutationError = createMutation.error ?? updateMutation.error ?? archiveMutation.error;
   const hasFilters = Boolean(search || category);
+  const dashboard = dashboardQuery.data;
+  const applySearch = () => {
+    setPage(1);
+    setSearch(searchInput);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="font-display text-2xl font-semibold text-gold">Equipment / Inventory</h1>
-          <p className="text-sm text-gray-400">Asset register, availability, and issue history</p>
-        </div>
-        {canWrite && (
-          <div className="flex flex-wrap gap-2">
-            <button type="button" className="btn-secondary" onClick={() => setManageOpen(true)}>
-              <Tags className="mr-2 inline h-4 w-4" />
-              Manage Categories
-            </button>
-            <Link to="/settings?tab=equipment-categories" className="btn-secondary inline-flex items-center">
-              Open in Settings
-            </Link>
-            <button type="button" className="btn-primary" onClick={() => setFormOpen(true)}>
-              <Plus className="mr-2 inline h-4 w-4" />
-              Add Equipment
-            </button>
-          </div>
-        )}
+    <>
+    <div className="dhara-eq">
+      <div className="dhara-eq-ambient" aria-hidden>
+        <span className="dhara-eq-orb is-maroon" />
+        <span className="dhara-eq-orb is-gold" />
+        <span className="dhara-eq-orb is-cyan" />
       </div>
-      {canIssue && (
-        <div className="flex justify-end">
-          <button type="button" className="btn-secondary" onClick={() => setIssueOpen(true)}>
-            <Camera className="mr-2 inline h-4 w-4" />
-            Issue to booking
+
+      <section className="dhara-eq-hero">
+        <span className="dhara-eq-lens" aria-hidden />
+        <span className="dhara-eq-particles" aria-hidden />
+        <div>
+          <p className="dhara-eq-kicker">Dhara Photography ERP Pro</p>
+          <h2>Equipment Management</h2>
+          <p className="dhara-eq-hero-copy">ઇક્વિપમેન્ટ — ઇન્વેન્ટરી, ઉપલબ્ધતા અને શૂટ ઇશ્યૂ</p>
+          <div className="dhara-eq-hero-actions">
+            {canWrite && (
+              <>
+                <button type="button" className="dhara-eq-btn is-gold" onClick={() => setFormOpen(true)}>
+                  <Plus />
+                  Add Equipment
+                </button>
+                <button type="button" className="dhara-eq-btn" onClick={() => setManageOpen(true)}>
+                  <Tags />
+                  Manage Categories
+                </button>
+                <Link to="/settings?tab=equipment-categories" className="dhara-eq-btn">
+                  Open in Settings
+                </Link>
+              </>
+            )}
+            {canIssue && (
+              <button type="button" className="dhara-eq-btn is-cyan" onClick={() => setIssueOpen(true)}>
+                <Camera />
+                Issue to booking
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="dhara-eq-hero-art">
+          <span className="dhara-eq-hero-halo" aria-hidden />
+          <EquipmentHeroArt />
+        </div>
+      </section>
+
+      {feedback && <div className="dhara-eq-flash is-ok">{feedback}</div>}
+      {mutationError && (
+        <div className="dhara-eq-flash is-bad">
+          {getApiErrorMessage(mutationError, 'Failed to save equipment.')}
+        </div>
+      )}
+
+      <div className="dhara-eq-kpis">
+        <article className="dhara-eq-kpi is-green">
+          <div className="dhara-eq-kpi-top">
+            <div>
+              <h3>Available</h3>
+              <p>Ready for issue</p>
+            </div>
+            <span className="dhara-eq-icon">
+              <CheckCircle2 />
+            </span>
+          </div>
+          <strong>
+            <EquipmentCountUp value={dashboard?.available ?? 0} />
+          </strong>
+        </article>
+        <article className="dhara-eq-kpi is-cyan">
+          <div className="dhara-eq-kpi-top">
+            <div>
+              <h3>On Shoot</h3>
+              <p>Currently assigned</p>
+            </div>
+            <span className="dhara-eq-icon">
+              <Camera />
+            </span>
+          </div>
+          <strong>
+            <EquipmentCountUp value={dashboard?.onShoot ?? 0} />
+          </strong>
+        </article>
+        <article className="dhara-eq-kpi is-gold">
+          <div className="dhara-eq-kpi-top">
+            <div>
+              <h3>With Staff</h3>
+              <p>Open issue holdings</p>
+            </div>
+            <span className="dhara-eq-icon">
+              <Users />
+            </span>
+          </div>
+          <strong>
+            <EquipmentCountUp value={dashboard?.withStaff ?? 0} />
+          </strong>
+        </article>
+        <article className="dhara-eq-kpi is-amber">
+          <div className="dhara-eq-kpi-top">
+            <div>
+              <h3>Under Repair</h3>
+              <p>Needs attention</p>
+            </div>
+            <span className="dhara-eq-icon">
+              <Wrench />
+            </span>
+          </div>
+          <strong>
+            <EquipmentCountUp value={dashboard?.underRepair ?? 0} />
+          </strong>
+        </article>
+        <article className="dhara-eq-kpi is-rose">
+          <div className="dhara-eq-kpi-top">
+            <div>
+              <h3>Missing</h3>
+              <p>Not returned</p>
+            </div>
+            <span className="dhara-eq-icon is-rose">
+              <Archive />
+            </span>
+          </div>
+          <strong>
+            <EquipmentCountUp value={dashboard?.missing ?? 0} />
+          </strong>
+        </article>
+        <article className="dhara-eq-kpi is-purple">
+          <div className="dhara-eq-kpi-top">
+            <div>
+              <h3>Categories</h3>
+              <p>Master data</p>
+            </div>
+            <span className="dhara-eq-icon">
+              <Tags />
+            </span>
+          </div>
+          <strong>
+            <EquipmentCountUp value={categories.length} />
+          </strong>
+        </article>
+      </div>
+
+      {categories.length > 0 && (
+        <section className="dhara-eq-panel">
+          <p className="dhara-eq-section-title">Categories</p>
+          <div className="dhara-eq-cats">
+            <button
+              type="button"
+              className={cn('dhara-eq-cat-tile', !category && 'is-on')}
+              onClick={() => {
+                setCategory('');
+                setPage(1);
+              }}
+            >
+              <span className="dhara-eq-icon">
+                <Package />
+              </span>
+              <span>
+                <strong>All categories</strong>
+                <em>{listQuery.data?.total ?? items.length} in this list</em>
+              </span>
+            </button>
+            {categories.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={cn(
+                  'dhara-eq-cat-tile',
+                  equipmentCategoryTone(item.code || item.label),
+                  category === item.code && 'is-on',
+                )}
+                onClick={() => {
+                  setCategory(item.code);
+                  setPage(1);
+                }}
+              >
+                <span className="dhara-eq-icon">
+                  <CategoryIcon kind={equipmentCategoryGlyph(item.code || item.label)} />
+                </span>
+                <span>
+                  <strong>{item.label}</strong>
+                  <em>
+                    {item.code}
+                    {item.isActive ? '' : ' · inactive'}
+                  </em>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="dhara-eq-panel">
+        <div className="dhara-eq-toolbar-row">
+          <div className="dhara-eq-input-wrap" style={{ flex: '1 1 18rem' }}>
+            <Search />
+            <input
+              className="dhara-eq-input is-icon"
+              placeholder="Search name, code, or serial"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && applySearch()}
+            />
+          </div>
+          <div className="dhara-eq-field">
+            <label htmlFor="equipment-category-filter">Filter by category</label>
+            <select
+              id="equipment-category-filter"
+              aria-label="Category filter"
+              className="dhara-eq-input"
+              value={category}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All categories</option>
+              {categories.map((item) => (
+                <option key={item.id} value={item.code}>
+                  {item.label}
+                  {item.isActive ? '' : ' (inactive)'}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button type="button" className="dhara-eq-btn is-gold" onClick={applySearch}>
+            Search
           </button>
         </div>
-      )}
+      </section>
 
-      <div className="card flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[220px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-          <input
-            className="input-field pl-9"
-            placeholder="Search name, code, or serial"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && (setPage(1), setSearch(searchInput))}
-          />
+      {listQuery.isLoading ? (
+        <>
+          <p className="dhara-eq-note">Loading equipment...</p>
+          <div className="dhara-eq-kpis">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="dhara-eq-skeleton" style={{ minHeight: '10rem' }} />
+            ))}
+          </div>
+        </>
+      ) : listQuery.isError ? (
+        <div className="dhara-eq-error">
+          <Camera />
+          <p>{getApiErrorMessage(listQuery.error, 'Failed to load equipment. Please try again.')}</p>
+          <button type="button" className="dhara-eq-btn is-gold" onClick={() => void listQuery.refetch()}>
+            Retry
+          </button>
         </div>
-        <select
-          aria-label="Category filter"
-          className="input-field w-48"
-          value={category}
-          onChange={(e) => {
-            setCategory(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All categories</option>
-          {categories.map((item) => (
-            <option key={item.id} value={item.code}>
-              {item.label}
-              {item.isActive ? '' : ' (inactive)'}
-            </option>
-          ))}
-        </select>
-        <button type="button" className="btn-secondary" onClick={() => (setPage(1), setSearch(searchInput))}>
-          Search
-        </button>
-      </div>
-
-      {feedback && <p className="text-sm text-green-400">{feedback}</p>}
-      {mutationError && (
-        <p className="text-sm text-red-400">{getApiErrorMessage(mutationError, 'Failed to save equipment.')}</p>
-      )}
-
-      <div className="card overflow-x-auto">
-        {listQuery.isLoading ? (
-          <p className="py-12 text-center text-sm text-gray-400">Loading equipment...</p>
-        ) : listQuery.isError ? (
-          <div className="px-4 py-10 text-center">
-            <p className="text-sm text-red-400">
-              {getApiErrorMessage(listQuery.error, 'Failed to load equipment. Please try again.')}
-            </p>
-            <button type="button" className="btn-secondary mt-4" onClick={() => void listQuery.refetch()}>
-              Retry
+      ) : items.length === 0 ? (
+        <div className="dhara-eq-empty">
+          <Camera />
+          <h3>{hasFilters ? 'No equipment matches your search.' : 'No equipment in inventory yet.'}</h3>
+          <p>
+            {hasFilters
+              ? 'Try a different name, code, serial, or category.'
+              : 'Add your first camera, lens, or accessory to start tracking inventory.'}
+          </p>
+          {canWrite && !hasFilters && (
+            <button type="button" className="dhara-eq-btn is-gold" onClick={() => setFormOpen(true)}>
+              <Plus />
+              Add Equipment
             </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="dhara-eq-grid">
+            {items.map((item) => {
+              const tone = equipmentCategoryTone(item.category);
+              return (
+                <article key={item.id} className={cn('dhara-eq-gear', tone)}>
+                  <div className="dhara-eq-gear-top">
+                    <span className={cn('dhara-eq-gear-art', tone)}>
+                      <CategoryIcon kind={equipmentCategoryGlyph(item.category)} />
+                    </span>
+                    <span className={cn('dhara-eq-pill', equipmentStatusTone(item.status))}>{item.status}</span>
+                  </div>
+                  <div>
+                    <h3>{item.name}</h3>
+                    <p className="dhara-eq-gear-meta">
+                      {item.code}
+                      {item.serialNumber ? ` · ${item.serialNumber}` : ''}
+                    </p>
+                    <p className="dhara-eq-gear-meta">
+                      {item.category} · {item.trackingType}
+                      {item.condition ? ` · ${item.condition}` : ''}
+                    </p>
+                  </div>
+                  <div className="dhara-eq-qty">
+                    <p>
+                      <span>Available</span>
+                      <strong>{item.availableQuantity}</strong>
+                    </p>
+                    <p>
+                      <span>On Shoot</span>
+                      <strong>{item.onShootQuantity}</strong>
+                    </p>
+                    <p>
+                      <span>Missing</span>
+                      <strong>{item.missingQuantity}</strong>
+                    </p>
+                    <p>
+                      <span>Under Repair</span>
+                      <strong>{item.underRepairQuantity}</strong>
+                    </p>
+                  </div>
+                  <div className="dhara-eq-gear-actions">
+                    <button type="button" className="dhara-eq-btn" onClick={() => setDetailId(item.id)}>
+                      <Eye />
+                      History
+                    </button>
+                    {canWrite && (
+                      <button type="button" className="dhara-eq-btn" onClick={() => setEditItem(item)}>
+                        <Pencil />
+                        Edit
+                      </button>
+                    )}
+                    {canWrite && (
+                      <button type="button" className="dhara-eq-btn" onClick={() => setArchiveItem(item)}>
+                        <Archive />
+                        Archive
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
           </div>
-        ) : items.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <h3 className="font-display text-lg font-semibold text-gray-200">
-              {hasFilters ? 'No equipment matches your search.' : 'No equipment in inventory yet.'}
-            </h3>
-            <p className="mt-2 text-sm text-gray-500">
-              {hasFilters
-                ? 'Try a different name, code, serial, or category.'
-                : 'Add your first camera, lens, or accessory to start tracking inventory.'}
-            </p>
-          </div>
-        ) : (
-          <>
-            <table className="min-w-full text-left text-sm">
-              <thead>
-                <tr className="text-xs uppercase tracking-wider text-gray-500">
-                  <th className="px-3 py-3">Equipment</th>
-                  <th className="px-3 py-3">Category</th>
-                  <th className="px-3 py-3">Tracking</th>
-                  <th className="px-3 py-3">Available</th>
-                  <th className="px-3 py-3">On Shoot</th>
-                  <th className="px-3 py-3">Missing</th>
-                  <th className="px-3 py-3">Under Repair</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id} className="border-t border-surface-border/60">
-                    <td className="px-3 py-3">
-                      <p className="text-gray-100">{item.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {item.code}
-                        {item.serialNumber ? ` · ${item.serialNumber}` : ''}
-                      </p>
-                    </td>
-                    <td className="px-3 py-3 text-gray-300">{item.category}</td>
-                    <td className="px-3 py-3 capitalize text-gray-300">{item.trackingType}</td>
-                    <td className="px-3 py-3">{item.availableQuantity}</td>
-                    <td className="px-3 py-3">{item.onShootQuantity}</td>
-                    <td className="px-3 py-3">{item.missingQuantity}</td>
-                    <td className="px-3 py-3">{item.underRepairQuantity}</td>
-                    <td className="px-3 py-3">
-                      <span className={cn('rounded-full px-2 py-0.5 text-xs', statusClass(item.status))}>{item.status}</span>
-                    </td>
-                    <td className="px-3 py-3 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button type="button" className="btn-secondary px-3 py-1 text-xs" onClick={() => setDetailId(item.id)}>
-                          <Eye className="mr-1 inline h-3.5 w-3.5" />
-                          History
-                        </button>
-                        {canWrite && (
-                          <button type="button" className="btn-secondary px-3 py-1 text-xs" onClick={() => setEditItem(item)}>
-                            <Pencil className="mr-1 inline h-3.5 w-3.5" />
-                            Edit
-                          </button>
-                        )}
-                        {canWrite && (
-                          <button
-                            type="button"
-                            className="btn-secondary px-3 py-1 text-xs"
-                            onClick={() => setArchiveItem(item)}
-                          >
-                            <Archive className="mr-1 inline h-3.5 w-3.5" />
-                            Archive
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {totalPages > 1 && (
-              <div className="mt-5 flex items-center justify-between px-3 pb-3 text-sm text-gray-400">
-                <p>
-                  Page {page} of {totalPages} · {listQuery.data?.total ?? 0} items
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    disabled={page <= 1}
-                    onClick={() => setPage((current) => Math.max(1, current - 1))}
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-                  >
-                    Next
-                  </button>
-                </div>
+          {totalPages > 1 && (
+            <div className="mt-2 flex items-center justify-between">
+              <p className="dhara-eq-note" style={{ margin: 0 }}>
+                Page {page} of {totalPages} · {listQuery.data?.total ?? 0} items
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="dhara-eq-btn"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="dhara-eq-btn"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                >
+                  Next
+                </button>
               </div>
-            )}
-          </>
-        )}
-      </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
 
       {formOpen && (
         <EquipmentFormDialog
@@ -348,24 +601,25 @@ export function EquipmentPage() {
       />
 
       {archiveItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="card w-full max-w-md">
-            <h2 className="font-display text-xl font-semibold text-gold">Archive equipment</h2>
-            <p className="mt-2 text-sm text-gray-400">
-              Archive {archiveItem.name}? It will leave the active inventory list. Items currently on shoot cannot be archived.
+        <div className="dhara-eq-modal">
+          <div className="dhara-eq-modal-card">
+            <h2>Archive equipment</h2>
+            <p className="dhara-eq-modal-sub">
+              Archive {archiveItem.name}? It will leave the active inventory list. Items currently on
+              shoot cannot be archived.
             </p>
             {archiveMutation.error && (
-              <p className="mt-3 text-sm text-red-400">
+              <p className="dhara-eq-err">
                 {getApiErrorMessage(archiveMutation.error, 'Failed to archive equipment.')}
               </p>
             )}
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" className="btn-secondary" onClick={() => setArchiveItem(null)}>
+            <div className="dhara-eq-form-actions">
+              <button type="button" className="dhara-eq-btn" onClick={() => setArchiveItem(null)}>
                 Cancel
               </button>
               <button
                 type="button"
-                className="btn-primary"
+                className="dhara-eq-btn is-gold"
                 disabled={archiveMutation.isPending}
                 onClick={() => archiveMutation.mutate(archiveItem.id)}
               >
@@ -375,7 +629,7 @@ export function EquipmentPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -394,43 +648,37 @@ function IssueBookingPicker({
   const bookings = bookingsQuery.data?.items ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="card max-h-[92vh] w-full max-w-lg overflow-y-auto">
-        <h2 className="font-display text-xl font-semibold text-gold">Select booking</h2>
-        <p className="mt-1 text-sm text-gray-400">Equipment can only be issued against an existing booking.</p>
+    <div className="dhara-eq-modal">
+      <div className="dhara-eq-modal-card">
+        <h2>Select booking</h2>
+        <p className="dhara-eq-modal-sub">Equipment can only be issued against an existing booking.</p>
         <input
-          className="input-field mt-4"
+          className="dhara-eq-input mt-4"
           placeholder="Search booking number or client"
           value={bookingSearch}
           onChange={(e) => setBookingSearch(e.target.value)}
         />
-        {bookingsQuery.isLoading && <p className="mt-4 text-sm text-gray-400">Loading bookings...</p>}
+        {bookingsQuery.isLoading && <p className="dhara-eq-note">Loading bookings...</p>}
         {bookingsQuery.isError && (
-          <p className="mt-4 text-sm text-red-400">
-            {getApiErrorMessage(bookingsQuery.error, 'Failed to load bookings.')}
-          </p>
+          <p className="dhara-eq-err">{getApiErrorMessage(bookingsQuery.error, 'Failed to load bookings.')}</p>
         )}
         <ul className="mt-4 space-y-2">
           {bookings.map((booking) => (
             <li key={booking.id}>
-              <button
-                type="button"
-                className="w-full rounded-lg border border-surface-border px-3 py-2 text-left text-sm hover:border-gold/40"
-                onClick={() => onSelect(booking.id)}
-              >
-                <p className="text-gray-100">{booking.bookingNumber}</p>
-                <p className="text-xs text-gray-500">
+              <button type="button" className="dhara-eq-booking-pick" onClick={() => onSelect(booking.id)}>
+                <p>{booking.bookingNumber}</p>
+                <span>
                   {booking.client.fullName} · {booking.eventType}
-                </p>
+                </span>
               </button>
             </li>
           ))}
         </ul>
         {!bookingsQuery.isLoading && bookings.length === 0 && (
-          <p className="mt-4 text-sm text-gray-400">No bookings found.</p>
+          <p className="dhara-eq-note">No bookings found.</p>
         )}
-        <div className="mt-5 flex justify-end">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+        <div className="dhara-eq-form-actions">
+          <button type="button" className="dhara-eq-btn" onClick={onClose}>
             Cancel
           </button>
         </div>
@@ -449,14 +697,6 @@ function mergeCurrentCategory(
   }
   const current = all.find((item) => item.label === currentLabel || item.code === currentLabel);
   return current ? [current, ...active] : active;
-}
-
-function statusClass(status: string) {
-  if (status === 'AVAILABLE') return 'bg-green-500/15 text-green-400';
-  if (status === 'ON_SHOOT') return 'bg-amber-500/15 text-amber-400';
-  if (status === 'MISSING') return 'bg-orange-500/15 text-orange-400';
-  if (status === 'UNDER_REPAIR') return 'bg-red-500/15 text-red-400';
-  return 'bg-gray-500/15 text-gray-400';
 }
 
 function EquipmentFormDialog({
@@ -519,9 +759,9 @@ function EquipmentFormDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className="dhara-eq-modal">
       <form
-        className="card max-h-[92vh] w-full max-w-lg space-y-3 overflow-y-auto"
+        className="dhara-eq-modal-card dhara-eq-form"
         onSubmit={(e) => {
           e.preventDefault();
           try {
@@ -532,8 +772,12 @@ function EquipmentFormDialog({
               name: form.name,
               category: form.category,
               ...(isEdit ? {} : { trackingType: form.trackingType }),
-              serialNumber: form.trackingType === 'serialized' || item?.trackingType === 'serialized' ? form.serialNumber : undefined,
-              totalQuantity: (item?.trackingType ?? form.trackingType) === 'serialized' ? 1 : Number(form.totalQuantity || 1),
+              serialNumber:
+                form.trackingType === 'serialized' || item?.trackingType === 'serialized'
+                  ? form.serialNumber
+                  : undefined,
+              totalQuantity:
+                (item?.trackingType ?? form.trackingType) === 'serialized' ? 1 : Number(form.totalQuantity || 1),
               condition: form.condition,
               notes: form.notes || undefined,
               specifications,
@@ -543,16 +787,16 @@ function EquipmentFormDialog({
           }
         }}
       >
-        <h2 className="font-display text-xl font-semibold text-gold">{title}</h2>
+        <h2>{title}</h2>
         <input
-          className="input-field"
+          className="dhara-eq-input"
           placeholder="Code (CAM-001)"
           required
           value={form.code}
           onChange={(e) => setForm({ ...form, code: e.target.value })}
         />
         <input
-          className="input-field"
+          className="dhara-eq-input"
           placeholder="Name"
           required
           value={form.name}
@@ -560,7 +804,7 @@ function EquipmentFormDialog({
         />
         <select
           aria-label="Category"
-          className="input-field"
+          className="dhara-eq-input"
           required
           value={form.category}
           onChange={(e) => {
@@ -579,11 +823,13 @@ function EquipmentFormDialog({
           ))}
         </select>
         {isEdit ? (
-          <p className="text-xs text-gray-500">Tracking type: {item?.trackingType}</p>
+          <p className="dhara-eq-note" style={{ margin: 0 }}>
+            Tracking type: {item?.trackingType}
+          </p>
         ) : (
           <select
             aria-label="Tracking type"
-            className="input-field"
+            className="dhara-eq-input"
             value={form.trackingType}
             onChange={(e) => setForm({ ...form, trackingType: e.target.value })}
           >
@@ -596,7 +842,7 @@ function EquipmentFormDialog({
         )}
         {(item?.trackingType ?? form.trackingType) === 'serialized' ? (
           <input
-            className="input-field"
+            className="dhara-eq-input"
             placeholder="Serial / item ID"
             required
             value={form.serialNumber}
@@ -604,7 +850,7 @@ function EquipmentFormDialog({
           />
         ) : (
           <input
-            className="input-field"
+            className="dhara-eq-input"
             type="number"
             min={1}
             aria-label="Total quantity"
@@ -614,7 +860,7 @@ function EquipmentFormDialog({
         )}
         <select
           aria-label="Condition"
-          className="input-field"
+          className="dhara-eq-input"
           value={form.condition}
           onChange={(e) => setForm({ ...form, condition: e.target.value })}
         >
@@ -625,21 +871,23 @@ function EquipmentFormDialog({
           ))}
         </select>
         <textarea
-          className="input-field"
+          className="dhara-eq-input"
           placeholder="Notes"
           value={form.notes}
           onChange={(e) => setForm({ ...form, notes: e.target.value })}
         />
-        <div className="rounded-lg border border-surface-border p-3">
-          <p className="mb-2 text-sm font-semibold text-gold">Specifications</p>
+        <div className="dhara-eq-fact" style={{ padding: '1rem' }}>
+          <p className="dhara-eq-section-title" style={{ marginBottom: '0.7rem' }}>
+            Specifications
+          </p>
           <div className="space-y-2">
             {specFields.map((field) => (
-              <label key={field.key} className="block text-sm text-gray-300">
+              <label key={field.key} className="block">
                 {field.label}
                 {field.type === 'select' ? (
                   <select
                     aria-label={field.label}
-                    className="input-field mt-1"
+                    className="dhara-eq-input mt-1"
                     value={specs[field.key] ?? ''}
                     onChange={(e) => setSpecs({ ...specs, [field.key]: e.target.value })}
                   >
@@ -653,7 +901,7 @@ function EquipmentFormDialog({
                 ) : (
                   <input
                     aria-label={field.label}
-                    className="input-field mt-1"
+                    className="dhara-eq-input mt-1"
                     type={field.type === 'number' ? 'number' : 'text'}
                     min={field.type === 'number' ? 1 : undefined}
                     value={specs[field.key] ?? ''}
@@ -663,13 +911,13 @@ function EquipmentFormDialog({
               </label>
             ))}
           </div>
-          {specError && <p className="mt-2 text-sm text-red-400">{specError}</p>}
+          {specError && <p className="dhara-eq-err">{specError}</p>}
         </div>
-        <div className="flex justify-end gap-3">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+        <div className="dhara-eq-form-actions">
+          <button type="button" className="dhara-eq-btn" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="btn-primary" disabled={pending || !form.category}>
+          <button type="submit" className="dhara-eq-btn is-gold" disabled={pending || !form.category}>
             Save
           </button>
         </div>
@@ -714,10 +962,10 @@ function ManageCategoriesDialog({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="card max-h-[92vh] w-full max-w-xl overflow-y-auto">
-        <h2 className="font-display text-xl font-semibold text-gold">Manage Categories</h2>
-        <p className="mt-1 text-sm text-gray-400">Deactivating keeps historical equipment; it is hidden from new items.</p>
+    <div className="dhara-eq-modal">
+      <div className="dhara-eq-modal-card is-wide">
+        <h2>Manage Categories</h2>
+        <p className="dhara-eq-modal-sub">Deactivating keeps historical equipment; it is hidden from new items.</p>
         <form
           className="mt-4 flex gap-2"
           onSubmit={(e) => {
@@ -726,25 +974,25 @@ function ManageCategoriesDialog({
           }}
         >
           <input
-            className="input-field flex-1"
+            className="dhara-eq-input flex-1"
             placeholder="New category name"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
           />
-          <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
+          <button type="submit" className="dhara-eq-btn is-gold" disabled={createMutation.isPending}>
             Add
           </button>
         </form>
-        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+        {error && <p className="dhara-eq-err">{error}</p>}
         <ul className="mt-4 space-y-2">
           {categories.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-surface-border px-3 py-2">
+            <li key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-gold/20 px-3 py-2">
               {editing?.id === item.id ? (
-                <input className="input-field flex-1" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} />
+                <input className="dhara-eq-input flex-1" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} />
               ) : (
                 <div>
-                  <p className="text-sm text-gray-100">{item.label}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-base font-semibold text-gray-100">{item.label}</p>
+                  <p className="dhara-eq-note" style={{ margin: 0 }}>
                     {item.code} · {item.isActive ? 'Active' : 'Inactive'}
                   </p>
                 </div>
@@ -753,7 +1001,7 @@ function ManageCategoriesDialog({
                 {editing?.id === item.id ? (
                   <button
                     type="button"
-                    className="btn-primary px-3 py-1 text-xs"
+                    className="dhara-eq-btn is-gold"
                     onClick={() => updateMutation.mutate({ id: item.id, payload: { label: editLabel } })}
                   >
                     Save
@@ -761,7 +1009,7 @@ function ManageCategoriesDialog({
                 ) : (
                   <button
                     type="button"
-                    className="btn-secondary px-3 py-1 text-xs"
+                    className="dhara-eq-btn"
                     onClick={() => {
                       setEditing(item);
                       setEditLabel(item.label);
@@ -772,7 +1020,7 @@ function ManageCategoriesDialog({
                 )}
                 <button
                   type="button"
-                  className="btn-secondary px-3 py-1 text-xs"
+                  className="dhara-eq-btn"
                   onClick={() => updateMutation.mutate({ id: item.id, payload: { isActive: !item.isActive } })}
                 >
                   {item.isActive ? 'Deactivate' : 'Activate'}
@@ -781,8 +1029,8 @@ function ManageCategoriesDialog({
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex justify-end">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+        <div className="dhara-eq-form-actions">
+          <button type="button" className="dhara-eq-btn" onClick={onClose}>
             Close
           </button>
         </div>
@@ -801,81 +1049,87 @@ function EquipmentHistoryDialog({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="card max-h-[92vh] w-full max-w-2xl overflow-y-auto">
-        <h2 className="font-display text-xl font-semibold text-gold">
-          {equipment ? `${equipment.name} · ${equipment.code}` : 'Equipment history'}
-        </h2>
+    <div className="dhara-eq-modal">
+      <div className="dhara-eq-modal-card is-wide">
+        <h2>{equipment ? `${equipment.name} · ${equipment.code}` : 'Equipment history'}</h2>
         {loading || !equipment ? (
-          <p className="py-6 text-sm text-gray-400">Loading history…</p>
+          <p className="dhara-eq-note">Loading history…</p>
         ) : (
           <>
-            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Equipment</dt>
-                <dd className="text-gray-100">{equipment.name}</dd>
+            <div className="dhara-eq-facts mt-4">
+              <div className="dhara-eq-fact">
+                <span>Equipment</span>
+                <strong>{equipment.name}</strong>
               </div>
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Code</dt>
-                <dd className="text-gray-100">{equipment.code}</dd>
+              <div className="dhara-eq-fact">
+                <span>Code</span>
+                <strong>{equipment.code}</strong>
               </div>
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Category</dt>
-                <dd className="text-gray-100">{equipment.category}</dd>
+              <div className="dhara-eq-fact">
+                <span>Category</span>
+                <strong>{equipment.category}</strong>
               </div>
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Tracking Type</dt>
-                <dd className="capitalize text-gray-100">{equipment.trackingType}</dd>
+              <div className="dhara-eq-fact">
+                <span>Tracking Type</span>
+                <strong className="capitalize">{equipment.trackingType}</strong>
               </div>
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Serial / Item ID</dt>
-                <dd className="text-gray-100">{equipment.serialNumber || '—'}</dd>
+              <div className="dhara-eq-fact">
+                <span>Serial / Item ID</span>
+                <strong>{equipment.serialNumber || '—'}</strong>
               </div>
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Condition</dt>
-                <dd className="text-gray-100">{equipment.condition}</dd>
+              <div className="dhara-eq-fact">
+                <span>Condition</span>
+                <strong>{equipment.condition}</strong>
               </div>
-              <div>
-                <dt className="text-xs uppercase text-gray-500">Status</dt>
-                <dd className="text-gray-100">{equipment.status}</dd>
+              <div className="dhara-eq-fact">
+                <span>Status</span>
+                <strong>{equipment.status}</strong>
               </div>
-            </dl>
+            </div>
             <div className="mt-4">
-              <h3 className="text-sm font-semibold text-gold">Specifications</h3>
+              <h3 className="dhara-eq-section-title">Specifications</h3>
               {formatEquipmentSpecifications(equipment.specifications, equipment.category).length === 0 ? (
-                <p className="mt-2 text-sm text-gray-400">No specifications recorded.</p>
+                <p className="dhara-eq-note">No specifications recorded.</p>
               ) : (
-                <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                <div className="dhara-eq-facts mt-2">
                   {formatEquipmentSpecifications(equipment.specifications, equipment.category).map((row) => (
-                    <div key={row.key}>
-                      <dt className="text-xs uppercase text-gray-500">{row.label}</dt>
-                      <dd className="text-gray-100">{row.value}</dd>
+                    <div key={row.key} className="dhara-eq-fact">
+                      <span>{row.label}</span>
+                      <strong>{row.value}</strong>
                     </div>
                   ))}
-                </dl>
+                </div>
               )}
             </div>
+            {equipment.notes ? (
+              <div className="mt-4">
+                <h3 className="dhara-eq-section-title">Notes</h3>
+                <p className="dhara-eq-note">{equipment.notes}</p>
+              </div>
+            ) : null}
             <ul className="mt-4 space-y-3">
-            {equipment.history.length === 0 && <p className="text-sm text-gray-400">No issue / return history yet.</p>}
-            {equipment.history.map((row) => (
-              <li key={row.id} className="rounded-lg border border-surface-border p-3 text-sm">
-                <p className="text-gray-100">
-                  {formatDate(row.occurredAt)} · {row.action}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {row.bookingNumber ? `Booking: ${row.bookingNumber}` : ''}
-                  {row.staffName ? ` · Staff: ${row.staffName}` : ''}
-                  {row.conditionOut ? ` · Condition Out: ${row.conditionOut}` : ''}
-                  {row.conditionIn ? ` · Condition In: ${row.conditionIn}` : ''}
-                </p>
-                {row.notes && <p className="mt-1 text-gray-400">{row.notes}</p>}
-              </li>
-            ))}
+              {equipment.history.length === 0 && (
+                <p className="dhara-eq-note">No issue / return history yet.</p>
+              )}
+              {equipment.history.map((row) => (
+                <li key={row.id} className="dhara-eq-fact">
+                  <p className="text-base font-semibold text-gray-100">
+                    {formatDate(row.occurredAt)} · {row.action}
+                  </p>
+                  <p className="dhara-eq-note" style={{ marginTop: '0.35rem' }}>
+                    {row.bookingNumber ? `Booking: ${row.bookingNumber}` : ''}
+                    {row.staffName ? ` · Staff: ${row.staffName}` : ''}
+                    {row.conditionOut ? ` · Condition Out: ${row.conditionOut}` : ''}
+                    {row.conditionIn ? ` · Condition In: ${row.conditionIn}` : ''}
+                  </p>
+                  {row.notes && <p className="mt-1 text-gray-300">{row.notes}</p>}
+                </li>
+              ))}
             </ul>
           </>
         )}
-        <div className="mt-4 flex justify-end">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+        <div className="dhara-eq-form-actions">
+          <button type="button" className="dhara-eq-btn" onClick={onClose}>
             Close
           </button>
         </div>

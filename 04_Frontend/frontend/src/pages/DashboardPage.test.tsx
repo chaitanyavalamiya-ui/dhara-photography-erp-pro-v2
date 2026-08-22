@@ -198,7 +198,7 @@ describe('DashboardPage overview album metrics', () => {
 
     renderPage();
 
-    expect(await screen.findByText('Welcome, Staff')).toBeInTheDocument();
+    expect(await screen.findByText('Studio Overview')).toBeInTheDocument();
     expect(reportsService.getOverview).not.toHaveBeenCalled();
     expect(screen.queryByText('Album Sales')).not.toBeInTheDocument();
   });
@@ -209,13 +209,13 @@ describe('DashboardPage overview album metrics', () => {
     renderPage();
 
     expect(await screen.findByText('bookings unavailable')).toBeInTheDocument();
-    expect(screen.queryByText('No bookings yet.')).not.toBeInTheDocument();
+    expect(screen.queryByText('No upcoming bookings scheduled.')).not.toBeInTheDocument();
 
     vi.mocked(bookingsService.list).mockResolvedValue(emptyPage as never);
     fireEvent.click(screen.getAllByRole('button', { name: 'Retry' })[0]);
 
     await waitFor(() => {
-      expect(screen.getByText('No bookings yet.')).toBeInTheDocument();
+      expect(screen.getByText('No upcoming bookings scheduled.')).toBeInTheDocument();
     });
   });
 
@@ -224,8 +224,8 @@ describe('DashboardPage overview album metrics', () => {
 
     renderPage();
 
-    expect(await screen.findByText('Cash Received')).toBeInTheDocument();
+    expect(await screen.findByText('Pending Payment')).toBeInTheDocument();
     expect(screen.getAllByText('calendar unavailable').length).toBeGreaterThan(0);
-    expect(screen.queryByText("Today's Bookings")).not.toBeInTheDocument();
+    expect(screen.queryByText("Today's Revenue")).not.toBeInTheDocument();
   });
 });

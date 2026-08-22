@@ -134,20 +134,23 @@ export const BOOKING_STATUS_OPTIONS = [
 
 function sanitizeBookingPayload<T extends BookingFormData | Partial<BookingFormData>>(payload: T): T {
   const sanitized = { ...payload };
-  if (sanitized.eventEndDate === '') {
-    (sanitized as { eventEndDate?: string | null }).eventEndDate = null;
+  if (sanitized.eventEndDate === '' || sanitized.eventEndDate == null) {
+    delete (sanitized as { eventEndDate?: string | null }).eventEndDate;
   }
-  if (sanitized.venue === '') {
-    (sanitized as { venue?: string | null }).venue = null;
+  if (sanitized.venue === '' || sanitized.venue == null) {
+    delete (sanitized as { venue?: string | null }).venue;
   }
-  if (sanitized.city === '') {
-    (sanitized as { city?: string | null }).city = null;
+  if (sanitized.city === '' || sanitized.city == null) {
+    delete (sanitized as { city?: string | null }).city;
   }
-  if (sanitized.notes === '') {
-    (sanitized as { notes?: string | null }).notes = null;
+  if (sanitized.notes === '' || sanitized.notes == null) {
+    delete (sanitized as { notes?: string | null }).notes;
   }
   if (sanitized.items) {
-    sanitized.items = sanitized.items.map(({ id: _id, ...item }) => item) as T['items'];
+    sanitized.items = sanitized.items.map(({ id: _id, serviceRateId, ...item }) => ({
+      ...item,
+      ...(serviceRateId ? { serviceRateId } : {}),
+    })) as T['items'];
   }
   return sanitized;
 }

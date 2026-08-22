@@ -28,20 +28,20 @@ export function ReportExportBar({
     <div className="flex flex-wrap gap-2">
       <button
         type="button"
-        className="btn-secondary px-3 py-1.5 text-xs"
+        className="dhara-rpt-btn"
         disabled={disabled}
         onClick={() => void handlePdf()}
       >
-        <Download className="mr-1.5 inline h-3.5 w-3.5" />
+        <Download />
         Export PDF
       </button>
       <button
         type="button"
-        className="btn-secondary px-3 py-1.5 text-xs"
+        className="dhara-rpt-btn is-gold"
         disabled={disabled}
         onClick={handleExcel}
       >
-        <FileSpreadsheet className="mr-1.5 inline h-3.5 w-3.5" />
+        <FileSpreadsheet />
         Export Excel
       </button>
     </div>

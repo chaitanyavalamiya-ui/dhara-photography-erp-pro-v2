@@ -1,0 +1,63 @@
+---
+description: Clients Management module is a locked final design — never change it unless the user explicitly asks.
+alwaysApply: true
+---
+
+# LOCKED CLIENTS MANAGEMENT MODULE — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
+
+The Clients Management module is an approved, frozen baseline. Do not change, redesign, restyle, restyle-via-globals, add, remove, resize, or reposition anything in it unless the user explicitly requests that specific Clients Management change in the current conversation.
+
+This lock is independent of the Login Page lock and the Dashboard lock. All three remain fully in force.
+
+## Before editing any file below
+
+Require an explicit user instruction that clearly asks to modify Clients Management (for example: “change the Clients KPI cards” or “update the Add Client modal”). Unrelated work, other modules, refactors, “while we’re here” polish, and inferred improvements are not approval.
+
+## Locked files (do not edit without explicit approval)
+
+Page, styles, and tests:
+
+- `04_Frontend/frontend/src/pages/ClientsPage.tsx`
+- `04_Frontend/frontend/src/pages/ClientsPage.test.tsx`
+- `04_Frontend/frontend/src/pages/clients/clients-page.css`
+
+Clients UI components:
+
+- `04_Frontend/frontend/src/components/clients/ClientFormModal.tsx`
+- `04_Frontend/frontend/src/components/clients/ClientViewModal.tsx`
+- `04_Frontend/frontend/src/components/clients/ClientViewModal.test.tsx`
+- `04_Frontend/frontend/src/components/clients/DeleteClientDialog.tsx`
+- `04_Frontend/frontend/src/components/clients/client-avatar.tsx`
+- `04_Frontend/frontend/src/components/clients/ClientSearchSelect.tsx`
+- `04_Frontend/frontend/src/components/clients/ClientSearchSelect.test.tsx`
+
+Clients data helpers and API client used by this module:
+
+- `04_Frontend/frontend/src/utils/client-form.ts`
+- `04_Frontend/frontend/src/services/clients-service.ts`
+
+## Preserve exactly
+
+- Layout and visual hierarchy (hero, KPIs, birthdays/anniversaries, search, filters, sorting, table, mobile cards, pagination)
+- Crystal/glass surfaces, colors, glows, typography, icons, avatars, spacing, and animations
+- Loading, empty, and error states
+- Add / Edit Client modal, View Client details and booking history, Delete/Archive dialog
+- Existing Clients functionality, API calls, validation, permissions, routes, and data behavior
+
+## Other work must stay independent
+
+Work on Login, Dashboard, Bookings, and other modules without touching the files above.
+
+If you must change shared CSS or layout shells:
+
+- Do not alter `.dhara-clients`, `.dhara-clients-*`, or `clients-page.css`.
+- Scope new styles so they cannot override Clients descendants.
+- Prefer new class names over changing globals used by Clients.
+
+`ClientSearchSelect` and `clients-service` are consumed by other modules. Other modules may *call* them, but must not edit those locked files without explicit Clients Management approval.
+
+## Allowed exception
+
+Only modify the Clients Management module when the user clearly asks for a specific Clients change in that conversation.
+
+Do not weaken `.cursor/rules/locked-login-page.mdc` or `.cursor/rules/locked-dashboard.mdc`.

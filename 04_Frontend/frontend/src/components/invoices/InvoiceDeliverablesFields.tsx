@@ -18,7 +18,7 @@ export function InvoiceDeliverablesFields({ value, onChange }: InvoiceDeliverabl
   };
 
   return (
-    <div className="space-y-3">
+    <div className="dhara-inv-deliverables space-y-3">
       <div>
         <p className="mb-1.5 text-sm font-medium text-gray-300">Deliverables</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

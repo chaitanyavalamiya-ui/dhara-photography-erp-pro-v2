@@ -317,6 +317,10 @@ export class PaymentsService {
     return this.mapPayment(voided);
   }
 
+  /**
+   * Optional one-shot repair for invoices that store an advance with no payment rows.
+   * Must never be called from GET/read endpoints (accounts dashboard, period summary, reports).
+   */
   async backfillAdvancePayments(companyId: string, userId: string): Promise<void> {
     const invoices = await this.prisma.invoice.findMany({
       where: {

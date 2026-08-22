@@ -47,45 +47,45 @@ export function EditMasterDataModal({
   if (!open || !item) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md">
-        <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="dhara-set-modal">
+      <div className="dhara-set-modal-card">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">Edit Lookup Item</h2>
-            <p className="mt-1 font-mono text-xs text-gray-500">{item.code}</p>
+            <h2>Edit Lookup Item</h2>
+            <p className="dhara-set-modal-sub">{item.code}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-set-icon-btn" aria-label="Close">
+            <X />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="dhara-set-form">
           <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Label</label>
-            <input className="input-field" {...register('label')} />
-            {errors.label && <p className="mt-1 text-xs text-red-400">{errors.label.message}</p>}
+            <label>Label</label>
+            <input className="dhara-set-input" {...register('label')} />
+            {errors.label && <p className="dhara-set-err">{errors.label.message}</p>}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Sort Order</label>
+            <label>Sort Order</label>
             <input
               type="number"
               min="0"
-              className="input-field"
+              className="dhara-set-input"
               {...register('sortOrder', { valueAsNumber: true })}
             />
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-gray-300">
-            <input type="checkbox" className="rounded border-surface-border" {...register('isActive')} />
+          <label className="dhara-set-check">
+            <input type="checkbox" {...register('isActive')} />
             Active
           </label>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className="dhara-set-form-actions">
+            <button type="button" className="dhara-set-btn" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button type="submit" className="dhara-set-btn is-gold" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>

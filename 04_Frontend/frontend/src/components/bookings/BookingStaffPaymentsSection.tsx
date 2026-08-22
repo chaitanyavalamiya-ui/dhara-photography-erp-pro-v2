@@ -7,6 +7,7 @@ import { staffService } from '@/services/staff-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { formatCurrency, formatDate } from '@/utils/booking-form';
 import { cn } from '@/utils/cn';
+import { invalidateAfterAccountsExpense } from '@/utils/invalidate-financial-queries';
 
 interface BookingStaffPaymentsSectionProps {
   booking: Booking;
@@ -40,9 +41,12 @@ export function BookingStaffPaymentsSection({ booking }: BookingStaffPaymentsSec
         paymentDate,
         paymentMode,
       }),
-    onSuccess: () => {
+    onSuccess: (payment) => {
       queryClient.invalidateQueries({ queryKey: ['bookings', booking.id, 'staff-payments'] });
       queryClient.invalidateQueries({ queryKey: ['bookings', booking.id, 'activities'] });
+      if (payment.status === 'paid') {
+        invalidateAfterAccountsExpense(queryClient);
+      }
       setAmount('');
       setAssignmentId('');
     },

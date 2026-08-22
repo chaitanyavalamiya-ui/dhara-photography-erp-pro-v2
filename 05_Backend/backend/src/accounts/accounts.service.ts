@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { PaymentsService } from '../payments/payments.service';
 import { roundMoney } from '../bookings/utils/booking.utils';
 import {
   buildBookingEventDateWhere,
@@ -44,14 +43,9 @@ const ACTIVE_FILTER = {
 
 @Injectable()
 export class AccountsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly paymentsService: PaymentsService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async getDashboard(companyId: string, userId: string): Promise<AccountsDashboardDto> {
-    await this.paymentsService.backfillAdvancePayments(companyId, userId);
-
+  async getDashboard(companyId: string, _userId: string): Promise<AccountsDashboardDto> {
     const now = new Date();
     const studioNow = getStudioDateParts(now);
     const { start: monthStart, end: monthEnd } = getMonthRange(studioNow.year, studioNow.month);
@@ -130,10 +124,9 @@ export class AccountsService {
 
   async getPeriodSummary(
     companyId: string,
-    userId: string,
+    _userId: string,
     query: AccountsDateQueryDto,
   ): Promise<AccountsPeriodSummaryDto> {
-    await this.paymentsService.backfillAdvancePayments(companyId, userId);
     const period = this.resolvePeriod(query);
 
     const [

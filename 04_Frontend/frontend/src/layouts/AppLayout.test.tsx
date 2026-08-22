@@ -32,6 +32,7 @@ function renderLayout(path = '/dashboard') {
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<div>Dashboard content</div>} />
             <Route path="/clients" element={<div>Clients content</div>} />
+            <Route path="/settings" element={<div>Settings content</div>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -56,12 +57,13 @@ describe('AppLayout mobile navigation', () => {
     });
   });
 
-  it('keeps desktop content offset classes and hides the drawer until opened', () => {
+  it('keeps the workspace fluid and hides the drawer until opened', () => {
     const { container } = renderLayout();
     expect(screen.getByRole('button', { name: 'Open navigation' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close navigation overlay' })).not.toBeInTheDocument();
-    expect(container.querySelector('.md\\:ml-64')).toBeTruthy();
-    expect(container.querySelector('.ml-64')).toBeNull();
+    expect(container.querySelector('.dhara-erp-workspace')).toBeTruthy();
+    expect(container.querySelector('.md\\:ml-72')).toBeNull();
+    expect(container.querySelector('.ml-72')).toBeNull();
   });
 
   it('opens an overlay drawer and closes it with the close button', () => {
@@ -82,5 +84,39 @@ describe('AppLayout mobile navigation', () => {
     fireEvent.click(screen.getByRole('link', { name: /Clients/ }));
     expect(screen.getByText('Clients content')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close navigation overlay' })).not.toBeInTheDocument();
+  });
+});
+
+describe('AppLayout settings vs backup nav', () => {
+  beforeEach(() => {
+    vi.mocked(settingsService.getCompanyProfile).mockRejectedValue(new Error('unavailable'));
+    useAuthStore.setState({
+      user: {
+        id: 'u1',
+        fullName: 'Admin',
+        email: 'admin@example.com',
+        companyId: 'c1',
+        permissions: ['dashboard.read', 'settings.read'],
+      },
+      accessToken: 'token',
+      refreshToken: 'refresh',
+      isAuthenticated: true,
+    });
+  });
+
+  it('marks only Settings as active on /settings', () => {
+    renderLayout('/settings');
+    const settings = screen.getByRole('link', { name: 'Settings' });
+    const backup = screen.getByRole('link', { name: 'Backup & Restore' });
+    expect(settings).toHaveClass('is-active');
+    expect(backup).not.toHaveClass('is-active');
+  });
+
+  it('marks only Backup & Restore as active on the backup tab', () => {
+    renderLayout('/settings?tab=backup-restore');
+    const settings = screen.getByRole('link', { name: 'Settings' });
+    const backup = screen.getByRole('link', { name: 'Backup & Restore' });
+    expect(backup).toHaveClass('is-active');
+    expect(settings).not.toHaveClass('is-active');
   });
 });

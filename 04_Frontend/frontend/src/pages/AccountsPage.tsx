@@ -7,6 +7,7 @@ import {
   BookImage,
   CalendarRange,
   Eye,
+  IndianRupee,
   Pencil,
   Plus,
   Search,
@@ -15,6 +16,8 @@ import {
   UserCog,
   Wallet,
 } from 'lucide-react';
+import { AccountsCountUp } from '@/components/accounts/AccountsCountUp';
+import { AccountsMonthlyChart } from '@/components/accounts/AccountsMonthlyChart';
 import {
   ACCOUNTS_DATE_PRESETS,
   AccountsDatePreset,
@@ -41,22 +44,33 @@ import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { firstOfMonthIso, todayIso } from '@/utils/studio-date';
 import { cn } from '@/utils/cn';
+import {
+  invalidateAfterAccountsExpense,
+  invalidateAfterAccountsPayment,
+} from '@/utils/invalidate-financial-queries';
+import './accounts/accounts-page.css';
 
 type Tab = 'overview' | 'income' | 'expenses' | 'staff' | 'profit' | 'monthly' | 'transactions';
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <Wallet className="mb-3 h-10 w-10 text-gray-600" />
-      <p className="text-sm text-gray-500">{message}</p>
+    <div className="dhara-acc-empty">
+      <Wallet />
+      <p>{message}</p>
     </div>
   );
 }
 
-function ErrorState({ message }: { message: string }) {
+function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-6 text-center text-sm text-red-400">
-      {message}
+    <div className="dhara-acc-error">
+      <Wallet />
+      <p>{message}</p>
+      {onRetry ? (
+        <button type="button" className="dhara-acc-btn is-gold" onClick={onRetry}>
+          Retry
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -65,9 +79,42 @@ function LoadingRows({ rows = 5 }: { rows?: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="h-12 animate-pulse rounded-lg bg-surface-elevated" />
+        <div key={i} className="dhara-acc-skeleton" />
       ))}
     </div>
+  );
+}
+
+function AccountsHeroArt() {
+  return (
+    <svg viewBox="0 0 220 180" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="accHeroGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ffe08a" />
+          <stop offset="100%" stopColor="#c9a227" />
+        </linearGradient>
+      </defs>
+      <circle cx="118" cy="92" r="78" stroke="url(#accHeroGold)" strokeOpacity="0.18" />
+      <circle cx="118" cy="92" r="58" stroke="url(#accHeroGold)" strokeOpacity="0.38" strokeWidth="1.4" />
+      <circle cx="118" cy="92" r="40" stroke="#22d3ee" strokeOpacity="0.28" strokeWidth="1.2" />
+      <path
+        d="M78 62h80M78 86h80M78 110h52"
+        stroke="rgba(255,241,201,0.42)"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+      <text
+        x="118"
+        y="104"
+        textAnchor="middle"
+        fill="url(#accHeroGold)"
+        fontSize="58"
+        fontFamily="Cormorant Garamond, serif"
+        fontWeight="700"
+      >
+        ₹
+      </text>
+    </svg>
   );
 }
 
@@ -208,7 +255,7 @@ export function AccountsPage() {
   const monthlyQuery = useQuery({
     queryKey: ['accounts', 'monthly-summary'],
     queryFn: () => accountsService.getMonthlySummary(12),
-    enabled: tab === 'monthly',
+    enabled: tab === 'monthly' || tab === 'overview',
   });
 
   const transactionsQuery = useQuery({
@@ -238,11 +285,7 @@ export function AccountsPage() {
   const paymentMutation = useMutation({
     mutationFn: paymentsService.create,
     onSuccess: (payment) => {
-      queryClient.invalidateQueries({ queryKey: ['payments'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices', 'payment-select'] });
+      invalidateAfterAccountsPayment(queryClient);
       setPaymentOpen(false);
       setReceiptPayment(payment);
       setFeedback({ type: 'success', message: 'Payment recorded successfully.' });
@@ -254,8 +297,7 @@ export function AccountsPage() {
   const expenseMutation = useMutation({
     mutationFn: expensesService.create,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setExpenseOpen(false);
       setSelectedExpense(null);
       setFeedback({ type: 'success', message: 'Expense recorded successfully.' });
@@ -273,8 +315,7 @@ export function AccountsPage() {
       payload: Parameters<typeof expensesService.update>[1];
     }) => expensesService.update(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setExpenseOpen(false);
       setSelectedExpense(null);
       setViewExpense(null);
@@ -287,8 +328,7 @@ export function AccountsPage() {
   const archiveExpenseMutation = useMutation({
     mutationFn: expensesService.archive,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setArchiveExpense(null);
       setViewExpense(null);
       setFeedback({ type: 'success', message: 'Expense archived successfully.' });
@@ -314,8 +354,7 @@ export function AccountsPage() {
       return expensesService.createStaffPayment(payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      invalidateAfterAccountsExpense(queryClient);
       setStaffPaymentOpen(false);
       setStaffPaymentExpense(null);
       setViewExpense(null);
@@ -416,47 +455,60 @@ export function AccountsPage() {
   const allTimeCards = dash
     ? [
         {
-          label: 'Total Invoice Value',
-          value: dash.totalRevenue,
-          icon: TrendingUp,
-          color: 'text-gold',
-        },
-        {
           label: 'Cash Received',
           value: dash.amountReceived,
+          subtitle: `This month: ${formatCurrency(dash.thisMonthRevenue)}`,
           icon: ArrowDownLeft,
-          color: 'text-green-400',
-        },
-        {
-          label: 'Outstanding',
-          value: dash.outstandingAmount,
-          icon: Wallet,
-          color: 'text-orange-400',
+          tone: 'is-green',
         },
         {
           label: 'Total Expenses',
           value: dash.totalExpenses,
+          subtitle: `This month: ${formatCurrency(dash.thisMonthExpenses)}`,
           icon: ArrowUpRight,
-          color: 'text-red-400',
+          tone: 'is-magenta',
         },
-        { label: 'Net Profit (Cash)', value: dash.netProfit, icon: TrendingUp, color: 'text-gold' },
+        {
+          label: 'Net Profit (Cash)',
+          value: dash.netProfit,
+          subtitle: `This month: ${formatCurrency(dash.thisMonthProfit)}`,
+          icon: TrendingUp,
+          tone: 'is-gold',
+        },
+        {
+          label: 'Outstanding',
+          value: dash.outstandingAmount,
+          subtitle: 'Invoice balance due',
+          icon: Wallet,
+          tone: 'is-amber',
+        },
+        {
+          label: 'Total Invoice Value',
+          value: dash.totalRevenue,
+          subtitle: 'All-time billed value',
+          icon: IndianRupee,
+          tone: 'is-cyan',
+        },
         {
           label: 'Staff Payments',
           value: dash.totalStaffPayments,
+          subtitle: `This month: ${formatCurrency(dash.thisMonthStaffPayments)}`,
           icon: UserCog,
-          color: 'text-red-400',
+          tone: 'is-rose',
         },
         {
           label: 'Album Order Value',
           value: dash.totalAlbumOrderValue,
+          subtitle: 'Informational — not invoice revenue',
           icon: BookImage,
-          color: 'text-gold',
+          tone: 'is-gold',
         },
         {
           label: 'Album Profit (Info)',
           value: dash.totalAlbumProfit,
+          subtitle: 'Album selling price minus vendor cost',
           icon: TrendingUp,
-          color: 'text-green-400',
+          tone: 'is-green',
         },
       ]
     : [];
@@ -466,17 +518,18 @@ export function AccountsPage() {
         {
           label: `${period.period.label} Received`,
           value: period.amountReceived,
-          color: 'text-green-400',
+          tone: 'is-green',
         },
         {
           label: `${period.period.label} Expenses`,
           value: period.totalExpenses,
-          color: 'text-red-400',
+          tone: 'is-magenta',
         },
-        { label: 'Staff Payments', value: period.staffPayments, color: 'text-red-400' },
-        { label: 'Net Profit', value: period.netProfit, color: 'text-gold' },
-        { label: 'Invoice Value', value: period.totalInvoiceValue, color: 'text-gold' },
-        { label: 'Album Value (Info)', value: period.albumOrderValue, color: 'text-gray-300' },
+        { label: 'Staff Payments', value: period.staffPayments, tone: 'is-rose' },
+        { label: 'Net Profit', value: period.netProfit, tone: 'is-gold' },
+        { label: 'Invoice Value', value: period.totalInvoiceValue, tone: 'is-cyan' },
+        { label: 'Outstanding', value: period.outstandingAmount, tone: 'is-amber' },
+        { label: 'Album Value (Info)', value: period.albumOrderValue, tone: 'is-gold' },
       ]
     : [];
 
@@ -496,74 +549,75 @@ export function AccountsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-gray-100">Accounts</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Income, expenses, staff payments, profit &amp; loss — integrated with bookings,
-            invoices, albums and staff.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {canCreatePayment && (
-            <button type="button" className="btn-primary" onClick={() => setPaymentOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Payment
-            </button>
-          )}
-          {canCreateExpense && (
-            <button type="button" className="btn-secondary" onClick={openCreateExpense}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Expense
-            </button>
-          )}
-          {canCreateExpense && (
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
-                setStaffPaymentMode('create');
-                setStaffPaymentExpense(null);
-                setStaffPaymentOpen(true);
-              }}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Staff Payment
-            </button>
-          )}
-        </div>
+    <>
+    <div className="dhara-acc">
+      <div className="dhara-acc-ambient" aria-hidden>
+        <span className="dhara-acc-orb is-maroon" />
+        <span className="dhara-acc-orb is-gold" />
+        <span className="dhara-acc-orb is-cyan" />
       </div>
+      <section className="dhara-acc-hero">
+        <span className="dhara-acc-lens" aria-hidden />
+        <div>
+          <p className="dhara-acc-kicker">Dhara Photography ERP Pro</p>
+          <h2>Accounts Management</h2>
+          <p className="dhara-acc-hero-copy">એકાઉન્ટ્સ — આવક, ખર્ચ અને નફાનું સ્ટુડિયો કમાન્ડ સેન્ટર</p>
+          <div className="dhara-acc-hero-actions">
+            {canCreatePayment && (
+              <button
+                type="button"
+                className="dhara-acc-btn is-gold"
+                onClick={() => setPaymentOpen(true)}
+              >
+                <Plus />
+                Add Payment
+              </button>
+            )}
+            {canCreateExpense && (
+              <button type="button" className="dhara-acc-btn" onClick={openCreateExpense}>
+                <Plus />
+                Add Expense
+              </button>
+            )}
+            {canCreateExpense && (
+              <button
+                type="button"
+                className="dhara-acc-btn"
+                onClick={() => {
+                  setStaffPaymentMode('create');
+                  setStaffPaymentExpense(null);
+                  setStaffPaymentOpen(true);
+                }}
+              >
+                <Plus />
+                Add Staff Payment
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="dhara-acc-hero-art">
+          <span className="dhara-acc-hero-halo" aria-hidden />
+          <AccountsHeroArt />
+        </div>
+      </section>
 
       {feedback && (
-        <div
-          className={cn(
-            'rounded-lg border px-4 py-3 text-sm',
-            feedback.type === 'success'
-              ? 'border-green-500/30 bg-green-500/10 text-green-400'
-              : 'border-red-500/30 bg-red-500/10 text-red-400',
-          )}
-        >
+        <div className={cn('dhara-acc-flash', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
           {feedback.message}
         </div>
       )}
 
-      <div className="card border-gold/10">
-        <div className="mb-4 flex items-center gap-2">
-          <CalendarRange className="h-5 w-5 text-gold" />
-          <h3 className="font-display text-sm font-semibold text-gold">Period Filter</h3>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <section className="dhara-acc-panel">
+        <h3 className="dhara-acc-section-title">
+          <CalendarRange className="mr-2 inline h-5 w-5" />
+          Period Filter
+        </h3>
+        <div className="dhara-acc-presets">
           {ACCOUNTS_DATE_PRESETS.map((item) => (
             <button
               key={item.value}
               type="button"
-              className={cn(
-                'rounded-lg px-3 py-1.5 text-xs font-medium transition',
-                preset === item.value
-                  ? 'bg-gold/15 text-gold'
-                  : 'bg-surface-elevated text-gray-400 hover:text-gray-200',
-              )}
+              className={cn('dhara-acc-chip', preset === item.value && 'is-on')}
               onClick={() => selectPreset(item.value)}
             >
               {item.label}
@@ -571,97 +625,107 @@ export function AccountsPage() {
           ))}
         </div>
         {preset === 'custom' && (
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <div>
-              <label className="mb-1 block text-xs text-gray-500">From</label>
+          <div className="dhara-acc-toolbar-row" style={{ marginTop: '1rem' }}>
+            <div className="dhara-acc-field">
+              <label htmlFor="acc-from">From</label>
               <input
-                className="input-field"
+                id="acc-from"
+                className="dhara-acc-input"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs text-gray-500">To</label>
+            <div className="dhara-acc-field">
+              <label htmlFor="acc-to">To</label>
               <input
-                className="input-field"
+                id="acc-to"
+                className="dhara-acc-input"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
               />
             </div>
-            <button type="button" className="btn-primary" onClick={() => applyFilters()}>
+            <button type="button" className="dhara-acc-btn is-gold" onClick={() => applyFilters()}>
               Apply
             </button>
           </div>
         )}
-        {filterError && <p className="mt-3 text-sm text-red-400">{filterError}</p>}
+        {filterError && <p className="dhara-acc-err">{filterError}</p>}
         {period && (
-          <p className="mt-3 text-xs text-gray-500">
-            Showing period: {period.period.label} ({period.period.dateFrom} to{' '}
-            {period.period.dateTo})
+          <p className="dhara-acc-note">
+            Showing period: {period.period.label} ({period.period.dateFrom} to {period.period.dateTo}
+            )
           </p>
         )}
-      </div>
+      </section>
 
       <div>
-        <p className="mb-3 text-xs uppercase tracking-wider text-gray-500">All-Time Snapshot</p>
+        <p className="dhara-acc-section-title">All-Time Snapshot</p>
         {dashboardQuery.isError ? (
           <ErrorState
             message={getApiErrorMessage(dashboardQuery.error, 'Failed to load dashboard.')}
+            onRetry={() => void dashboardQuery.refetch()}
           />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="dhara-acc-kpis">
             {dashboardQuery.isLoading
               ? Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="card h-24 animate-pulse bg-surface-elevated" />
+                  <div key={i} className="dhara-acc-skeleton" style={{ height: '7.5rem' }} />
                 ))
               : allTimeCards.map((card) => (
-                  <div key={card.label} className="card border-gold/10 p-4">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs uppercase tracking-wider text-gray-500">{card.label}</p>
-                      <card.icon className={cn('h-4 w-4', card.color)} />
+                  <article key={card.label} className={cn('dhara-acc-kpi', card.tone)}>
+                    <div className="dhara-acc-kpi-top">
+                      <div>
+                        <h3>{card.label}</h3>
+                        <p>{card.subtitle}</p>
+                      </div>
+                      <span className="dhara-acc-icon">
+                        <card.icon />
+                      </span>
                     </div>
-                    <p className={cn('mt-2 font-display text-xl font-bold', card.color)}>
-                      {formatCurrency(card.value)}
-                    </p>
-                  </div>
+                    <strong>
+                      <AccountsCountUp value={card.value} />
+                    </strong>
+                  </article>
                 ))}
           </div>
         )}
       </div>
 
       {summaryQuery.isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="dhara-acc-kpis">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="card h-20 animate-pulse bg-surface-elevated" />
+            <div key={i} className="dhara-acc-skeleton" style={{ height: '5.5rem' }} />
           ))}
         </div>
-      ) : summaryQuery.isError ? null : (
+      ) : summaryQuery.isError ? (
+        <ErrorState
+          message={getApiErrorMessage(summaryQuery.error, 'Failed to load period summary.')}
+          onRetry={() => void summaryQuery.refetch()}
+        />
+      ) : (
         <div>
-          <p className="mb-3 text-xs uppercase tracking-wider text-gray-500">Selected Period</p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <p className="dhara-acc-section-title">Selected Period</p>
+          <div className="dhara-acc-kpis">
             {periodCards.map((card) => (
-              <div key={card.label} className="card border-surface-border bg-surface-elevated p-4">
-                <p className="text-xs text-gray-500">{card.label}</p>
-                <p className={cn('mt-1 text-lg font-semibold', card.color)}>
-                  {formatCurrency(card.value)}
-                </p>
-              </div>
+              <article key={card.label} className={cn('dhara-acc-kpi', card.tone)}>
+                <h3>{card.label}</h3>
+                <strong>
+                  <AccountsCountUp value={card.value} />
+                </strong>
+              </article>
             ))}
           </div>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 border-b border-surface-border pb-1">
+      <div className="dhara-acc-tabs">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
-            className={cn(
-              'rounded-t-lg px-4 py-2 text-sm font-medium transition',
-              tab === t.id ? 'bg-gold/15 text-gold' : 'text-gray-500 hover:text-gray-300',
-            )}
+            className={cn('dhara-acc-tab', tab === t.id && 'is-on')}
             onClick={() => setTab(t.id)}
           >
             {t.label}
@@ -670,10 +734,10 @@ export function AccountsPage() {
       </div>
 
       {(tab === 'income' || tab === 'staff' || tab === 'transactions' || tab === 'expenses') && (
-        <form onSubmit={handleSearch} className="relative max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+        <form onSubmit={handleSearch} className="dhara-acc-input-wrap" style={{ maxWidth: '28rem' }}>
+          <Search />
           <input
-            className="input-field pl-10"
+            className="dhara-acc-input is-icon"
             placeholder={tab === 'expenses' ? 'Search expenses...' : 'Search transactions...'}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -682,9 +746,24 @@ export function AccountsPage() {
       )}
 
       {tab === 'overview' && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="card">
-            <h3 className="mb-4 font-display text-lg font-semibold text-gold">Recent Income</h3>
+        <div className="dhara-acc-split">
+          <div className="dhara-acc-card">
+            <h3>Cash flow (12 months)</h3>
+            {monthlyQuery.isLoading ? (
+              <LoadingRows rows={4} />
+            ) : monthlyQuery.isError ? (
+              <ErrorState
+                message={getApiErrorMessage(monthlyQuery.error, 'Failed to load monthly summary.')}
+                onRetry={() => void monthlyQuery.refetch()}
+              />
+            ) : (monthlyQuery.data?.length ?? 0) === 0 ? (
+              <EmptyState message="No monthly data available." />
+            ) : (
+              <AccountsMonthlyChart rows={monthlyQuery.data ?? []} />
+            )}
+          </div>
+          <div className="dhara-acc-card">
+            <h3>Recent Income</h3>
             {incomeQuery.isLoading ? (
               <LoadingRows rows={4} />
             ) : (incomeQuery.data?.items.length ?? 0) === 0 ? (
@@ -694,51 +773,53 @@ export function AccountsPage() {
                 }
               />
             ) : (
-              <div className="space-y-2">
+              <div>
                 {incomeQuery.data?.items.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-center justify-between rounded-lg border border-surface-border px-3 py-2 text-sm"
+                    className="flex items-center justify-between gap-3"
+                    style={{
+                      padding: '0.7rem 0',
+                      borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    }}
                   >
                     <div>
-                      <p className="text-gray-200">{p.clientName}</p>
-                      <p className="text-xs text-gray-500">
+                      <p>{p.clientName}</p>
+                      <p className="dhara-acc-note" style={{ margin: 0 }}>
                         {p.receiptNumber} · {p.paymentDate}
                       </p>
                     </div>
-                    <p className="font-semibold text-green-400">{formatCurrency(p.amount)}</p>
+                    <p className="dhara-acc-amt is-in">{formatCurrency(p.amount)}</p>
                   </div>
                 ))}
-                <button
-                  type="button"
-                  className="text-sm text-gold hover:underline"
-                  onClick={() => setTab('income')}
-                >
+                <button type="button" className="dhara-acc-link" onClick={() => setTab('income')}>
                   View all income →
                 </button>
               </div>
             )}
           </div>
-          <div className="card">
-            <h3 className="mb-4 font-display text-lg font-semibold text-gold">
-              Booking Profitability
-            </h3>
-            <select
-              className="input-field mb-4"
-              value={profitBookingId}
-              onChange={(e) => setProfitBookingId(e.target.value)}
-            >
-              <option value="">Select booking...</option>
-              {(bookingsQuery.data?.items ?? []).map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.bookingNumber} — {b.client.fullName}
-                </option>
-              ))}
-            </select>
+          <div className="dhara-acc-card" style={{ gridColumn: '1 / -1' }}>
+            <h3>Booking Profitability</h3>
+            <div className="dhara-acc-field" style={{ maxWidth: '28rem', marginBottom: '1rem' }}>
+              <label htmlFor="acc-booking-profit">Select booking</label>
+              <select
+                id="acc-booking-profit"
+                className="dhara-acc-input"
+                value={profitBookingId}
+                onChange={(e) => setProfitBookingId(e.target.value)}
+              >
+                <option value="">Select booking...</option>
+                {(bookingsQuery.data?.items ?? []).map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.bookingNumber} — {b.client.fullName}
+                  </option>
+                ))}
+              </select>
+            </div>
             {bookingProfitQuery.isLoading && profitBookingId ? (
               <LoadingRows rows={3} />
             ) : bookingProfitQuery.data ? (
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="dhara-acc-facts">
                 {[
                   ['Revenue', formatCurrency(bookingProfitQuery.data.totalBookingAmount)],
                   ['Received', formatCurrency(bookingProfitQuery.data.totalReceived)],
@@ -747,12 +828,9 @@ export function AccountsPage() {
                   ['Net Profit', formatCurrency(bookingProfitQuery.data.netProfit)],
                   ['Margin', `${bookingProfitQuery.data.profitMarginPercent}%`],
                 ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="rounded-lg border border-surface-border bg-surface-elevated p-3"
-                  >
-                    <p className="text-xs text-gray-500">{label}</p>
-                    <p className="mt-1 font-semibold text-gray-100">{value}</p>
+                  <div key={label} className="dhara-acc-fact">
+                    <span>{label}</span>
+                    <strong>{value}</strong>
                   </div>
                 ))}
               </div>
@@ -764,11 +842,14 @@ export function AccountsPage() {
       )}
 
       {tab === 'income' && (
-        <div className="card overflow-x-auto">
+        <div className="dhara-acc-card">
           {incomeQuery.isLoading ? (
             <LoadingRows />
           ) : incomeQuery.isError ? (
-            <ErrorState message={getApiErrorMessage(incomeQuery.error, 'Failed to load income.')} />
+            <ErrorState
+              message={getApiErrorMessage(incomeQuery.error, 'Failed to load income.')}
+              onRetry={() => void incomeQuery.refetch()}
+            />
           ) : (incomeQuery.data?.items.length ?? 0) === 0 ? (
             <EmptyState
               message={
@@ -777,38 +858,38 @@ export function AccountsPage() {
             />
           ) : (
             <>
-              <p className="mb-4 text-sm text-gray-400">
+              <p className="dhara-acc-note">
                 Total: {formatCurrency(incomeQuery.data?.totalAmount ?? 0)} (
                 {incomeQuery.data?.total} payments)
               </p>
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3">Receipt</th>
-                    <th className="px-3 py-3">Client</th>
-                    <th className="px-3 py-3">Invoice</th>
-                    <th className="px-3 py-3">Booking</th>
-                    <th className="px-3 py-3">Method</th>
-                    <th className="px-3 py-3">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {incomeQuery.data?.items.map((row) => (
-                    <tr key={row.id} className="border-b border-surface-border/70">
-                      <td className="px-3 py-3 text-gray-400">{row.paymentDate}</td>
-                      <td className="px-3 py-3">{row.receiptNumber}</td>
-                      <td className="px-3 py-3">{row.clientName}</td>
-                      <td className="px-3 py-3 text-gray-400">{row.invoiceNumber || '—'}</td>
-                      <td className="px-3 py-3 text-gray-400">{row.bookingNumber || '—'}</td>
-                      <td className="px-3 py-3 text-gray-400">{row.paymentMethod}</td>
-                      <td className="px-3 py-3 font-semibold text-green-400">
-                        {formatCurrency(row.amount)}
-                      </td>
+              <div className="dhara-acc-table-wrap">
+                <table className="dhara-acc-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Receipt</th>
+                      <th>Client</th>
+                      <th>Invoice</th>
+                      <th>Booking</th>
+                      <th>Method</th>
+                      <th>Amount</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {incomeQuery.data?.items.map((row) => (
+                      <tr key={row.id}>
+                        <td>{row.paymentDate}</td>
+                        <td>{row.receiptNumber}</td>
+                        <td>{row.clientName}</td>
+                        <td>{row.invoiceNumber || '—'}</td>
+                        <td>{row.bookingNumber || '—'}</td>
+                        <td>{row.paymentMethod}</td>
+                        <td className="dhara-acc-amt is-in">{formatCurrency(row.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </div>
@@ -824,37 +905,38 @@ export function AccountsPage() {
                 expenseBreakdownQuery.error,
                 'Failed to load expense breakdown.',
               )}
+              onRetry={() => void expenseBreakdownQuery.refetch()}
             />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="card border-red-500/20 p-4">
-                <p className="text-xs text-gray-500">Total Expenses</p>
-                <p className="mt-1 text-xl font-bold text-red-400">
-                  {formatCurrency(expenseBreakdownQuery.data?.totalExpenses ?? 0)}
-                </p>
-              </div>
-              <div className="card border-gold/20 p-4">
-                <p className="text-xs text-gray-500">Staff Payments</p>
-                <p className="mt-1 text-xl font-bold text-gold">
-                  {formatCurrency(expenseBreakdownQuery.data?.staffPayments ?? 0)}
-                </p>
-              </div>
+            <div className="dhara-acc-kpis">
+              <article className="dhara-acc-kpi is-magenta">
+                <h3>Total Expenses</h3>
+                <strong>
+                  <AccountsCountUp value={expenseBreakdownQuery.data?.totalExpenses ?? 0} />
+                </strong>
+              </article>
+              <article className="dhara-acc-kpi is-gold">
+                <h3>Staff Payments</h3>
+                <strong>
+                  <AccountsCountUp value={expenseBreakdownQuery.data?.staffPayments ?? 0} />
+                </strong>
+              </article>
               {(expenseBreakdownQuery.data?.categories ?? []).slice(0, 4).map((cat) => (
-                <div key={cat.categoryCode} className="card p-4">
-                  <p className="text-xs text-gray-500">{cat.categoryLabel}</p>
-                  <p className="mt-1 text-lg font-semibold text-gray-100">
-                    {formatCurrency(cat.amount)}
-                  </p>
-                  <p className="text-xs text-gray-500">{cat.count} entries</p>
-                </div>
+                <article key={cat.categoryCode} className="dhara-acc-kpi is-cyan">
+                  <h3>{cat.categoryLabel}</h3>
+                  <p>{cat.count} entries</p>
+                  <strong>
+                    <AccountsCountUp value={cat.amount} />
+                  </strong>
+                </article>
               ))}
             </div>
           )}
 
-          <div className="card overflow-x-auto">
+          <div className="dhara-acc-card">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="font-display text-lg font-semibold text-gold">Expense Entries</h3>
-              <Link to="/expenses" className="text-sm text-gold hover:underline">
+              <h3>Expense Entries</h3>
+              <Link to="/expenses" className="dhara-acc-link" style={{ marginTop: 0 }}>
                 Open expense ledger →
               </Link>
             </div>
@@ -865,224 +947,216 @@ export function AccountsPage() {
                 message={search ? 'No expenses match your search.' : 'No expenses in this period.'}
               />
             ) : (
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3">Category</th>
-                    <th className="px-3 py-3">Description</th>
-                    <th className="px-3 py-3">Source</th>
-                    <th className="px-3 py-3">Booking</th>
-                    <th className="px-3 py-3">Staff</th>
-                    <th className="px-3 py-3">Amount</th>
-                    <th className="px-3 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {expensesListQuery.data?.items.map((e) => (
-                    <tr key={e.id} className="border-b border-surface-border/70">
-                      <td className="px-3 py-3 text-gray-400">{e.expenseDate}</td>
-                      <td className="px-3 py-3">{e.categoryLabel}</td>
-                      <td className="px-3 py-3">{e.description || '—'}</td>
-                      <td className="px-3 py-3 text-xs text-gray-400">
-                        {getExpenseSourceLabel(getExpenseSource(e))}
-                      </td>
-                      <td className="px-3 py-3 text-gray-400">{e.bookingNumber || '—'}</td>
-                      <td className="px-3 py-3 text-gray-400">{e.staffName || '—'}</td>
-                      <td className="px-3 py-3 font-semibold text-red-400">
-                        {formatCurrency(e.amount)}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            type="button"
-                            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-                            onClick={() => setViewExpense(e)}
-                            aria-label="View expense"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {canUpdateExpense && (
-                            <button
-                              type="button"
-                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-                              onClick={() => openEditExpense(e)}
-                              aria-label="Edit expense"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          )}
-                          {canUpdateExpense && (
-                            <button
-                              type="button"
-                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-red-400"
-                              onClick={() => openArchiveExpense(e)}
-                              aria-label="Archive expense"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+              <div className="dhara-acc-table-wrap">
+                <table className="dhara-acc-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Category</th>
+                      <th>Description</th>
+                      <th>Source</th>
+                      <th>Booking</th>
+                      <th>Staff</th>
+                      <th>Amount</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {expensesListQuery.data?.items.map((e) => (
+                      <tr key={e.id}>
+                        <td>{e.expenseDate}</td>
+                        <td>{e.categoryLabel}</td>
+                        <td>{e.description || '—'}</td>
+                        <td>{getExpenseSourceLabel(getExpenseSource(e))}</td>
+                        <td>{e.bookingNumber || '—'}</td>
+                        <td>{e.staffName || '—'}</td>
+                        <td className="dhara-acc-amt is-out">{formatCurrency(e.amount)}</td>
+                        <td>
+                          <div className="flex justify-end gap-1">
+                            <button
+                              type="button"
+                              className="dhara-acc-icon-btn"
+                              onClick={() => setViewExpense(e)}
+                              aria-label="View expense"
+                            >
+                              <Eye />
+                            </button>
+                            {canUpdateExpense && (
+                              <button
+                                type="button"
+                                className="dhara-acc-icon-btn"
+                                onClick={() => openEditExpense(e)}
+                                aria-label="Edit expense"
+                              >
+                                <Pencil />
+                              </button>
+                            )}
+                            {canUpdateExpense && (
+                              <button
+                                type="button"
+                                className="dhara-acc-icon-btn"
+                                onClick={() => openArchiveExpense(e)}
+                                aria-label="Archive expense"
+                              >
+                                <Trash2 />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
       )}
 
       {tab === 'staff' && (
-        <div className="card overflow-x-auto">
+        <div className="dhara-acc-card">
           {staffQuery.isLoading ? (
             <LoadingRows />
           ) : staffQuery.isError ? (
             <ErrorState
               message={getApiErrorMessage(staffQuery.error, 'Failed to load staff payments.')}
+              onRetry={() => void staffQuery.refetch()}
             />
           ) : (staffQuery.data?.items.length ?? 0) === 0 ? (
             <EmptyState message="No staff payments in this period." />
           ) : (
             <>
-              <p className="mb-4 text-sm text-gray-400">
+              <p className="dhara-acc-note">
                 Total staff payments: {formatCurrency(staffQuery.data?.totalAmount ?? 0)}
               </p>
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3">Staff</th>
-                    <th className="px-3 py-3">Booking</th>
-                    <th className="px-3 py-3">Source</th>
-                    <th className="px-3 py-3">Description</th>
-                    <th className="px-3 py-3">Amount</th>
-                    <th className="px-3 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {staffQuery.data?.items.map((row) => (
-                    <tr key={row.id} className="border-b border-surface-border/70">
-                      <td className="px-3 py-3 text-gray-400">{row.expenseDate}</td>
-                      <td className="px-3 py-3">
-                        {row.staffName}
-                        <span className="ml-1 text-xs text-gray-500">({row.staffCode})</span>
-                      </td>
-                      <td className="px-3 py-3 text-gray-400">{row.bookingNumber || '—'}</td>
-                      <td className="px-3 py-3 capitalize text-gray-400">
-                        {row.source.replace('_', ' ')}
-                      </td>
-                      <td className="px-3 py-3">{row.description || '—'}</td>
-                      <td className="px-3 py-3 font-semibold text-red-400">
-                        {formatCurrency(row.amount)}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex justify-end gap-1">
-                          <button
-                            type="button"
-                            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-                            onClick={() => void openStaffPaymentRow(row.id, 'view')}
-                            aria-label="View staff payment"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          {canUpdateExpense && row.source === 'manual' && (
-                            <button
-                              type="button"
-                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-                              onClick={() => void openStaffPaymentRow(row.id, 'edit')}
-                              aria-label="Edit staff payment"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          )}
-                          {canUpdateExpense && row.source === 'manual' && (
-                            <button
-                              type="button"
-                              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-red-400"
-                              onClick={() => void openStaffPaymentRow(row.id, 'archive')}
-                              aria-label="Archive staff payment"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+              <div className="dhara-acc-table-wrap">
+                <table className="dhara-acc-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Staff</th>
+                      <th>Booking</th>
+                      <th>Source</th>
+                      <th>Description</th>
+                      <th>Amount</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {staffQuery.data?.items.map((row) => (
+                      <tr key={row.id}>
+                        <td>{row.expenseDate}</td>
+                        <td>
+                          {row.staffName} ({row.staffCode})
+                        </td>
+                        <td>{row.bookingNumber || '—'}</td>
+                        <td className="capitalize">{row.source.replace('_', ' ')}</td>
+                        <td>{row.description || '—'}</td>
+                        <td className="dhara-acc-amt is-out">{formatCurrency(row.amount)}</td>
+                        <td>
+                          <div className="flex justify-end gap-1">
+                            <button
+                              type="button"
+                              className="dhara-acc-icon-btn"
+                              onClick={() => void openStaffPaymentRow(row.id, 'view')}
+                              aria-label="View staff payment"
+                            >
+                              <Eye />
+                            </button>
+                            {canUpdateExpense && row.source === 'manual' && (
+                              <button
+                                type="button"
+                                className="dhara-acc-icon-btn"
+                                onClick={() => void openStaffPaymentRow(row.id, 'edit')}
+                                aria-label="Edit staff payment"
+                              >
+                                <Pencil />
+                              </button>
+                            )}
+                            {canUpdateExpense && row.source === 'manual' && (
+                              <button
+                                type="button"
+                                className="dhara-acc-icon-btn"
+                                onClick={() => void openStaffPaymentRow(row.id, 'archive')}
+                                aria-label="Archive staff payment"
+                              >
+                                <Trash2 />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </div>
       )}
 
       {tab === 'profit' && (
-        <div className="card">
+        <div className="dhara-acc-card">
           {profitQuery.isLoading ? (
             <LoadingRows rows={4} />
           ) : profitQuery.isError ? (
-            <ErrorState message={getApiErrorMessage(profitQuery.error, 'Failed to load P&L.')} />
+            <ErrorState
+              message={getApiErrorMessage(profitQuery.error, 'Failed to load P&L.')}
+              onRetry={() => void profitQuery.refetch()}
+            />
           ) : profitQuery.data ? (
-            <div className="space-y-6">
-              <div className="rounded-lg border border-gold/20 bg-gold/5 p-4">
-                <p className="text-xs uppercase tracking-wider text-gray-500">
-                  Net Profit (Cash Basis)
-                </p>
-                <p className="mt-1 font-display text-3xl font-bold text-gold">
-                  {formatCurrency(profitQuery.data.netProfit)}
-                </p>
-                <p className="mt-1 text-sm text-gray-400">
-                  Margin: {profitQuery.data.profitMarginPercent}% on cash received
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <article className="dhara-acc-kpi is-gold" style={{ marginBottom: '1rem' }}>
+                <h3>Net Profit (Cash Basis)</h3>
+                <p>Margin: {profitQuery.data.profitMarginPercent}% on cash received</p>
+                <strong>
+                  <AccountsCountUp value={profitQuery.data.netProfit} />
+                </strong>
+              </article>
+              <div className="dhara-acc-kpis">
                 {(
                   [
                     {
                       label: 'Invoice Revenue (Accrual)',
                       value: profitQuery.data.invoiceRevenue,
-                      color: 'text-gold',
+                      tone: 'is-gold',
                     },
                     {
                       label: 'Cash Received',
                       value: profitQuery.data.cashReceived,
-                      color: 'text-green-400',
+                      tone: 'is-green',
                     },
                     {
                       label: 'Total Expenses',
                       value: profitQuery.data.totalExpenses,
-                      color: 'text-red-400',
+                      tone: 'is-magenta',
                     },
                     {
                       label: 'Staff Payments',
                       value: profitQuery.data.staffPayments,
-                      color: 'text-red-400',
+                      tone: 'is-rose',
                     },
                     {
                       label: 'Album Value (Info)',
                       value: profitQuery.data.albumOrderValue,
-                      color: 'text-gray-300',
+                      tone: 'is-cyan',
                     },
                     {
                       label: 'Album Vendor Expense',
                       value: profitQuery.data.albumVendorExpense,
-                      color: 'text-gray-400',
+                      tone: 'is-amber',
                     },
                   ] as const
                 ).map((row) => (
-                  <div
-                    key={row.label}
-                    className="rounded-lg border border-surface-border bg-surface-elevated p-4"
-                  >
-                    <p className="text-xs text-gray-500">{row.label}</p>
-                    <p className={cn('mt-1 text-lg font-semibold', row.color)}>
-                      {formatCurrency(row.value)}
-                    </p>
-                  </div>
+                  <article key={row.label} className={cn('dhara-acc-kpi', row.tone)}>
+                    <h3>{row.label}</h3>
+                    <strong>
+                      <AccountsCountUp value={row.value} />
+                    </strong>
+                  </article>
                 ))}
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="dhara-acc-note">
                 Profit = Cash Received − Total Expenses. Album selling price is shown for reference
                 only and is not added to invoice revenue. Staff and album vendor costs are included
                 in expenses when synced.
@@ -1093,64 +1167,60 @@ export function AccountsPage() {
       )}
 
       {tab === 'monthly' && (
-        <div className="card overflow-x-auto">
+        <div className="dhara-acc-card">
           {monthlyQuery.isLoading ? (
             <LoadingRows rows={6} />
           ) : monthlyQuery.isError ? (
             <ErrorState
               message={getApiErrorMessage(monthlyQuery.error, 'Failed to load monthly summary.')}
+              onRetry={() => void monthlyQuery.refetch()}
             />
           ) : (monthlyQuery.data?.length ?? 0) === 0 ? (
             <EmptyState message="No monthly data available." />
           ) : (
-            <table className="min-w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-                  <th className="px-3 py-3">Month</th>
-                  <th className="px-3 py-3">Invoice</th>
-                  <th className="px-3 py-3">Received</th>
-                  <th className="px-3 py-3">Expenses</th>
-                  <th className="px-3 py-3">Staff</th>
-                  <th className="px-3 py-3">Profit</th>
-                  <th className="px-3 py-3">Bookings</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthlyQuery.data?.map((row) => (
-                  <tr
-                    key={`${row.year}-${row.month}`}
-                    className="border-b border-surface-border/70"
-                  >
-                    <td className="px-3 py-3 font-medium text-gray-200">{row.label}</td>
-                    <td className="px-3 py-3 text-gray-300">
-                      {formatCurrency(row.invoiceRevenue)}
-                    </td>
-                    <td className="px-3 py-3 text-green-400">{formatCurrency(row.cashReceived)}</td>
-                    <td className="px-3 py-3 text-red-400">{formatCurrency(row.expenses)}</td>
-                    <td className="px-3 py-3 text-red-400">{formatCurrency(row.staffPayments)}</td>
-                    <td className="px-3 py-3 font-semibold text-gold">
-                      {formatCurrency(row.profit)}
-                    </td>
-                    <td className="px-3 py-3 text-gray-400">{row.bookingsCount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <>
+              <AccountsMonthlyChart rows={monthlyQuery.data ?? []} />
+              <div className="dhara-acc-table-wrap" style={{ marginTop: '1rem' }}>
+                <table className="dhara-acc-table">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th>Invoice</th>
+                      <th>Received</th>
+                      <th>Expenses</th>
+                      <th>Staff</th>
+                      <th>Profit</th>
+                      <th>Bookings</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyQuery.data?.map((row) => (
+                      <tr key={`${row.year}-${row.month}`}>
+                        <td>{row.label}</td>
+                        <td>{formatCurrency(row.invoiceRevenue)}</td>
+                        <td className="dhara-acc-amt is-in">{formatCurrency(row.cashReceived)}</td>
+                        <td className="dhara-acc-amt is-out">{formatCurrency(row.expenses)}</td>
+                        <td className="dhara-acc-amt is-out">{formatCurrency(row.staffPayments)}</td>
+                        <td className="dhara-acc-amt is-gold">{formatCurrency(row.profit)}</td>
+                        <td>{row.bookingsCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
 
       {tab === 'transactions' && (
-        <div className="card overflow-x-auto">
-          <div className="mb-4 flex flex-wrap gap-2">
+        <div className="dhara-acc-card">
+          <div className="dhara-acc-presets" style={{ marginBottom: '1rem' }}>
             {(['all', 'income', 'expense'] as const).map((type) => (
               <button
                 key={type}
                 type="button"
-                className={cn(
-                  'rounded-lg px-3 py-1.5 text-xs font-medium capitalize',
-                  txnType === type ? 'bg-gold/15 text-gold' : 'bg-surface-elevated text-gray-400',
-                )}
+                className={cn('dhara-acc-chip', txnType === type && 'is-on')}
                 onClick={() => setTxnType(type)}
               >
                 {type}
@@ -1162,51 +1232,57 @@ export function AccountsPage() {
           ) : transactionsQuery.isError ? (
             <ErrorState
               message={getApiErrorMessage(transactionsQuery.error, 'Failed to load transactions.')}
+              onRetry={() => void transactionsQuery.refetch()}
             />
           ) : (transactionsQuery.data?.items.length ?? 0) === 0 ? (
             <EmptyState message="No transactions in this period." />
           ) : (
             <>
-              <p className="mb-4 text-sm text-gray-400">
+              <p className="dhara-acc-note">
                 Income {formatCurrency(transactionsQuery.data?.totalIncome ?? 0)} · Expenses{' '}
                 {formatCurrency(transactionsQuery.data?.totalExpense ?? 0)}
               </p>
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3">Type</th>
-                    <th className="px-3 py-3">Description</th>
-                    <th className="px-3 py-3">Client</th>
-                    <th className="px-3 py-3">Income</th>
-                    <th className="px-3 py-3">Expense</th>
-                    <th className="px-3 py-3">Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactionsQuery.data?.items.map((t) => (
-                    <tr key={`${t.type}-${t.id}`} className="border-b border-surface-border/70">
-                      <td className="px-3 py-3 text-gray-400">{t.date}</td>
-                      <td className="px-3 py-3 capitalize">{t.type}</td>
-                      <td className="px-3 py-3">{t.description}</td>
-                      <td className="px-3 py-3 text-gray-400">{t.clientName || '—'}</td>
-                      <td className="px-3 py-3 text-green-400">
-                        {t.income > 0 ? formatCurrency(t.income) : '—'}
-                      </td>
-                      <td className="px-3 py-3 text-red-400">
-                        {t.expense > 0 ? formatCurrency(t.expense) : '—'}
-                      </td>
-                      <td className="px-3 py-3 font-medium text-gold">
-                        {formatCurrency(t.runningBalance)}
-                      </td>
+              <div className="dhara-acc-table-wrap">
+                <table className="dhara-acc-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Description</th>
+                      <th>Client</th>
+                      <th>Income</th>
+                      <th>Expense</th>
+                      <th>Balance</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {transactionsQuery.data?.items.map((t) => (
+                      <tr key={`${t.type}-${t.id}`}>
+                        <td>{t.date}</td>
+                        <td>
+                          <span className={cn('dhara-acc-pill', t.type === 'income' ? 'is-income' : 'is-expense')}>
+                            {t.type}
+                          </span>
+                        </td>
+                        <td>{t.description}</td>
+                        <td>{t.clientName || '—'}</td>
+                        <td className="dhara-acc-amt is-in">
+                          {t.income > 0 ? formatCurrency(t.income) : '—'}
+                        </td>
+                        <td className="dhara-acc-amt is-out">
+                          {t.expense > 0 ? formatCurrency(t.expense) : '—'}
+                        </td>
+                        <td className="dhara-acc-amt is-gold">{formatCurrency(t.runningBalance)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
         </div>
       )}
+    </div>
 
       <AddPaymentModal
         open={paymentOpen}
@@ -1274,6 +1350,6 @@ export function AccountsPage() {
         payment={receiptPayment}
         onClose={() => setReceiptPayment(null)}
       />
-    </div>
+    </>
   );
 }

@@ -1,0 +1,64 @@
+---
+description: Gallery module is a locked final design — never change it unless the user explicitly asks.
+alwaysApply: true
+---
+
+# LOCKED GALLERY MODULE — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
+
+The Gallery module is an approved, frozen baseline. Do not change, redesign, restyle, restyle-via-globals, add, remove, resize, or reposition anything in it unless the user explicitly requests that specific Gallery change in the current conversation.
+
+This lock is independent of the Login Page, Dashboard, Clients Management, Calendar, Bookings, and Invoice locks. All remain fully in force.
+
+## Before editing any file below
+
+Require an explicit user instruction that clearly asks to modify Gallery (for example: “change the Gallery cards” or “update the Gallery lightbox”). Unrelated work, other modules, refactors, “while we’re here” polish, and inferred improvements are not approval.
+
+## Locked files (do not edit without explicit approval)
+
+Page, styles, and tests:
+
+- `04_Frontend/frontend/src/pages/GalleryPage.tsx`
+- `04_Frontend/frontend/src/pages/GalleryPage.test.tsx`
+- `04_Frontend/frontend/src/pages/gallery/gallery-page.css`
+
+Gallery UI components:
+
+- `04_Frontend/frontend/src/components/gallery/gallery-visual.ts`
+- `04_Frontend/frontend/src/components/gallery/CreateGalleryModal.tsx`
+- `04_Frontend/frontend/src/components/gallery/GalleryDetailModal.tsx`
+- `04_Frontend/frontend/src/components/gallery/GalleryDetailModal.test.tsx`
+- `04_Frontend/frontend/src/components/gallery/GalleryLightbox.tsx`
+- `04_Frontend/frontend/src/components/gallery/ArchiveGalleryDialog.tsx`
+- `04_Frontend/frontend/src/components/gallery/GalleryPhotoImage.tsx`
+- `04_Frontend/frontend/src/components/gallery/GalleryPhotoImage.test.tsx`
+
+Gallery helpers, upload, and API client used by this module:
+
+- `04_Frontend/frontend/src/utils/gallery-upload.ts`
+- `04_Frontend/frontend/src/utils/gallery-upload.test.ts`
+- `04_Frontend/frontend/src/services/galleries-service.ts`
+- `04_Frontend/frontend/src/services/galleries-service.test.ts`
+
+## Preserve exactly
+
+- Layout and visual hierarchy (hero, KPIs, search/filters, gallery cards, empty/error/loading states, create/detail/archive/lightbox flow)
+- Crystal/glass surfaces, colors, glows, typography, icons, spacing, and animations
+- Existing Gallery functionality, API calls, upload behavior, permissions, routes, and data behavior
+- Gallery-related tests and their assertions
+
+## Other work must stay independent
+
+Work on Login, Dashboard, Clients, Bookings, Calendar, Invoice, and other modules without touching the files above.
+
+If you must change shared CSS, layout shells, or shared files that Gallery *calls* (`ClientSearchSelect`, `clients-service`, `bookings-service`, `api-error`, `cn`):
+
+- Do not alter `.dhara-gallery`, `.dhara-gal-*`, or `gallery-page.css`.
+- Scope new styles so they cannot override Gallery descendants.
+- Prefer new class names over changing globals used by Gallery.
+- Other modules may *call* those shared files, but must preserve Gallery’s current appearance and functionality exactly. Do not edit the locked Gallery files listed above without explicit Gallery approval.
+
+## Allowed exception
+
+Only modify the Gallery module when the user clearly asks for a specific Gallery change in that conversation.
+
+Do not weaken `.cursor/rules/locked-login-page.mdc`, `.cursor/rules/locked-dashboard.mdc`, `.cursor/rules/locked-clients-module.mdc`, `.cursor/rules/locked-calendar-module.mdc`, or `.cursor/rules/locked-invoice-module.mdc`.

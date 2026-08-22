@@ -1,29 +1,50 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  CheckCircle2,
+  Clock3,
+  Eye,
+  Package,
+  PackageCheck,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { ArchiveDeliveryDialog } from '@/components/deliveries/ArchiveDeliveryDialog';
+import { DeliveryCountUp } from '@/components/deliveries/DeliveryCountUp';
+import { DeliveryFormModal } from '@/components/deliveries/DeliveryFormModal';
+import { DeliveryViewModal } from '@/components/deliveries/DeliveryViewModal';
+import { deliverableTypeTone, deliveryStatusTone } from '@/components/deliveries/delivery-visual';
 import {
   DELIVERABLE_TYPE_OPTIONS,
   DELIVERY_STATUS_OPTIONS,
   DeliveryItem,
+  DeliveryStatus,
   deliveriesService,
 } from '@/services/deliveries-service';
 import { useAuthStore } from '@/stores/auth-store';
-import { DeliveryFormModal } from '@/components/deliveries/DeliveryFormModal';
-import { DeliveryViewModal } from '@/components/deliveries/DeliveryViewModal';
-import { ArchiveDeliveryDialog } from '@/components/deliveries/ArchiveDeliveryDialog';
 import { formatDate } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
+import './deliveries/deliveries-page.css';
 
-function statusBadgeClass(status: string) {
-  switch (status) {
-    case 'ready':
-      return 'bg-green-500/15 text-green-400 border-green-500/30';
-    case 'delivered':
-      return 'bg-gold/15 text-gold border-gold/30';
-    default:
-      return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
-  }
+function DeliveryHeroArt() {
+  return (
+    <svg viewBox="0 0 220 180" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="delHeroGold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#ffe08a" />
+          <stop offset="100%" stopColor="#c9a227" />
+        </linearGradient>
+      </defs>
+      <circle cx="118" cy="92" r="78" stroke="url(#delHeroGold)" strokeOpacity="0.2" />
+      <circle cx="118" cy="92" r="56" stroke="url(#delHeroGold)" strokeOpacity="0.4" strokeWidth="1.4" />
+      <path d="M78 88 L118 62 L158 88 L158 128 L78 128 Z" stroke="url(#delHeroGold)" strokeWidth="2.2" />
+      <path d="M78 88 L158 88" stroke="rgba(255,241,201,0.45)" strokeWidth="1.6" />
+      <path d="M118 62 L118 128" stroke="rgba(34,211,238,0.45)" strokeWidth="1.4" />
+    </svg>
+  );
 }
 
 export function DeliveriesPage() {
@@ -41,7 +62,9 @@ export function DeliveriesPage() {
   const [selected, setSelected] = useState<DeliveryItem | null>(null);
   const [viewItem, setViewItem] = useState<DeliveryItem | null>(null);
   const [archiveItem, setArchiveItem] = useState<DeliveryItem | null>(null);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null,
+  );
 
   const canCreate = hasPermission('delivery.create');
   const canUpdate = hasPermission('delivery.update');
@@ -60,6 +83,32 @@ export function DeliveriesPage() {
       }),
   });
 
+  const countKey = ['deliveries', 'counts', search, typeFilter] as const;
+  const countBase = {
+    page: 1,
+    limit: 1,
+    search: search || undefined,
+    deliverableType: typeFilter,
+  };
+
+  const pendingCountQuery = useQuery({
+    queryKey: [...countKey, 'pending'],
+    queryFn: () => deliveriesService.list({ ...countBase, status: 'pending' }),
+  });
+  const readyCountQuery = useQuery({
+    queryKey: [...countKey, 'ready'],
+    queryFn: () => deliveriesService.list({ ...countBase, status: 'ready' }),
+  });
+  const deliveredCountQuery = useQuery({
+    queryKey: [...countKey, 'delivered'],
+    queryFn: () => deliveriesService.list({ ...countBase, status: 'delivered' }),
+  });
+
+  const pendingCount = pendingCountQuery.data?.total ?? 0;
+  const readyCount = readyCountQuery.data?.total ?? 0;
+  const deliveredCount = deliveredCountQuery.data?.total ?? 0;
+  const totalCount = pendingCount + readyCount + deliveredCount;
+
   const createMutation = useMutation({
     mutationFn: deliveriesService.create,
     onSuccess: () => {
@@ -68,13 +117,21 @@ export function DeliveriesPage() {
       setFeedback({ type: 'success', message: 'Delivery item added.' });
     },
     onError: (error: unknown) => {
-      setFeedback({ type: 'error', message: getApiErrorMessage(error, 'Failed to add delivery item.') });
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(error, 'Failed to add delivery item.'),
+      });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof deliveriesService.update>[1] }) =>
-      deliveriesService.update(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Parameters<typeof deliveriesService.update>[1];
+    }) => deliveriesService.update(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deliveries'] });
       setFormOpen(false);
@@ -83,7 +140,10 @@ export function DeliveriesPage() {
       setFeedback({ type: 'success', message: 'Delivery item updated.' });
     },
     onError: (error: unknown) => {
-      setFeedback({ type: 'error', message: getApiErrorMessage(error, 'Failed to update delivery item.') });
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(error, 'Failed to update delivery item.'),
+      });
     },
   });
 
@@ -96,187 +156,317 @@ export function DeliveriesPage() {
       setFeedback({ type: 'success', message: 'Delivery item archived.' });
     },
     onError: (error: unknown) => {
-      setFeedback({ type: 'error', message: getApiErrorMessage(error, 'Failed to archive delivery item.') });
+      setFeedback({
+        type: 'error',
+        message: getApiErrorMessage(error, 'Failed to archive delivery item.'),
+      });
     },
   });
 
   const totalPages = listQuery.data?.totalPages ?? 1;
+  const items = listQuery.data?.items ?? [];
+
+  const applySearch = () => {
+    setSearch(searchInput.trim());
+    setPage(1);
+  };
+
+  const openCreate = () => {
+    setFormMode('create');
+    setSelected(null);
+    setFormOpen(true);
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="font-display text-2xl font-bold text-gray-100">Delivery Tracking</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Track albums, videos, pendrives, and other client deliverables.
-          </p>
-        </div>
-        {canCreate && (
-          <button
-            type="button"
-            className="btn-primary inline-flex items-center"
-            onClick={() => {
-              setFormMode('create');
-              setSelected(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Delivery
-          </button>
-        )}
+    <>
+    <div className="dhara-del">
+      <div className="dhara-del-ambient" aria-hidden>
+        <span className="dhara-del-orb is-maroon" />
+        <span className="dhara-del-orb is-gold" />
+        <span className="dhara-del-orb is-cyan" />
       </div>
 
-      {feedback && (
-        <div
-          className={cn(
-            'rounded-lg border px-4 py-3 text-sm',
-            feedback.type === 'success'
-              ? 'border-green-500/30 bg-green-500/10 text-green-400'
-              : 'border-red-500/30 bg-red-500/10 text-red-400',
+      <section className="dhara-del-hero">
+        <span className="dhara-del-lens" aria-hidden />
+        <div>
+          <p className="dhara-del-kicker">Dhara Photography ERP Pro</p>
+          <h2>Delivery Management</h2>
+          <p className="dhara-del-hero-copy">ડિલિવરી — ક્લાયન્ટ ઓર્ડર અને ડિલિવરેબલ ટ્રેકિંગ</p>
+          {canCreate && (
+            <div className="dhara-del-hero-actions">
+              <button type="button" className="dhara-del-btn is-gold" onClick={openCreate}>
+                <Plus />
+                Add Delivery
+              </button>
+            </div>
           )}
-        >
+        </div>
+        <div className="dhara-del-hero-art">
+          <span className="dhara-del-hero-halo" aria-hidden />
+          <DeliveryHeroArt />
+        </div>
+      </section>
+
+      {feedback && (
+        <div className={cn('dhara-del-flash', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
           {feedback.message}
         </div>
       )}
 
-      <div className="card">
-        <div className="mb-6 flex flex-col gap-3 lg:flex-row">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+      <div className="dhara-del-kpis">
+        <article className="dhara-del-kpi is-gold">
+          <div className="dhara-del-kpi-top">
+            <div>
+              <h3>Total Deliveries</h3>
+              <p>Pending + Ready + Delivered</p>
+            </div>
+            <span className="dhara-del-icon">
+              <Package />
+            </span>
+          </div>
+          <strong>
+            <DeliveryCountUp value={totalCount} />
+          </strong>
+        </article>
+        <article className="dhara-del-kpi is-cyan">
+          <div className="dhara-del-kpi-top">
+            <div>
+              <h3>Pending</h3>
+              <p>Awaiting preparation</p>
+            </div>
+            <span className="dhara-del-icon">
+              <Clock3 />
+            </span>
+          </div>
+          <strong>
+            <DeliveryCountUp value={pendingCount} />
+          </strong>
+        </article>
+        <article className="dhara-del-kpi is-amber">
+          <div className="dhara-del-kpi-top">
+            <div>
+              <h3>Ready</h3>
+              <p>Ready for handover</p>
+            </div>
+            <span className="dhara-del-icon">
+              <PackageCheck />
+            </span>
+          </div>
+          <strong>
+            <DeliveryCountUp value={readyCount} />
+          </strong>
+        </article>
+        <article className="dhara-del-kpi is-green">
+          <div className="dhara-del-kpi-top">
+            <div>
+              <h3>Delivered</h3>
+              <p>Completed items</p>
+            </div>
+            <span className="dhara-del-icon">
+              <CheckCircle2 />
+            </span>
+          </div>
+          <strong>
+            <DeliveryCountUp value={deliveredCount} />
+          </strong>
+        </article>
+      </div>
+
+      <section className="dhara-del-card">
+        <h3>Fulfilment workflow</h3>
+        <p className="dhara-del-note" style={{ marginTop: 0, marginBottom: '1rem' }}>
+          Real statuses only: Pending → Ready → Delivered. Counts follow the current search and type
+          filter.
+        </p>
+        <div className="dhara-del-flow">
+          {(
+            [
+              { id: 'pending' as DeliveryStatus, label: 'Pending', count: pendingCount, Icon: Clock3 },
+              { id: 'ready' as DeliveryStatus, label: 'Ready', count: readyCount, Icon: PackageCheck },
+              {
+                id: 'delivered' as DeliveryStatus,
+                label: 'Delivered',
+                count: deliveredCount,
+                Icon: CheckCircle2,
+              },
+            ]
+          ).map((stage, index) => (
+            <div key={stage.id} className="contents">
+              {index > 0 ? <span className="dhara-del-flow-line" aria-hidden /> : null}
+              <button
+                type="button"
+                className={cn(
+                  'dhara-del-node',
+                  deliveryStatusTone(stage.id),
+                  (statusFilter === stage.id || (statusFilter === 'all' && stage.count > 0)) && 'is-on',
+                )}
+                onClick={() => {
+                  setStatusFilter(stage.id);
+                  setPage(1);
+                }}
+              >
+                <span className="dhara-del-icon">
+                  <stage.Icon />
+                </span>
+                <div>
+                  <span>{stage.label}</span>
+                  <strong>{stage.count.toLocaleString('en-IN')}</strong>
+                </div>
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="dhara-del-panel">
+        <div className="dhara-del-toolbar-row">
+          <div className="dhara-del-input-wrap" style={{ flex: '1 1 18rem' }}>
+            <Search />
             <input
-              className="input-field w-full pl-10"
+              className="dhara-del-input is-icon"
               placeholder="Search client, booking, title, notes..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  setSearch(searchInput.trim());
-                  setPage(1);
-                }
+                if (e.key === 'Enter') applySearch();
               }}
             />
           </div>
-          <select
-            className="input-field lg:w-40"
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="all">All statuses</option>
-            {DELIVERY_STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="input-field lg:w-48"
-            value={typeFilter}
-            onChange={(e) => {
-              setTypeFilter(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="all">All types</option>
-            {DELIVERABLE_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={() => {
-              setSearch(searchInput.trim());
-              setPage(1);
-            }}
-          >
+          <div className="dhara-del-field">
+            <label htmlFor="delivery-status-filter">Status</label>
+            <select
+              id="delivery-status-filter"
+              className="dhara-del-input"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">All statuses</option>
+              {DELIVERY_STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="dhara-del-field">
+            <label htmlFor="delivery-type-filter">Deliverable Type</label>
+            <select
+              id="delivery-type-filter"
+              className="dhara-del-input"
+              value={typeFilter}
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">All types</option>
+              {DELIVERABLE_TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button type="button" className="dhara-del-btn is-gold" onClick={applySearch}>
             Search
           </button>
         </div>
+      </section>
 
-        {listQuery.isLoading ? (
-          <div className="py-12 text-center text-gray-500">Loading deliveries...</div>
-        ) : listQuery.isError ? (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-8 text-center text-red-400">
-            Failed to load deliveries.
-          </div>
-        ) : (listQuery.data?.items.length ?? 0) === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Package className="mb-3 h-10 w-10 text-gray-600" />
-            <p className="text-sm text-gray-500">No delivery items found.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
+      {listQuery.isLoading ? (
+        <div className="dhara-del-kpis">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="dhara-del-skeleton" />
+          ))}
+        </div>
+      ) : listQuery.isError ? (
+        <div className="dhara-del-error">
+          <Package />
+          <p>Failed to load deliveries.</p>
+          <button type="button" className="dhara-del-btn is-gold" onClick={() => void listQuery.refetch()}>
+            Retry
+          </button>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="dhara-del-empty">
+          <Package />
+          <p>No delivery items found.</p>
+          {canCreate && (
+            <button type="button" className="dhara-del-btn is-gold" onClick={openCreate}>
+              <Plus />
+              Add Delivery
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="dhara-del-card">
+          <div className="dhara-del-table-wrap">
+            <table className="dhara-del-table">
               <thead>
-                <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-                  <th className="px-3 py-3 font-medium">Deliverable</th>
-                  <th className="px-3 py-3 font-medium">Client / Booking</th>
-                  <th className="px-3 py-3 font-medium">Status</th>
-                  <th className="px-3 py-3 font-medium">Expected</th>
-                  <th className="px-3 py-3 font-medium">Delivered</th>
-                  <th className="px-3 py-3 font-medium">Actions</th>
+                <tr>
+                  <th>Deliverable</th>
+                  <th>Client / Booking</th>
+                  <th>Status</th>
+                  <th>Expected</th>
+                  <th>Delivered</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {listQuery.data?.items.map((item) => (
-                  <tr key={item.id} className="border-b border-surface-border/70 hover:bg-white/[0.02]">
-                    <td className="px-3 py-4">
-                      <p className="font-medium text-gray-100">{item.title}</p>
-                      <p className="text-xs text-gray-500">{item.deliverableTypeLabel}</p>
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    <td>
+                      <p>{item.title}</p>
+                      <span className={cn('dhara-del-type', deliverableTypeTone(item.deliverableType))}>
+                        {item.deliverableTypeLabel}
+                      </span>
+                      {item.albumName ? <p className="dhara-del-source">{item.albumName}</p> : null}
                     </td>
-                    <td className="px-3 py-4">
-                      <p className="text-gray-200">{item.clientName}</p>
-                      <p className="text-xs text-gray-500">{item.bookingNumber}</p>
+                    <td>
+                      <p>{item.clientName}</p>
+                      <p className="dhara-del-source">{item.bookingNumber}</p>
                     </td>
-                    <td className="px-3 py-4">
-                      <span
-                        className={cn(
-                          'rounded-full border px-2.5 py-1 text-xs font-medium',
-                          statusBadgeClass(item.status),
-                        )}
-                      >
+                    <td>
+                      <span className={cn('dhara-del-pill', deliveryStatusTone(item.status))}>
                         {item.statusLabel}
                       </span>
                     </td>
-                    <td className="px-3 py-4 text-gray-300">{formatDate(item.expectedDate)}</td>
-                    <td className="px-3 py-4 text-gray-300">{formatDate(item.deliveredDate)}</td>
-                    <td className="px-3 py-4">
-                      <div className="flex gap-2">
+                    <td>{formatDate(item.expectedDate)}</td>
+                    <td>{formatDate(item.deliveredDate)}</td>
+                    <td>
+                      <div className="flex gap-1">
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1 rounded-lg border border-surface-border px-2.5 py-1.5 text-xs text-gray-300 hover:border-gold/40 hover:text-gold"
+                          className="dhara-del-icon-btn"
                           onClick={() => setViewItem(item)}
+                          aria-label="View delivery"
                         >
-                          <Eye className="h-3.5 w-3.5" />
-                          View
+                          <Eye />
                         </button>
                         {canUpdate && (
                           <>
                             <button
                               type="button"
-                              className="inline-flex items-center gap-1 rounded-lg border border-surface-border px-2.5 py-1.5 text-xs text-gray-300 hover:border-gold/40 hover:text-gold"
+                              className="dhara-del-icon-btn"
                               onClick={() => {
                                 setFormMode('edit');
                                 setSelected(item);
                                 setFormOpen(true);
                               }}
+                              aria-label="Edit delivery"
                             >
-                              <Pencil className="h-3.5 w-3.5" />
-                              Edit
+                              <Pencil />
                             </button>
                             <button
                               type="button"
-                              className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
+                              className="dhara-del-icon-btn"
                               onClick={() => setArchiveItem(item)}
                               aria-label="Archive delivery"
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
+                              <Trash2 />
                             </button>
                           </>
                         )}
@@ -287,39 +477,41 @@ export function DeliveriesPage() {
               </tbody>
             </table>
           </div>
-        )}
 
-        {totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-between text-sm text-gray-400">
-            <p>
-              Page {page} of {totalPages} · {listQuery.data?.total ?? 0} deliveries
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={page <= 1}
-                onClick={() => setPage((current) => current - 1)}
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={page >= totalPages}
-                onClick={() => setPage((current) => current + 1)}
-              >
-                Next
-              </button>
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <p className="dhara-del-note">
+                Page {page} of {totalPages} · {listQuery.data?.total ?? 0} deliveries
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="dhara-del-btn"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => current - 1)}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="dhara-del-btn"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => current + 1)}
+                >
+                  Next
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+    </div>
 
       <DeliveryFormModal
         open={formOpen}
         mode={formMode}
         delivery={selected}
+        premium
         isSubmitting={createMutation.isPending || updateMutation.isPending}
         onClose={() => {
           setFormOpen(false);
@@ -382,6 +574,6 @@ export function DeliveriesPage() {
         onClose={() => setArchiveItem(null)}
         onConfirm={() => archiveItem && archiveMutation.mutate(archiveItem.id)}
       />
-    </div>
+    </>
   );
 }

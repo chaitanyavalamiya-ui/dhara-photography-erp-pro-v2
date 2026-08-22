@@ -1,0 +1,1141 @@
+/* Delivery Management cinematic styles — scoped to .dhara-del only. */
+
+.dhara-del {
+  --del-gold: #ffd45a;
+  --del-amber: #ff9a3c;
+  --del-maroon: #9f1239;
+  --del-cyan: #22d3ee;
+  --del-green: #4ade80;
+  --del-magenta: #ff4ec8;
+  --del-glass:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03) 36%, rgba(8, 3, 6, 0.38)),
+    rgba(14, 6, 10, 0.68);
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 1.45rem;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  color: #fffdf8;
+  -webkit-font-smoothing: auto;
+  text-rendering: geometricPrecision;
+}
+
+.dhara-del *,
+.dhara-del *::before,
+.dhara-del *::after {
+  box-sizing: border-box;
+}
+
+.dhara-del svg {
+  overflow: visible;
+  flex-shrink: 0;
+  shape-rendering: geometricPrecision;
+}
+
+.dhara-del-ambient {
+  position: absolute;
+  inset: -2rem 0 auto 0;
+  height: 28rem;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.dhara-del-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(2px);
+  opacity: 0.55;
+  animation: dhara-del-orb 18s ease-in-out infinite;
+}
+
+.dhara-del-orb.is-maroon {
+  width: 22rem;
+  height: 14rem;
+  left: -4rem;
+  top: 3rem;
+  background: radial-gradient(circle, rgba(159, 18, 57, 0.55), transparent 68%);
+}
+
+.dhara-del-orb.is-gold {
+  width: 18rem;
+  height: 12rem;
+  right: 4%;
+  top: -1rem;
+  background: radial-gradient(circle, rgba(255, 154, 60, 0.32), rgba(255, 212, 90, 0.22), transparent 70%);
+  animation-duration: 22s;
+}
+
+.dhara-del-orb.is-cyan {
+  width: 14rem;
+  height: 10rem;
+  right: 28%;
+  top: 8rem;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.16), rgba(192, 132, 252, 0.12), transparent 72%);
+  animation-duration: 26s;
+}
+
+.dhara-del > :not(.dhara-del-ambient):not(.dhara-del-modal) {
+  position: relative;
+  z-index: 1;
+}
+
+.dhara-del-hero,
+.dhara-del-panel,
+.dhara-del-kpi,
+.dhara-del-card,
+.dhara-del-empty,
+.dhara-del-error,
+.dhara-del-modal-card,
+.dhara-del-skeleton {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(255, 212, 90, 0.3);
+  background: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -18px 28px rgba(0, 0, 0, 0.18),
+    0 18px 40px rgba(0, 0, 0, 0.3);
+}
+
+.dhara-del-hero::before,
+.dhara-del-panel::before,
+.dhara-del-kpi::before,
+.dhara-del-card::before,
+.dhara-del-empty::before,
+.dhara-del-error::before,
+.dhara-del-modal-card::before,
+.dhara-del-skeleton::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--del-glass);
+  backdrop-filter: blur(18px) saturate(1.22);
+  pointer-events: none;
+}
+
+.dhara-del-panel::after,
+.dhara-del-card::after,
+.dhara-del-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 36%, rgba(255, 255, 255, 0.1) 50%, transparent 64%);
+  transform: translateX(-120%);
+  animation: dhara-del-sweep 7.5s ease-in-out infinite;
+}
+
+.dhara-del-hero > *,
+.dhara-del-panel > *,
+.dhara-del-kpi > *,
+.dhara-del-card > *,
+.dhara-del-empty > *,
+.dhara-del-error > *,
+.dhara-del-modal-card > *,
+.dhara-del-skeleton > * {
+  position: relative;
+  z-index: 2;
+}
+
+.dhara-del-hero,
+.dhara-del-panel,
+.dhara-del-card,
+.dhara-del-skeleton {
+  animation: dhara-del-rise 560ms ease both;
+}
+
+.dhara-del-panel { animation-delay: 70ms; }
+.dhara-del-card { animation-delay: 160ms; }
+
+.dhara-del-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 12.4rem;
+  width: 100%;
+  padding: 1.85rem 1.9rem 1.65rem;
+  border-radius: 1.25rem;
+}
+
+.dhara-del-hero::before {
+  background:
+    radial-gradient(540px 230px at 90% 12%, rgba(255, 212, 90, 0.22), transparent 62%),
+    radial-gradient(380px 190px at 8% 92%, rgba(159, 18, 57, 0.5), transparent 64%),
+    radial-gradient(280px 160px at 62% 100%, rgba(34, 211, 238, 0.12), transparent 62%),
+    var(--del-glass);
+}
+
+.dhara-del-lens {
+  position: absolute;
+  right: 22%;
+  top: 10%;
+  z-index: 1;
+  width: 150px;
+  height: 150px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.28), transparent 28%),
+    radial-gradient(circle, rgba(255, 212, 90, 0.2), transparent 68%);
+  filter: blur(1px);
+  animation: dhara-del-orb 16s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.dhara-del-kicker {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-del-hero h2 {
+  margin: 0.4rem 0 0;
+  font-family: 'Cormorant Garamond', 'Noto Serif Gujarati', serif;
+  font-size: clamp(2.5rem, 4.4vw, 3.55rem);
+  font-weight: 700;
+  line-height: 1.05;
+  color: #fffdf8;
+}
+
+.dhara-del-hero-copy {
+  margin: 0.55rem 0 0;
+  max-width: 46rem;
+  font-family: 'Noto Sans Gujarati', 'Noto Serif Gujarati', sans-serif;
+  font-size: clamp(1.14rem, 1.5vw, 1.32rem);
+  font-weight: 700;
+  line-height: 1.5;
+  color: #fff1c9;
+}
+
+.dhara-del-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin-top: 1.1rem;
+}
+
+.dhara-del-hero-art {
+  display: none;
+  position: relative;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.dhara-del-hero-halo {
+  position: absolute;
+  width: 13rem;
+  height: 13rem;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(255, 212, 90, 0.22), transparent 62%),
+    radial-gradient(circle at 70% 30%, rgba(34, 211, 238, 0.16), transparent 55%);
+  filter: blur(1px);
+  animation: dhara-del-orb 14s ease-in-out infinite;
+}
+
+.dhara-del-hero-art svg {
+  position: relative;
+  z-index: 2;
+  width: min(13.5rem, 100%);
+  height: auto;
+  filter: drop-shadow(0 0 18px rgba(255, 212, 90, 0.38));
+  animation: dhara-del-float 6.5s ease-in-out infinite;
+}
+
+@media (min-width: 900px) {
+  .dhara-del-hero {
+    grid-template-columns: minmax(0, 1.55fr) minmax(180px, 0.55fr);
+    align-items: center;
+  }
+  .dhara-del-hero-art {
+    display: flex;
+  }
+}
+
+.dhara-del-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14.5rem, 1fr));
+  gap: 1.05rem;
+  width: 100%;
+}
+
+.dhara-del-kpi {
+  --kpi: var(--del-gold);
+  --glow: rgba(255, 212, 90, 0.45);
+  padding: 1.3rem 1.25rem 1.15rem;
+  border-radius: 1.1rem;
+  overflow: visible;
+  animation: dhara-del-rise 560ms ease both;
+  border-color: color-mix(in srgb, var(--kpi) 78%, white 8%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 0 0 1px color-mix(in srgb, var(--kpi) 22%, transparent),
+    0 0 12px var(--glow),
+    0 0 30px color-mix(in srgb, var(--glow) 70%, transparent),
+    0 16px 36px rgba(0, 0, 0, 0.35);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.dhara-del-kpi::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03) 32%, rgba(8, 4, 10, 0.3)),
+    radial-gradient(120% 80% at 0% 100%, color-mix(in srgb, var(--kpi) 22%, transparent), transparent 55%),
+    rgba(12, 8, 16, 0.55);
+  backdrop-filter: blur(18px) saturate(1.35);
+}
+
+.dhara-del-kpi::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(110deg, transparent 36%, rgba(255, 255, 255, 0.14) 50%, transparent 64%);
+  transform: translateX(-120%);
+  opacity: 0;
+}
+
+.dhara-del-kpi:nth-child(1) { animation-delay: 40ms; }
+.dhara-del-kpi:nth-child(2) { animation-delay: 90ms; }
+.dhara-del-kpi:nth-child(3) { animation-delay: 140ms; }
+.dhara-del-kpi:nth-child(4) { animation-delay: 190ms; }
+.dhara-del-kpi:nth-child(5) { animation-delay: 240ms; }
+.dhara-del-kpi:nth-child(6) { animation-delay: 290ms; }
+.dhara-del-kpi:nth-child(7) { animation-delay: 340ms; }
+.dhara-del-kpi:nth-child(8) { animation-delay: 390ms; }
+
+.dhara-del-kpi:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    0 0 18px var(--glow),
+    0 0 44px color-mix(in srgb, var(--glow) 85%, transparent),
+    0 18px 40px rgba(0, 0, 0, 0.38);
+}
+
+.dhara-del-kpi:hover::after {
+  opacity: 1;
+  animation: dhara-del-sweep 900ms ease;
+}
+
+.dhara-del-kpi.is-gold { --kpi: #ffd45a; --glow: rgba(255, 212, 90, 0.55); }
+.dhara-del-kpi.is-green { --kpi: #3dff88; --glow: rgba(61, 255, 136, 0.5); }
+.dhara-del-kpi.is-magenta { --kpi: #ff4ec8; --glow: rgba(255, 78, 200, 0.5); }
+.dhara-del-kpi.is-amber { --kpi: #ff9a3c; --glow: rgba(255, 154, 60, 0.52); }
+.dhara-del-kpi.is-cyan { --kpi: #22d3ee; --glow: rgba(34, 211, 238, 0.5); }
+.dhara-del-kpi.is-rose { --kpi: #fb7185; --glow: rgba(251, 113, 133, 0.48); }
+.dhara-del-kpi.is-purple { --kpi: #c084fc; --glow: rgba(192, 132, 252, 0.48); }
+
+.dhara-del-kpi-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.dhara-del-kpi h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #fffdf8;
+}
+
+.dhara-del-kpi p {
+  margin: 0.28rem 0 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #ffe7b8;
+}
+
+.dhara-del-kpi strong {
+  display: block;
+  margin-top: 0.75rem;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2rem, 3vw, 2.7rem);
+  font-weight: 700;
+  line-height: 1;
+  color: #fffdf8;
+  font-variant-numeric: tabular-nums;
+}
+
+.dhara-del-icon {
+  display: grid;
+  place-items: center;
+  width: 3.85rem;
+  height: 3.85rem;
+  min-width: 3.85rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--kpi) 82%, white);
+  color: var(--kpi);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.24), transparent 46%),
+    color-mix(in srgb, var(--kpi) 22%, rgba(8, 6, 12, 0.55));
+  box-shadow:
+    0 0 16px var(--glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  transition: transform 180ms ease;
+}
+
+.dhara-del-kpi:hover .dhara-del-icon {
+  transform: translateY(-1px) rotate(-4deg);
+}
+
+.dhara-del-icon.is-rose {
+  --kpi: #fb7185;
+  --glow: rgba(251, 113, 133, 0.48);
+}
+
+.dhara-del-icon svg {
+  width: 2.05rem;
+  height: 2.05rem;
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 8px var(--glow));
+}
+
+.dhara-del-panel {
+  width: 100%;
+  padding: 1.3rem 1.35rem;
+  border-radius: 1.15rem;
+}
+
+.dhara-del-section-title {
+  margin: 0 0 0.9rem;
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-del-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dhara-del-chip {
+  min-height: 2.7rem;
+  padding: 0.38rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 212, 90, 0.25);
+  background: rgba(10, 4, 8, 0.4);
+  color: #fff1c9;
+  font-size: 1.02rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
+}
+
+.dhara-del-chip.is-on {
+  border-color: rgba(255, 212, 90, 0.65);
+  color: #ffd45a;
+  box-shadow: 0 0 16px rgba(255, 212, 90, 0.28);
+}
+
+.dhara-del-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.dhara-del-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.dhara-del-field label {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff1c9;
+}
+
+.dhara-del-input-wrap {
+  position: relative;
+}
+
+.dhara-del-input-wrap svg {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  width: 1.5rem;
+  height: 1.5rem;
+  transform: translateY(-50%);
+  color: #ffd45a;
+  pointer-events: none;
+}
+
+.dhara-del .dhara-del-input,
+.dhara-del .dhara-del-field .input-field,
+.dhara-del .dhara-del-form .input-field {
+  width: 100%;
+  min-height: 3.25rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.28);
+  background: rgba(10, 4, 8, 0.48);
+  color: #fffdf8;
+  font-size: 1.08rem;
+  font-weight: 700;
+  padding: 0.55rem 0.9rem;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dhara-del .dhara-del-input.is-icon {
+  padding-left: 2.8rem;
+}
+
+.dhara-del .dhara-del-input:focus,
+.dhara-del .input-field:focus {
+  outline: none;
+  border-color: var(--del-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2), 0 0 18px rgba(255, 212, 90, 0.16);
+}
+
+.dhara-del-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3.25rem;
+  padding: 0.62rem 1.15rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.28);
+  background: rgba(10, 4, 8, 0.42);
+  color: #fffdf8;
+  font-size: 1.08rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.dhara-del-btn svg {
+  width: 1.55rem;
+  height: 1.55rem;
+  stroke-width: 2.4;
+}
+
+.dhara-del-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(255, 212, 90, 0.32);
+}
+
+.dhara-del-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.dhara-del-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dhara-del-btn.is-gold {
+  background: linear-gradient(135deg, #9f1239, #c9a227);
+  border-color: rgba(255, 212, 90, 0.55);
+}
+
+.dhara-del-btn.is-cyan {
+  border-color: rgba(34, 211, 238, 0.45);
+  color: #a5f3fc;
+}
+
+.dhara-del-btn.is-icon {
+  min-width: 2.9rem;
+  padding: 0.4rem;
+}
+
+.dhara-del-flash {
+  padding: 0.9rem 1.05rem;
+  border-radius: 0.9rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.dhara-del-flash.is-ok {
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+  color: #bbf7d0;
+}
+
+.dhara-del-flash.is-bad {
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
+.dhara-del-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  animation: dhara-del-rise 560ms ease both;
+  animation-delay: 120ms;
+}
+
+.dhara-del-tab {
+  position: relative;
+  min-height: 2.9rem;
+  padding: 0.45rem 1.05rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 212, 90, 0.2);
+  background: rgba(10, 4, 8, 0.35);
+  color: #fff1c9;
+  font-size: 1.05rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.dhara-del-tab.is-on {
+  border-color: rgba(255, 212, 90, 0.58);
+  color: #ffd45a;
+  box-shadow: 0 0 16px rgba(255, 212, 90, 0.24);
+}
+
+.dhara-del-tab.is-on::after {
+  content: '';
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 0.28rem;
+  height: 2px;
+  border-radius: 99px;
+  background: #ffd45a;
+  box-shadow: 0 0 10px rgba(255, 212, 90, 0.7);
+}
+
+.dhara-del-card {
+  width: 100%;
+  padding: 1.25rem 1.3rem;
+  border-radius: 1.15rem;
+}
+
+.dhara-del-card h3 {
+  margin: 0 0 0.95rem;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.5rem, 2vw, 1.8rem);
+  font-weight: 700;
+  color: #ffe08a;
+}
+
+.dhara-del-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.05rem;
+  width: 100%;
+}
+
+@media (min-width: 1100px) {
+  .dhara-del-split {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.dhara-del-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  animation: dhara-del-rise 520ms ease both;
+  animation-delay: 80ms;
+}
+
+.dhara-del-table {
+  width: 100%;
+  min-width: 48rem;
+  border-collapse: collapse;
+}
+
+.dhara-del-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.9rem 0.85rem;
+  text-align: left;
+  font-size: 0.96rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe08a;
+  background: rgba(12, 6, 10, 0.92);
+  border-bottom: 1px solid rgba(255, 212, 90, 0.24);
+  white-space: nowrap;
+}
+
+.dhara-del-table td {
+  padding: 1rem 0.85rem;
+  font-size: 1.08rem;
+  font-weight: 650;
+  color: #fffdf8;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+  transition: background 160ms ease;
+}
+
+.dhara-del-table tbody tr {
+  animation: dhara-del-rise 420ms ease both;
+}
+
+.dhara-del-table tbody tr:nth-child(1) { animation-delay: 20ms; }
+.dhara-del-table tbody tr:nth-child(2) { animation-delay: 45ms; }
+.dhara-del-table tbody tr:nth-child(3) { animation-delay: 70ms; }
+.dhara-del-table tbody tr:nth-child(4) { animation-delay: 95ms; }
+.dhara-del-table tbody tr:nth-child(5) { animation-delay: 120ms; }
+.dhara-del-table tbody tr:nth-child(6) { animation-delay: 145ms; }
+.dhara-del-table tbody tr:nth-child(7) { animation-delay: 170ms; }
+.dhara-del-table tbody tr:nth-child(8) { animation-delay: 195ms; }
+
+.dhara-del-table tbody tr:hover td {
+  background: rgba(255, 212, 90, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 212, 90, 0.08);
+}
+
+.dhara-del-amt {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.dhara-del-amt.is-in { color: #86efac; }
+.dhara-del-amt.is-out { color: #fda4af; }
+.dhara-del-amt.is-gold { color: #ffd45a; }
+
+.dhara-del-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.32rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.95rem;
+  font-weight: 800;
+  text-transform: capitalize;
+  transition: box-shadow 160ms ease;
+}
+
+.dhara-del-pill.is-income {
+  border-color: rgba(74, 222, 128, 0.5);
+  color: #86efac;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.18);
+}
+
+.dhara-del-pill.is-expense {
+  border-color: rgba(255, 78, 200, 0.45);
+  color: #f9a8d4;
+  box-shadow: 0 0 10px rgba(255, 78, 200, 0.16);
+}
+
+.dhara-del-pill.is-cyan {
+  border-color: rgba(34, 211, 238, 0.5);
+  color: #67e8f9;
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.18);
+}
+
+.dhara-del-pill.is-amber {
+  border-color: rgba(255, 154, 60, 0.5);
+  color: #fdba74;
+  box-shadow: 0 0 10px rgba(255, 154, 60, 0.18);
+}
+
+.dhara-del-pill.is-green {
+  border-color: rgba(74, 222, 128, 0.5);
+  color: #86efac;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.18);
+}
+
+.dhara-del-type.is-gold { --kpi: #ffd45a; }
+.dhara-del-type.is-cyan { --kpi: #22d3ee; }
+.dhara-del-type.is-magenta { --kpi: #ff4ec8; }
+.dhara-del-type.is-amber { --kpi: #ff9a3c; }
+.dhara-del-type.is-purple { --kpi: #c084fc; }
+
+.dhara-del-node.is-cyan { --kpi: #22d3ee; --glow: rgba(34, 211, 238, 0.42); }
+.dhara-del-node.is-amber { --kpi: #ff9a3c; --glow: rgba(255, 154, 60, 0.42); }
+.dhara-del-node.is-green { --kpi: #3dff88; --glow: rgba(61, 255, 136, 0.42); }
+
+.dhara-del-empty,
+.dhara-del-error {
+  min-height: 12rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.6rem;
+  border-radius: 1.1rem;
+  text-align: center;
+}
+
+.dhara-del-empty svg,
+.dhara-del-error svg {
+  width: 3.6rem;
+  height: 3.6rem;
+  color: #ffd45a;
+  filter: drop-shadow(0 0 10px rgba(255, 212, 90, 0.35));
+}
+
+.dhara-del-error svg { color: #fecaca; }
+
+.dhara-del-empty p,
+.dhara-del-error p {
+  margin: 0;
+  font-size: 1.14rem;
+  font-weight: 700;
+  color: #fff1c9;
+}
+
+.dhara-del-skeleton {
+  height: 3.2rem;
+  border-radius: 0.85rem;
+  overflow: hidden;
+}
+
+.dhara-del-skeleton::before {
+  background:
+    linear-gradient(90deg, transparent, rgba(255, 212, 90, 0.12), transparent),
+    var(--del-glass);
+  background-size: 200% 100%, auto;
+  animation: dhara-del-shimmer 1.4s linear infinite;
+}
+
+.dhara-del-link {
+  display: inline-flex;
+  margin-top: 0.7rem;
+  color: #ffd45a;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.dhara-del-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.75rem;
+}
+
+.dhara-del-fact {
+  padding: 0.9rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.2);
+  background: rgba(8, 3, 6, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.dhara-del-fact span {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-del-fact strong {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 1.22rem;
+  font-weight: 800;
+  color: #fffdf8;
+}
+
+.dhara-del-note {
+  margin: 0.85rem 0 0;
+  font-size: 1.02rem;
+  font-weight: 650;
+  color: #ffe7b8;
+}
+
+.dhara-del-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dhara-del-bar {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.9fr) minmax(0, 1.4fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.dhara-del-bar span {
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #fff1c9;
+}
+
+.dhara-del-bar-track {
+  height: 0.55rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dhara-del-bar-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #ff9a3c, #ffd45a);
+  box-shadow: 0 0 10px rgba(255, 154, 60, 0.45);
+}
+
+.dhara-del-source {
+  display: inline-flex;
+  margin-top: 0.28rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #ffe7b8;
+}
+
+.dhara-del-cat {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--kpi, #ffd45a) 55%, white);
+  color: var(--kpi, #ffd45a);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.dhara-del-cat.is-gold { --kpi: #ffd45a; }
+.dhara-del-cat.is-amber { --kpi: #ff9a3c; }
+.dhara-del-cat.is-rose { --kpi: #fb7185; }
+.dhara-del-cat.is-cyan { --kpi: #22d3ee; }
+.dhara-del-cat.is-purple { --kpi: #c084fc; }
+.dhara-del-cat.is-magenta { --kpi: #ff4ec8; }
+
+.dhara-del-empty h3 {
+  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: #fffdf8;
+}
+
+.dhara-del-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+  color: #ffd45a;
+  font-size: 1.05rem;
+  font-weight: 800;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.dhara-del-link svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.dhara-del-chart {
+  width: 100%;
+  min-height: 320px;
+  filter: drop-shadow(0 0 12px rgba(74, 222, 128, 0.08));
+}
+
+.dhara-del.dhara-del-modal,
+.dhara-del-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.dhara-del-modal-card {
+  width: 100%;
+  max-width: 32rem;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 1.4rem 1.45rem;
+  border-radius: 1.15rem;
+  animation: dhara-del-rise 420ms ease both;
+}
+
+.dhara-del-modal-card h2 {
+  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #ffe08a;
+}
+
+.dhara-del-modal-sub {
+  margin: 0.35rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: #fff1c9;
+}
+
+.dhara-del-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.dhara-del-form label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #fff1c9;
+}
+
+.dhara-del-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 212, 90, 0.16);
+}
+
+.dhara-del-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 2.85rem;
+  height: 2.85rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff1c9;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, color 160ms ease;
+}
+
+.dhara-del-icon-btn:hover {
+  color: #ffd45a;
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px rgba(255, 212, 90, 0.28);
+}
+
+.dhara-del-icon-btn svg {
+  width: 1.4rem;
+  height: 1.4rem;
+  stroke-width: 2.4;
+}
+
+.dhara-del-err {
+  margin: 0.4rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fecaca;
+}
+
+.dhara-del-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.dhara-del-node {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 4.2rem;
+  padding: 0.7rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 212, 90, 0.22);
+  background: rgba(10, 4, 8, 0.35);
+  color: #fff1c9;
+}
+
+.dhara-del-node.is-on {
+  border-color: color-mix(in srgb, var(--kpi, #ffd45a) 70%, white);
+  box-shadow: 0 0 18px var(--glow, rgba(255, 212, 90, 0.28));
+}
+
+.dhara-del-node strong {
+  display: block;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #fffdf8;
+}
+
+.dhara-del-node span {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-del-flow-line {
+  width: 2.2rem;
+  height: 2px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, rgba(255, 212, 90, 0.15), rgba(255, 212, 90, 0.7), rgba(255, 212, 90, 0.15));
+}
+
+.dhara-del-type {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--kpi, #ffd45a) 55%, white);
+  color: var(--kpi, #ffd45a);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+@keyframes dhara-del-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dhara-del-orb {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-6%, 5%, 0); }
+}
+
+@keyframes dhara-del-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+@keyframes dhara-del-sweep {
+  0%, 55% { transform: translateX(-120%); }
+  80%, 100% { transform: translateX(120%); }
+}
+
+@keyframes dhara-del-shimmer {
+  from { background-position: 100% 0, 0 0; }
+  to { background-position: -100% 0, 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dhara-del *,
+  .dhara-del *::before,
+  .dhara-del *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .dhara-del-kpi:hover,
+  .dhara-del-btn:hover:not(:disabled),
+  .dhara-del-icon-btn:hover {
+    transform: none;
+  }
+}

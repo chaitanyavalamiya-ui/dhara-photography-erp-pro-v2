@@ -4,6 +4,12 @@ import { Check, ImageOff, Pencil, X } from 'lucide-react';
 import { Album, albumsService } from '@/services/albums-service';
 import { GalleryPhoto, galleriesService } from '@/services/galleries-service';
 import { GalleryPhotoImage } from '@/components/gallery/GalleryPhotoImage';
+import {
+  ALBUM_PRODUCTION_STAGES,
+  albumStatusLabel,
+  albumStatusTone,
+  albumTypeLabel,
+} from '@/components/albums/album-visual';
 import { formatCurrency } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
@@ -23,23 +29,6 @@ function formatDate(value?: string | null) {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function statusBadgeClass(status: string) {
-  switch (status) {
-    case 'designing':
-      return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
-    case 'printing':
-      return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
-    case 'ready':
-      return 'bg-green-500/15 text-green-400 border-green-500/30';
-    case 'delivered':
-      return 'bg-gold/15 text-gold border-gold/30';
-    case 'cancelled':
-      return 'bg-red-500/15 text-red-400 border-red-500/30';
-    default:
-      return 'bg-gray-500/15 text-gray-400 border-gray-500/30';
-  }
 }
 
 export function AlbumDetailModal({
@@ -148,10 +137,10 @@ export function AlbumDetailModal({
 
   if (!album) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-        <div className="card w-full max-w-md text-center">
-          <p className="text-sm text-gray-400">Loading album...</p>
-          <button type="button" className="btn-secondary mt-4" onClick={onClose}>Close</button>
+      <div className="dhara-alb-modal">
+        <div className="dhara-alb-modal-card" style={{ maxWidth: '28rem' }}>
+          <p className="dhara-alb-modal-sub" style={{ textAlign: 'center' }}>Loading album...</p>
+          <button type="button" className="dhara-alb-btn mt-4" onClick={onClose}>Close</button>
         </div>
       </div>
     );
@@ -160,98 +149,110 @@ export function AlbumDetailModal({
   const galleryPhotos = loadedPhotos;
   const unavailablePhotos = (album.photos ?? []).filter((photo) => photo.available === false);
   const hasMorePhotos = (galleryQuery.data?.page ?? 1) < (galleryQuery.data?.totalPages ?? 1);
+  const currentStageIndex = ALBUM_PRODUCTION_STAGES.indexOf(
+    album.status as (typeof ALBUM_PRODUCTION_STAGES)[number],
+  );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-card">
-        <div className="flex items-start justify-between gap-4 border-b border-surface-border px-6 py-4">
+    <div className="dhara-alb-modal">
+      <div className="dhara-alb-modal-card is-wide">
+        <div className="dhara-alb-modal-head">
           <div>
-            <p className="text-xs uppercase tracking-wider text-gray-500">{album.bookingNumber}</p>
-            <h2 className="font-display text-xl font-semibold text-gold">{album.name}</h2>
-            <p className="text-sm text-gray-400">
+            <p className="dhara-alb-kicker" style={{ fontSize: '0.82rem' }}>{album.bookingNumber}</p>
+            <h2>{album.name}</h2>
+            <p className="dhara-alb-modal-sub">
               {album.clientName} · {album.galleryName ?? 'No gallery linked'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="dhara-alb-modal-actions">
             {canUpdate && onEdit && (
-              <button type="button" className="btn-secondary px-3 py-1.5 text-xs" onClick={onEdit}>
-                <Pencil className="mr-1.5 inline h-3.5 w-3.5" />
+              <button type="button" className="dhara-alb-btn is-cyan" onClick={onEdit}>
+                <Pencil strokeWidth={2.4} absoluteStrokeWidth />
                 Edit
               </button>
             )}
-            <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
-              <X className="h-5 w-5" />
+            <button type="button" onClick={onClose} className="dhara-alb-icon-btn" aria-label="Close">
+              <X strokeWidth={2.4} absoluteStrokeWidth />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="dhara-alb-modal-body">
           {feedback && (
-            <div
-              className={cn(
-                'mb-4 rounded-lg border px-4 py-3 text-sm',
-                feedback.type === 'success'
-                  ? 'border-green-500/30 bg-green-500/10 text-green-400'
-                  : 'border-red-500/30 bg-red-500/10 text-red-400',
-              )}
-            >
+            <div className={cn('dhara-alb-flash mb-4', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
               {feedback.message}
             </div>
           )}
 
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-              <p className="text-xs text-gray-500">Status</p>
-              <span
-                className={cn(
-                  'mt-2 inline-block rounded-full border px-2 py-0.5 text-xs font-medium capitalize',
-                  statusBadgeClass(album.status),
-                )}
-              >
-                {album.status}
+          {album.status === 'cancelled' ? (
+            <div className="dhara-alb-flow">
+              <span className={cn('dhara-alb-status', albumStatusTone(album.status))}>
+                {albumStatusLabel(album.status)}
               </span>
             </div>
-            <div className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-              <p className="text-xs text-gray-500">Selling Price</p>
-              <p className="mt-1 text-lg font-semibold text-gray-100">{formatCurrency(album.albumPrice)}</p>
-            </div>
-            <div className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-              <p className="text-xs text-gray-500">Vendor Expense</p>
-              <p className="mt-1 text-lg font-semibold text-gray-100">{formatCurrency(album.vendorExpense)}</p>
-            </div>
-            <div className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-              <p className="text-xs text-gray-500">Album Profit</p>
-              <p className="mt-1 text-lg font-semibold text-gold">{formatCurrency(album.profit)}</p>
-            </div>
-          </div>
-
-          <div className="mb-6 grid gap-4 text-sm text-gray-400 sm:grid-cols-2 lg:grid-cols-3">
-            <p>Type: <span className="text-gray-200 capitalize">{album.albumType}</span></p>
-            <p>Pages: <span className="text-gray-200">{album.pageCount}</span></p>
-            <p>Selected Photos: <span className="text-gray-200">{album.selectedPhotoCount}</span></p>
-            <p>Order Date: <span className="text-gray-200">{formatDate(album.orderDate)}</span></p>
-            <p>Expected Delivery: <span className="text-gray-200">{formatDate(album.expectedDeliveryDate)}</span></p>
-            <p>Actual Delivery: <span className="text-gray-200">{formatDate(album.actualDeliveryDate)}</span></p>
-            <p>Vendor: <span className="text-gray-200">{album.vendorName || '—'}</span></p>
-          </div>
-
-          {album.notes && (
-            <div className="mb-6 rounded-lg border border-surface-border bg-surface-elevated p-4 text-sm text-gray-300">
-              {album.notes}
+          ) : (
+            <div className="dhara-alb-flow" aria-label="Album production status">
+              {ALBUM_PRODUCTION_STAGES.map((stage, index) => (
+                <span
+                  key={stage}
+                  className={cn(
+                    'dhara-alb-flow-step',
+                    index < currentStageIndex && 'is-done',
+                    index === currentStageIndex && 'is-current',
+                  )}
+                >
+                  {albumStatusLabel(stage)}
+                </span>
+              ))}
             </div>
           )}
 
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-medium text-gray-200">Gallery Photo Selection</h3>
+          <div className="dhara-alb-stats">
+            <div className="dhara-alb-stat">
+              <span>Status</span>
+              <strong>
+                <span className={cn('dhara-alb-status', albumStatusTone(album.status))}>
+                  {albumStatusLabel(album.status)}
+                </span>
+              </strong>
+            </div>
+            <div className="dhara-alb-stat">
+              <span>Selling Price</span>
+              <strong>{formatCurrency(album.albumPrice)}</strong>
+            </div>
+            <div className="dhara-alb-stat">
+              <span>Vendor Expense</span>
+              <strong>{formatCurrency(album.vendorExpense)}</strong>
+            </div>
+            <div className="dhara-alb-stat">
+              <span>Album Profit</span>
+              <strong>{formatCurrency(album.profit)}</strong>
+            </div>
+          </div>
+
+          <div className="dhara-alb-facts">
+            <p>Type: <b>{albumTypeLabel(album.albumType)}</b></p>
+            <p>Pages: <b>{album.pageCount}</b></p>
+            <p>Selected Photos: <b>{album.selectedPhotoCount}</b></p>
+            <p>Order Date: <b>{formatDate(album.orderDate)}</b></p>
+            <p>Expected Delivery: <b>{formatDate(album.expectedDeliveryDate)}</b></p>
+            <p>Actual Delivery: <b>{formatDate(album.actualDeliveryDate)}</b></p>
+            <p>Vendor: <b>{album.vendorName || '—'}</b></p>
+          </div>
+
+          {album.notes && <div className="dhara-alb-notes">{album.notes}</div>}
+
+          <div className="dhara-alb-section-head">
+            <h3>Gallery Photo Selection</h3>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs text-gray-500">
+              <p className="dhara-alb-hint" style={{ margin: 0 }}>
                 {selectedCount} of {totalGalleryPhotos || album.selectedPhotoCount} selected
               </p>
               {canUpdate && album.galleryId && galleryPhotos.length > 0 && (
                 <>
                   <button
                     type="button"
-                    className="btn-secondary px-2 py-1 text-xs"
+                    className="dhara-alb-btn"
                     disabled={bulkPending || toggleMutation.isPending}
                     onClick={() => selectAllMutation.mutate()}
                   >
@@ -259,7 +260,7 @@ export function AlbumDetailModal({
                   </button>
                   <button
                     type="button"
-                    className="btn-secondary px-2 py-1 text-xs"
+                    className="dhara-alb-btn"
                     disabled={bulkPending || toggleMutation.isPending || selectedCount === 0}
                     onClick={() => clearAllMutation.mutate()}
                   >
@@ -271,16 +272,16 @@ export function AlbumDetailModal({
           </div>
 
           {!album.galleryId ? (
-            <div className="flex min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-surface-border text-center">
-              <ImageOff className="h-10 w-10 text-gray-600" />
-              <p className="mt-3 text-sm text-gray-400">No gallery linked. Edit the album to connect a gallery.</p>
+            <div className="dhara-alb-empty" style={{ minHeight: '12rem' }}>
+              <ImageOff strokeWidth={2.35} absoluteStrokeWidth />
+              <p>No gallery linked. Edit the album to connect a gallery.</p>
             </div>
           ) : galleryArchived ? (
-            <div className="rounded-lg border border-dashed border-surface-border p-4 text-sm text-gray-400">
+            <div className="dhara-alb-notes">
               The linked gallery is archived. Historical photo selection is preserved and cannot be changed
               until a new active gallery is linked.
               {(album.photos ?? []).length > 0 && (
-                <ul className="mt-3 space-y-1 text-xs">
+                <ul className="mt-3 space-y-1">
                   {(album.photos ?? []).map((photo) => (
                     <li key={photo.id}>{photo.originalName}</li>
                   ))}
@@ -288,70 +289,65 @@ export function AlbumDetailModal({
               )}
             </div>
           ) : galleryQuery.isLoading && galleryPhotos.length === 0 ? (
-            <p className="text-sm text-gray-400">Loading gallery photos...</p>
+            <p className="dhara-alb-hint">Loading gallery photos...</p>
           ) : galleryQuery.isError ? (
-            <p className="text-sm text-red-400">
+            <p className="dhara-alb-error-text">
               {getApiErrorMessage(galleryQuery.error, 'Failed to load gallery photos.')}
             </p>
           ) : galleryPhotos.length === 0 ? (
-            <div className="flex min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-surface-border text-center">
-              <ImageOff className="h-10 w-10 text-gray-600" />
-              <p className="mt-3 text-sm text-gray-400">No photos in the linked gallery yet.</p>
+            <div className="dhara-alb-empty" style={{ minHeight: '12rem' }}>
+              <ImageOff strokeWidth={2.35} absoluteStrokeWidth />
+              <p>No photos in the linked gallery yet.</p>
             </div>
           ) : (
             <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {galleryPhotos.map((photo) => {
-                const isSelected = selectedPhotoIds.has(photo.id);
-                return (
+              <div className="dhara-alb-photos">
+                {galleryPhotos.map((photo) => {
+                  const isSelected = selectedPhotoIds.has(photo.id);
+                  return (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      disabled={!canUpdate || toggleMutation.isPending || bulkPending}
+                      onClick={() => toggleMutation.mutate(photo.id)}
+                      className={cn('dhara-alb-photo', isSelected && 'is-on')}
+                    >
+                      <GalleryPhotoImage
+                        galleryId={album.galleryId!}
+                        photoId={photo.id}
+                        alt={photo.originalName}
+                        variant="thumbnail"
+                        className="aspect-square w-full"
+                      />
+                      {isSelected && (
+                        <span className="dhara-alb-check">
+                          <Check strokeWidth={2.6} absoluteStrokeWidth />
+                        </span>
+                      )}
+                      <p className="dhara-alb-photo-name">{photo.originalName}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              {hasMorePhotos && (
+                <div className="mt-4 flex justify-center">
                   <button
-                    key={photo.id}
                     type="button"
-                    disabled={!canUpdate || toggleMutation.isPending || bulkPending}
-                    onClick={() => toggleMutation.mutate(photo.id)}
-                    className={cn(
-                      'group relative overflow-hidden rounded-lg border text-left transition',
-                      isSelected ? 'border-gold ring-1 ring-gold/40' : 'border-surface-border',
-                    )}
+                    className="dhara-alb-btn"
+                    disabled={galleryQuery.isFetching}
+                    onClick={() => setPhotoPage((page) => page + 1)}
                   >
-                    <GalleryPhotoImage
-                      galleryId={album.galleryId!}
-                      photoId={photo.id}
-                      alt={photo.originalName}
-                      variant="thumbnail"
-                      className="aspect-square w-full"
-                    />
-                    {isSelected && (
-                      <span className="absolute left-2 top-2 rounded-full bg-gold p-1 text-maroon-dark">
-                        <Check className="h-3 w-3" />
-                      </span>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                      <p className="truncate text-[10px] text-gray-200">{photo.originalName}</p>
-                    </div>
+                    {galleryQuery.isFetching ? 'Loading...' : 'Load more photos'}
                   </button>
-                );
-              })}
-            </div>
-            {hasMorePhotos && (
-              <div className="mt-4 flex justify-center">
-                <button
-                  type="button"
-                  className="btn-secondary text-xs"
-                  disabled={galleryQuery.isFetching}
-                  onClick={() => setPhotoPage((page) => page + 1)}
-                >
-                  {galleryQuery.isFetching ? 'Loading...' : 'Load more photos'}
-                </button>
-              </div>
-            )}
-            {unavailablePhotos.length > 0 && (
-              <div className="mt-4 rounded-lg border border-surface-border p-3 text-xs text-gray-400">
-                {unavailablePhotos.length} selected photo
-                {unavailablePhotos.length === 1 ? '' : 's'} were removed from the gallery and are no longer
-                shown above. Album history is kept.
-              </div>
-            )}
+                </div>
+              )}
+              {unavailablePhotos.length > 0 && (
+                <div className="dhara-alb-notes mt-4">
+                  {unavailablePhotos.length} selected photo
+                  {unavailablePhotos.length === 1 ? '' : 's'} were removed from the gallery and are no longer
+                  shown above. Album history is kept.
+                </div>
+              )}
             </>
           )}
         </div>

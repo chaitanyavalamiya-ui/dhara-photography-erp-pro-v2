@@ -1,9 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InvoiceViewModal } from './InvoiceViewModal';
 import { Invoice } from '@/services/invoices-service';
 import { paymentsService } from '@/services/payments-service';
+import { downloadInvoicePdf } from '@/utils/invoice-pdf';
+import { printInvoice } from '@/utils/invoice';
 
 vi.mock('@/services/payments-service', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/payments-service')>();
@@ -21,6 +23,14 @@ vi.mock('@/services/payments-service', async (importOriginal) => {
 vi.mock('@/utils/invoice-pdf', () => ({
   downloadInvoicePdf: vi.fn(),
 }));
+
+vi.mock('@/utils/invoice', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/invoice')>();
+  return {
+    ...actual,
+    printInvoice: vi.fn(),
+  };
+});
 
 const invoice: Invoice = {
   id: 'inv-1',
@@ -119,5 +129,56 @@ describe('InvoiceViewModal payment void permission', () => {
     renderModal({ canUpdate: true, canVoidPayment: false });
     expect(await screen.findByRole('button', { name: 'Edit' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Void' })).not.toBeInTheDocument();
+  });
+
+  it('keeps print, share, and PDF actions wired on the preview toolbar', async () => {
+    vi.mocked(downloadInvoicePdf).mockResolvedValue(undefined as never);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      writable: true,
+      value: undefined,
+    });
+
+    renderModal({});
+
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+    expect(printInvoice).toHaveBeenCalledWith('invoice-document-print');
+
+    fireEvent.click(screen.getByRole('button', { name: 'PDF' }));
+    await vi.waitFor(() => {
+      expect(downloadInvoicePdf).toHaveBeenCalledWith(
+        'invoice-document-print',
+        'INV-000001',
+        'Asha Patel',
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalled();
+    });
+  });
+
+  it('keeps the invoice document above payment history and starts the preview at the top', async () => {
+    renderModal({});
+
+    const documentNode = await vi.waitFor(() => {
+      const node = document.getElementById('invoice-document-print');
+      expect(node).toBeTruthy();
+      return node as HTMLElement;
+    });
+    const historyHeading = await screen.findByRole('heading', { name: 'Payment History' });
+    const previewBody = document.querySelector('.dhara-inv-modal-body') as HTMLElement;
+
+    expect(documentNode.compareDocumentPosition(historyHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(previewBody.scrollTop).toBe(0);
+    expect(documentNode.parentElement?.className).toContain('dhara-inv-preview-fit');
   });
 });

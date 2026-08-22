@@ -27,11 +27,40 @@ export function parseCorsOrigins(
   return origins;
 }
 
-export function isCorsOriginAllowed(origin: string | undefined, allowedOrigins: string[]): boolean {
+export function isCorsOriginAllowed(
+  origin: string | undefined,
+  allowedOrigins: string[],
+  options?: { allowLocalNetwork?: boolean },
+): boolean {
   if (!origin) {
     return true;
   }
-  return allowedOrigins.includes(origin);
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+  if (options?.allowLocalNetwork !== true) {
+    return false;
+  }
+
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return false;
+    }
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+      return true;
+    }
+    if (/^192\.168(?:\.\d{1,3}){2}$/.test(hostname)) {
+      return true;
+    }
+    if (/^10(?:\.\d{1,3}){3}$/.test(hostname)) {
+      return true;
+    }
+    return /^172\.(1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2}$/.test(hostname);
+  } catch {
+    return false;
+  }
 }
 
 export function createHelmetOptions(): HelmetOptions {

@@ -1,0 +1,61 @@
+---
+description: Calendar module is a locked final design — never change it unless the user explicitly asks.
+alwaysApply: true
+---
+
+# LOCKED CALENDAR MODULE — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
+
+The Calendar module is an approved, frozen baseline (premium cinematic crystal-glass ERP calendar). Do not change, redesign, restyle, restyle-via-globals, add, remove, resize, or reposition anything in it unless the user explicitly requests that specific Calendar change in the current conversation.
+
+This lock is independent of the Login Page lock, the Dashboard lock, and the Clients Management lock. All four remain fully in force.
+
+## Before editing any file below
+
+Require an explicit user instruction that clearly asks to modify Calendar (for example: “change the Calendar icons” or “update the Calendar KPI cards”). Unrelated work, other modules, refactors, “while we’re here” polish, and inferred improvements are not approval.
+
+## Locked files (do not edit without explicit approval)
+
+Page, styles, and tests:
+
+- `04_Frontend/frontend/src/pages/CalendarPage.tsx`
+- `04_Frontend/frontend/src/pages/CalendarPage.test.tsx`
+- `04_Frontend/frontend/src/pages/calendar/calendar-page.css`
+
+Calendar UI components:
+
+- `04_Frontend/frontend/src/components/calendar/calendar-glyphs.tsx`
+
+Calendar behavior helpers and tests:
+
+- `04_Frontend/frontend/src/utils/calendar.ts`
+- `04_Frontend/frontend/src/utils/calendar.test.ts`
+
+## Preserve exactly
+
+- Layout and visual hierarchy (hero, KPI/summary area, month/year navigation, weekday row, date cells, event chips, upcoming bookings side panel, legend, day-detail modal, create/edit/view booking flow from a date)
+- Crystal/glass surfaces, borders, shadows, glows, cinematic lighting, and animations
+- Sharp event marker/icon styling as last explicitly approved: large crisp SVG hearts for wedding/booked (and anniversary client markers), diamond-ring for engagement, cake for birthday, calendar glyph for other; no invented diamond/premium backend event type. Crystal-glass icon chips with type-colored outer glow only; icons stay vector-sharp (no blur/low-opacity). Keep colors, stroke, size, chips, legend, and this mapping unless the user explicitly requests a new Calendar change.
+- Event chips, legend, typography, font sizes, spacing, and responsive layout
+- Existing Calendar functionality: `getCalendar` / upcoming list / booking detail APIs as used by this page, date calculations, event-type mappings, occupancy rules (including hiding cancelled occupancy), client birthday/anniversary markers, create-booking-from-date, edit/view from the calendar, permissions, and routes
+- Calendar-related tests and their assertions (`aria-label` markers, month labels, occupancy, etc.)
+
+## Other work must stay independent
+
+Work on Login, Dashboard, Clients, Bookings, and other modules without touching the files above.
+
+If you must change shared CSS, layout shells, or shared booking/client files that Calendar *calls* (`bookings-service`, `BookingFormModal`, `BookingViewModal`, `clients-service`, `booking-form` formatters, `api-error`, `cn`):
+
+- Do not alter `.dhara-calendar`, `.dhara-cal-*`, or `calendar-page.css`.
+- Scope new styles so they cannot override Calendar descendants.
+- Prefer new class names over changing globals used by Calendar.
+- Other modules may *call* those shared files, but must preserve Calendar’s current appearance and functionality exactly (including `getCalendar` contracts, occupancy fields, and create-from-date behavior). Do not edit the locked Calendar files listed above without explicit Calendar approval.
+
+## Allowed exception
+
+Only modify the Calendar module when the user clearly asks for a specific Calendar change in that conversation.
+
+## Recorded explicit approval (2026-08-22)
+
+User-approved Calendar visual change: enlarge and restyle event markers only (red heart for wedding/booked, gold diamond-ring for engagement, pink/gold cake for birthday). Diamond glyph omitted because no real diamond event type exists in data. Layout, APIs, occupancy, navigation, and other modules stay locked.
+
+Do not weaken `.cursor/rules/locked-login-page.mdc`, `.cursor/rules/locked-dashboard.mdc`, or `.cursor/rules/locked-clients-module.mdc`.

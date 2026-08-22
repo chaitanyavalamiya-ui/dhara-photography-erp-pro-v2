@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Download, MessageCircle, Pencil, Plus, Printer, Share2, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Invoice } from '@/services/invoices-service';
@@ -42,6 +42,7 @@ export function InvoiceViewModal({
   const [voidError, setVoidError] = useState<string | null>(null);
   const [editPayment, setEditPayment] = useState<Payment | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const previewBodyRef = useRef<HTMLDivElement>(null);
 
   const paymentsQuery = useQuery({
     queryKey: ['payments', 'invoice', invoice?.id],
@@ -84,6 +85,16 @@ export function InvoiceViewModal({
       setVoidError(getApiErrorMessage(error, 'Failed to void payment.'));
     },
   });
+
+  useLayoutEffect(() => {
+    if (!open) {
+      return;
+    }
+    const body = previewBodyRef.current;
+    if (body) {
+      body.scrollTop = 0;
+    }
+  }, [open, invoice?.id]);
 
   if (!open) return null;
 
@@ -139,102 +150,78 @@ export function InvoiceViewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex max-h-[96vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-card shadow-2xl">
-        <div className="flex items-center justify-between gap-4 border-b border-surface-border px-6 py-4">
+    <div className="dhara-inv-modal is-preview">
+      <div className="dhara-inv-modal-card is-wide">
+        <div className="dhara-inv-modal-head">
           <div>
-            <p className="text-xs uppercase tracking-wider text-gray-500">Invoice Preview</p>
-            <h2 className="font-display text-xl font-semibold text-gold">
-              {invoice?.invoiceNumber ?? 'Loading…'}
-            </h2>
+            <p>Invoice Preview</p>
+            <h2>{invoice?.invoiceNumber ?? 'Loading…'}</h2>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="dhara-inv-modal-actions">
             {invoice && canCreatePayment && invoice.balanceAmount > 0 && onAddPayment && (
               <button
                 type="button"
-                className="btn-primary px-3 py-1.5 text-xs"
+                className="dhara-inv-btn is-gold"
                 onClick={() => onAddPayment(invoice)}
               >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                <Plus strokeWidth={2.4} absoluteStrokeWidth />
                 Add Payment
               </button>
             )}
             {invoice && canUpdate && (
-              <button
-                type="button"
-                className="btn-secondary px-3 py-1.5 text-xs"
-                onClick={() => onEdit(invoice)}
-              >
-                <Pencil className="mr-1.5 h-3.5 w-3.5" />
+              <button type="button" className="dhara-inv-btn is-cyan" onClick={() => onEdit(invoice)}>
+                <Pencil strokeWidth={2.4} absoluteStrokeWidth />
                 Edit
               </button>
             )}
-            <button
-              type="button"
-              className="btn-secondary px-3 py-1.5 text-xs"
-              disabled={!invoice}
-              onClick={handlePrint}
-            >
-              <Printer className="mr-1.5 h-3.5 w-3.5" />
+            <button type="button" className="dhara-inv-btn" disabled={!invoice} onClick={handlePrint}>
+              <Printer strokeWidth={2.4} absoluteStrokeWidth />
               Print
             </button>
             <button
               type="button"
-              className="btn-secondary px-3 py-1.5 text-xs"
+              className="dhara-inv-btn"
               disabled={!invoice || isDownloadingPdf}
               onClick={() => void handleDownloadPdf()}
             >
-              <Download className="mr-1.5 h-3.5 w-3.5" />
+              <Download strokeWidth={2.4} absoluteStrokeWidth />
               {isDownloadingPdf ? 'PDF…' : 'PDF'}
             </button>
-            <button
-              type="button"
-              className="btn-secondary px-3 py-1.5 text-xs"
-              disabled={!invoice}
-              onClick={() => void handleShare()}
-            >
-              <Share2 className="mr-1.5 h-3.5 w-3.5" />
+            <button type="button" className="dhara-inv-btn" disabled={!invoice} onClick={() => void handleShare()}>
+              <Share2 strokeWidth={2.4} absoluteStrokeWidth />
               Share
             </button>
-            <button
-              type="button"
-              className="btn-secondary px-3 py-1.5 text-xs"
-              disabled={!invoice}
-              onClick={handleWhatsApp}
-            >
-              <MessageCircle className="mr-1.5 h-3.5 w-3.5" />
+            <button type="button" className="dhara-inv-btn" disabled={!invoice} onClick={handleWhatsApp}>
+              <MessageCircle strokeWidth={2.4} absoluteStrokeWidth />
               WhatsApp
             </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
+            <button type="button" onClick={onClose} className="dhara-inv-icon-btn" aria-label="Close">
+              <X strokeWidth={2.4} absoluteStrokeWidth />
             </button>
           </div>
         </div>
         {pdfError && (
-          <div className="border-b border-red-500/30 bg-red-500/10 px-6 py-2 text-sm text-red-400">
+          <div className="dhara-inv-flash is-bad" style={{ borderRadius: 0 }}>
             {pdfError}
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto bg-gray-200/10 p-6">
+        <div className="dhara-inv-modal-body" ref={previewBodyRef}>
           {loading && (
-            <div className="flex min-h-48 items-center justify-center text-gray-500">
-              Loading invoice...
+            <div className="dhara-inv-empty">
+              <p>Loading invoice...</p>
             </div>
           )}
           {error && !loading && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-8 text-center text-red-400">
-              Failed to load invoice details.
+            <div className="dhara-inv-error">
+              <p>Failed to load invoice details.</p>
             </div>
           )}
           {invoice && (
-            <div className="space-y-6">
-              <InvoiceDocument invoice={invoice} id="invoice-document-print" />
+            <div className="dhara-inv-preview-stack">
+              <div className="dhara-inv-preview-fit">
+                <InvoiceDocument invoice={invoice} id="invoice-document-print" />
+              </div>
               <InvoicePaymentHistory
                 payments={paymentsQuery.data?.items ?? []}
                 isLoading={paymentsQuery.isLoading}
@@ -260,16 +247,16 @@ export function InvoiceViewModal({
                 }
               />
               {voidTarget && canVoidPayment && (
-                <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                <div className="dhara-inv-void">
                   <p>
                     Void receipt {voidTarget.receiptNumber ?? voidTarget.id}? The original record is
                     kept, but it will no longer count as income.
                   </p>
-                  {voidError && <p className="mt-2 text-red-400">{voidError}</p>}
+                  {voidError && <p className="mt-2">{voidError}</p>}
                   <div className="mt-3 flex gap-2">
                     <button
                       type="button"
-                      className="btn-secondary px-3 py-1.5 text-xs"
+                      className="dhara-inv-btn"
                       onClick={() => {
                         setVoidTarget(null);
                         setVoidError(null);
@@ -279,7 +266,7 @@ export function InvoiceViewModal({
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg bg-red-500/80 px-3 py-1.5 text-xs font-medium text-white"
+                      className="dhara-inv-btn is-danger"
                       disabled={voidMutation.isPending}
                       onClick={() => voidMutation.mutate(voidTarget.id)}
                     >
@@ -288,9 +275,7 @@ export function InvoiceViewModal({
                   </div>
                 </div>
               )}
-              {editError && (
-                <p className="text-sm text-red-400">{editError}</p>
-              )}
+              {editError && <p className="dhara-inv-flash is-bad">{editError}</p>}
             </div>
           )}
         </div>

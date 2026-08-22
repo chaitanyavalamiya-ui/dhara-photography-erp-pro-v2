@@ -1,0 +1,70 @@
+---
+description: Dashboard is a locked final design — never change it unless the user explicitly asks.
+alwaysApply: true
+---
+
+# FINAL LOCKED DASHBOARD — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
+
+The Dashboard is an approved, frozen baseline (premium crystal-glass cinematic ERP dashboard). Do not change, redesign, restyle, restyle-via-globals, add, remove, resize, or reposition anything on it unless the user explicitly requests that specific Dashboard change in the current conversation.
+
+This lock is independent of the Login Page lock. Both remain fully in force.
+
+## Before editing any file below
+
+Require an explicit user instruction that clearly asks to modify the Dashboard (for example: “change the Dashboard KPI glow” or “update Dashboard typography”). Unrelated work, other modules, refactors, “while we’re here” polish, and inferred improvements are not approval.
+
+## Locked files (do not edit without explicit approval)
+
+Dashboard page and tests:
+
+- `04_Frontend/frontend/src/pages/DashboardPage.tsx`
+- `04_Frontend/frontend/src/pages/DashboardPage.test.tsx`
+- `04_Frontend/frontend/src/pages/dashboard/dashboard-page.css`
+
+Dashboard components:
+
+- `04_Frontend/frontend/src/components/dashboard/DashboardHero.tsx`
+- `04_Frontend/frontend/src/components/dashboard/DashboardKpiCard.tsx`
+- `04_Frontend/frontend/src/components/dashboard/DashboardAnalytics.tsx`
+- `04_Frontend/frontend/src/components/dashboard/DashboardSparkline.tsx`
+- `04_Frontend/frontend/src/components/dashboard/DashboardQuickActions.tsx`
+- `04_Frontend/frontend/src/components/dashboard/DashboardTodayBookings.tsx`
+- `04_Frontend/frontend/src/components/dashboard/DashboardRecentPayments.tsx`
+- `04_Frontend/frontend/src/components/dashboard/DashboardUpcomingEvents.tsx`
+- `04_Frontend/frontend/src/components/dashboard/DashboardEmpty.tsx`
+- `04_Frontend/frontend/src/components/dashboard/dashboard-format.ts`
+- `04_Frontend/frontend/src/components/dashboard/QueryErrorPanel.tsx`
+- `04_Frontend/frontend/src/components/dashboard/QueryErrorPanel.test.tsx`
+
+ERP chrome used by the Dashboard shell (sidebar, header, cinematic background):
+
+- `04_Frontend/frontend/src/styles/erp-chrome.css`
+- `04_Frontend/frontend/src/layouts/AppLayout.tsx`
+- `04_Frontend/frontend/src/layouts/AppLayout.test.tsx`
+- `04_Frontend/frontend/src/components/layout/Header.tsx`
+- `04_Frontend/frontend/src/components/layout/Header.test.tsx`
+
+## Preserve exactly
+
+- Layout and visual hierarchy (hero, KPIs, analytics, Quick Actions, bookings, payments, upcoming events, album metrics, footer)
+- Crystal/glass surfaces, borders, shadows, glows, cinematic lighting, particles, and animations
+- Colors, gradients, accent treatments, and icon sizes/styles
+- Typography and spacing
+- Responsive breakpoints
+- Existing Dashboard functionality, API calls, calculations, permissions, routes, and data behavior
+
+## Other work must stay independent
+
+Work on other modules without touching the files above.
+
+If you must change shared CSS or layout shells:
+
+- Do not alter `.dhara-dashboard`, `.dhara-dash-*`, `.dhara-erp-shell`, `.dhara-erp-sidebar`, `.dhara-erp-header`, or `dashboard-page.css` / `erp-chrome.css`.
+- Scope new styles so they cannot override Dashboard or ERP chrome descendants.
+- Prefer new class names over changing globals used by the Dashboard or sidebar/header.
+
+Do not restyle the sidebar or header “for the whole app” unless the user explicitly asked for a Dashboard/chrome change.
+
+## Allowed exception
+
+Only modify the Dashboard (or the locked chrome files listed above) when the user clearly asks for a specific Dashboard change in that conversation.

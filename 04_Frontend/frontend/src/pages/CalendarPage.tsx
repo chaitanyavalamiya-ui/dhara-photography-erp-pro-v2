@@ -1,6 +1,13 @@
+/**
+ * FINAL LOCKED CALENDAR MODULE — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
+ *
+ * This file is the approved Calendar baseline. Do not change markup, copy,
+ * layout, styling hooks, icons, or calendar behavior unless the user explicitly
+ * requests a specific Calendar change.
+ */
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Cake, ChevronLeft, ChevronRight, Heart, PartyPopper, Plus, Gem } from 'lucide-react';
+import { AlertCircle, Cake, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Heart, IndianRupee, Plus, Sparkles, Wallet } from 'lucide-react';
 import {
   Booking,
   BookingFormData,
@@ -11,9 +18,11 @@ import { clientsService } from '@/services/clients-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { BookingFormModal } from '@/components/bookings/BookingFormModal';
 import { BookingViewModal } from '@/components/bookings/BookingViewModal';
+import { CalendarGlyph, calendarEventGlyph, calendarEventTone } from '@/components/calendar/calendar-glyphs';
 import {
   CALENDAR_MONTHS,
   buildMonthSummary,
+  isCalendarBookingStartDate,
   getBookingDatesInRange,
   getCalendarGridDays,
   getCalendarYearOptions,
@@ -32,6 +41,7 @@ import {
 import { formatCurrency, formatDate } from '@/utils/booking-form';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
+import './calendar/calendar-page.css';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -184,6 +194,18 @@ export function CalendarPage() {
     [clientsQuery.data, visibleRange.dateFrom, visibleRange.dateTo],
   );
   const yearOptions = useMemo(() => getCalendarYearOptions(year), [year]);
+  const monthMarkerCounts = useMemo(() => {
+    let birthdays = 0;
+    let anniversaries = 0;
+    for (const [dateKey, markers] of clientMarkersByDate) {
+      if (dateKey < monthRange.dateFrom || dateKey > monthRange.dateTo) continue;
+      for (const marker of markers) {
+        if (marker.type === 'birthday') birthdays += 1;
+        if (marker.type === 'anniversary') anniversaries += 1;
+      }
+    }
+    return { birthdays, anniversaries };
+  }, [clientMarkersByDate, monthRange.dateFrom, monthRange.dateTo]);
 
   const upcomingBookings = upcomingQuery.data?.items ?? [];
 
@@ -211,32 +233,61 @@ export function CalendarPage() {
     setSelectedDay(null);
   };
 
+  const kpis = [
+    { label: 'Total Bookings', value: summary.totalBookings, tone: 'is-gold', icon: ClipboardList },
+    { label: 'Confirmed', value: summary.confirmed, tone: 'is-cyan', icon: CheckCircle2 },
+    { label: 'Pending', value: summary.pending, tone: 'is-amber', icon: AlertCircle },
+    { label: 'Completed', value: summary.completed, tone: 'is-magenta', icon: Sparkles },
+    { label: 'Cancelled', value: cancelledCount, tone: 'is-rose', icon: CalendarDays },
+    { label: 'Total Amount', value: formatCurrency(summary.totalAmount), tone: 'is-gold', icon: IndianRupee },
+    { label: 'Outstanding', value: formatCurrency(summary.outstandingBalance), tone: 'is-amber', icon: Wallet },
+    { label: 'Birthdays', value: monthMarkerCounts.birthdays, tone: 'is-rose', icon: Cake },
+    { label: 'Anniversaries', value: monthMarkerCounts.anniversaries, tone: 'is-purple', icon: Heart },
+  ] as const;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="dhara-calendar">
+      <section className="dhara-cal-hero">
         <div>
-          <h2 className="font-display text-2xl font-bold text-gray-100">Calendar</h2>
-          <p className="mt-1 font-display text-3xl font-semibold text-gold">{monthRange.label}</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Studio booking schedule, event visibility, and upcoming shoots.
+          <p className="dhara-cal-kicker">DHARA PHOTOGRAPHY ERP PRO</p>
+          <h2>Calendar</h2>
+          <p className="dhara-cal-hero-copy">
+            તમારી દરેક યાદગાર તારીખ, ઇવેન્ટ અને સ્ટુડિયો બુકિંગનું સંપૂર્ણ દર્શન.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="btn-secondary" onClick={goToToday}>
+        <div className="dhara-cal-hero-art" aria-hidden>
+          <svg viewBox="0 0 120 120" fill="none">
+            <rect x="18" y="22" width="84" height="80" rx="12" stroke="#ffd45a" strokeWidth="2.2" />
+            <path d="M18 44h84" stroke="#ff4ec8" strokeWidth="1.6" />
+            <circle cx="38" cy="34" r="5" fill="#22d3ee" />
+            <circle cx="54" cy="34" r="5" fill="#c084fc" />
+            <circle cx="70" cy="34" r="5" fill="#ffd45a" />
+            <rect x="32" y="56" width="16" height="14" rx="4" fill="rgba(255,212,90,0.28)" stroke="#ffd45a" />
+            <rect x="52" y="56" width="16" height="14" rx="4" fill="rgba(255,78,200,0.22)" stroke="#ff4ec8" />
+            <rect x="72" y="56" width="16" height="14" rx="4" fill="rgba(34,211,238,0.22)" stroke="#22d3ee" />
+            <path d="M40 88h40" stroke="#ffe7b8" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </div>
+      </section>
+
+      <div className="dhara-cal-panel dhara-cal-toolbar">
+        <h3 className="dhara-cal-month-title">{monthRange.label}</h3>
+        <div className="dhara-cal-nav">
+          <button type="button" className="dhara-cal-btn is-gold" onClick={goToToday}>
             Today
           </button>
           <button
             type="button"
             aria-label="Previous month"
-            className="btn-secondary"
+            className="dhara-cal-btn is-cyan"
             onClick={() => goToMonth(-1)}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft strokeWidth={2.5} absoluteStrokeWidth />
           </button>
           <select
             id="calendar-month"
             aria-label="Month"
-            className="input-field min-w-[10.5rem] py-2 text-sm font-semibold"
+            className="dhara-cal-select"
             value={month}
             onChange={(event) => setCurrentDate(new Date(year, Number(event.target.value), 1))}
           >
@@ -249,7 +300,7 @@ export function CalendarPage() {
           <select
             id="calendar-year"
             aria-label="Year"
-            className="input-field min-w-[6.5rem] py-2 text-sm font-semibold"
+            className="dhara-cal-select is-year"
             value={year}
             onChange={(event) => setCurrentDate(new Date(Number(event.target.value), month, 1))}
           >
@@ -262,75 +313,64 @@ export function CalendarPage() {
           <button
             type="button"
             aria-label="Next month"
-            className="btn-secondary"
+            className="dhara-cal-btn is-cyan"
             onClick={() => goToMonth(1)}
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight strokeWidth={2.5} absoluteStrokeWidth />
           </button>
         </div>
       </div>
 
       {feedback && (
-        <div
-          className={cn(
-            'rounded-lg border px-4 py-3 text-sm',
-            feedback.type === 'success'
-              ? 'border-green-500/30 bg-green-500/10 text-green-400'
-              : 'border-red-500/30 bg-red-500/10 text-red-400',
-          )}
-        >
+        <div className={cn('dhara-cal-flash', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
           {feedback.message}
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
-        {[
-          ['Total Bookings', summary.totalBookings],
-          ['Confirmed', summary.confirmed],
-          ['Pending', summary.pending],
-          ['Completed', summary.completed],
-          ['Cancelled', cancelledCount],
-          ['Total Amount', formatCurrency(summary.totalAmount)],
-          ['Outstanding', formatCurrency(summary.outstandingBalance)],
-        ].map(([label, value]) => (
-          <div key={label} className="card border-gold/10 py-4">
-            <p className="text-xs uppercase tracking-wider text-gray-500">{label}</p>
-            <p className="mt-2 text-xl font-semibold text-gray-100">{value}</p>
-          </div>
+      <div className="dhara-cal-kpis">
+        {kpis.map((kpi) => (
+          <article key={kpi.label} className={cn('dhara-cal-kpi', kpi.tone)}>
+            <div className="dhara-cal-kpi-top">
+              <h3>{kpi.label}</h3>
+              <span className="dhara-cal-icon">
+                <kpi.icon strokeWidth={2.35} absoluteStrokeWidth />
+              </span>
+            </div>
+            <strong>{kpi.value}</strong>
+          </article>
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <div className="card overflow-hidden p-0">
-          <div className="grid grid-cols-7 border-b border-surface-border bg-surface-elevated">
+      <div className="dhara-cal-body">
+        <div className="dhara-cal-panel dhara-cal-board">
+          <div className="dhara-cal-week">
             {WEEKDAYS.map((day) => (
-              <div
-                key={day}
-                className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-500"
-              >
+              <div key={day} className="dhara-cal-wd">
                 {day}
               </div>
             ))}
           </div>
 
           {calendarQuery.isLoading ? (
-            <div className="flex min-h-96 items-center justify-center text-gray-500">
-              Loading calendar...
-            </div>
+            <div className="dhara-cal-loading">Loading calendar...</div>
           ) : calendarQuery.isError ? (
-            <div className="flex min-h-96 items-center justify-center text-red-400">
+            <div className="dhara-cal-loading" style={{ color: '#fecaca' }}>
               Failed to load calendar bookings.
             </div>
           ) : (
-            <div className="grid grid-cols-7">
+            <div className="dhara-cal-grid">
               {gridDays.map((date) => {
                 const dateKey = toDateKey(date);
                 const dayEvents = eventsByDate.get(dateKey) ?? [];
+                const dayStartEvents = dayEvents.filter((event) =>
+                  isCalendarBookingStartDate(event, dateKey),
+                );
                 const clientMarkers = clientMarkersByDate.get(dateKey) ?? [];
                 const inMonth = isSameMonth(date, year, month);
                 const today = isToday(date);
                 const hasBooking = dayEvents.length > 0;
                 const hasWedding = dayEvents.some((event) => isWeddingEventType(event.eventType));
+                const hasEngagement = dayEvents.some((event) => event.eventType === 'Engagement');
                 const birthdays = clientMarkers.filter((marker) => marker.type === 'birthday');
                 const anniversaries = clientMarkers.filter((marker) => marker.type === 'anniversary');
 
@@ -340,56 +380,70 @@ export function CalendarPage() {
                     type="button"
                     onClick={() => setSelectedDay(dateKey)}
                     className={cn(
-                      'min-h-32 border-b border-r border-surface-border p-2 text-left transition hover:bg-white/[0.03]',
-                      !inMonth && 'bg-black/10 text-gray-600',
-                      today && 'bg-gold/5 ring-1 ring-inset ring-gold/30',
-                      hasBooking && inMonth && 'bg-gold/[0.03]',
+                      'dhara-cal-day',
+                      !inMonth && 'is-out',
+                      today && 'is-today',
+                      hasBooking && inMonth && 'is-booked',
                     )}
                   >
-                    <div className="mb-2 flex items-center justify-between">
-                      <span
-                        className={cn(
-                          'inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-medium',
-                          today ? 'bg-gold text-maroon-dark' : 'text-gray-300',
-                        )}
-                      >
+                    <div className="dhara-cal-day-top">
+                      <span className="dhara-cal-num">
                         {date.getDate()}
+                        {today ? <span className="dhara-cal-today-tag">TODAY</span> : null}
                       </span>
-                      <span className="flex items-center gap-0.5" aria-hidden={!hasBooking && clientMarkers.length === 0}>
+                      <span
+                        className="dhara-cal-marks"
+                        aria-hidden={!hasBooking && clientMarkers.length === 0}
+                      >
                         {hasBooking && (
-                          <Heart className="h-3.5 w-3.5 fill-current text-rose-400" aria-label="Booked" />
+                          <span className="dhara-cal-mark is-booked">
+                            <CalendarGlyph kind="booked" label="Booked" />
+                          </span>
                         )}
                         {hasWedding && (
-                          <Gem className="h-3.5 w-3.5 text-gold" aria-label="Wedding" />
+                          <span className="dhara-cal-mark is-wedding">
+                            <CalendarGlyph kind="wedding" label="Wedding" />
+                          </span>
+                        )}
+                        {hasEngagement && (
+                          <span className="dhara-cal-mark is-engagement">
+                            <CalendarGlyph kind="engagement" label="Engagement" />
+                          </span>
                         )}
                         {birthdays.length > 0 && (
-                          <Cake className="h-3.5 w-3.5 text-amber-300" aria-label="Birthday" />
+                          <span className="dhara-cal-mark is-bday">
+                            <CalendarGlyph kind="birthday" label="Birthday" />
+                          </span>
                         )}
                         {anniversaries.length > 0 && (
-                          <PartyPopper className="h-3.5 w-3.5 text-gold" aria-label="Anniversary" />
+                          <span className="dhara-cal-mark is-anniv">
+                            <CalendarGlyph kind="anniversary" label="Anniversary" />
+                          </span>
                         )}
                       </span>
                     </div>
 
-                    <div className="space-y-1">
-                      {dayEvents.slice(0, 2).map((event) => (
-                        <div
-                          key={`${dateKey}-${event.id}`}
-                          onClick={(clickEvent) => {
-                            clickEvent.stopPropagation();
-                            void openBookingDetails(event);
-                          }}
-                          className={cn(
-                            'rounded-md border px-2 py-1 text-[11px] leading-tight',
-                            getStatusStyles(event.statusCode),
-                          )}
-                        >
-                          <p className="truncate font-semibold">{event.clientName}</p>
-                          <p className="truncate opacity-80">{event.eventType}</p>
-                        </div>
-                      ))}
-                      {dayEvents.length > 2 && (
-                        <p className="text-[10px] text-gray-500">+{dayEvents.length - 2} more</p>
+                    <div>
+                      {dayStartEvents.slice(0, 2).map((event) => (
+                          <div
+                            key={`${dateKey}-${event.id}`}
+                            onClick={(clickEvent) => {
+                              clickEvent.stopPropagation();
+                              void openBookingDetails(event);
+                            }}
+                            className={cn('dhara-cal-chip', calendarEventTone(event.eventType))}
+                          >
+                            <span className="dhara-cal-chip-icon">
+                              <CalendarGlyph kind={calendarEventGlyph(event.eventType)} />
+                            </span>
+                            <span className="dhara-cal-chip-copy">
+                              <p className="truncate">{event.clientName}</p>
+                              <small className="truncate">{event.eventType}</small>
+                            </span>
+                          </div>
+                        ))}
+                      {dayStartEvents.length > 2 && (
+                        <p className="dhara-cal-more">+{dayStartEvents.length - 2} more</p>
                       )}
                     </div>
                   </button>
@@ -397,63 +451,87 @@ export function CalendarPage() {
               })}
             </div>
           )}
+
+          <div className="dhara-cal-legend" aria-label="Calendar icon guide">
+            <span className="dhara-cal-legend-item is-wedding">
+              <span className="dhara-cal-mark is-wedding">
+                <CalendarGlyph kind="wedding" />
+              </span>
+              Wedding
+            </span>
+            <span className="dhara-cal-legend-item is-bday">
+              <span className="dhara-cal-mark is-bday">
+                <CalendarGlyph kind="birthday" />
+              </span>
+              Birthdays
+            </span>
+            <span className="dhara-cal-legend-item is-anniv">
+              <span className="dhara-cal-mark is-anniv">
+                <CalendarGlyph kind="anniversary" />
+              </span>
+              Anniversaries
+            </span>
+            <span className="dhara-cal-legend-item is-engagement">
+              <span className="dhara-cal-mark is-engagement">
+                <CalendarGlyph kind="engagement" />
+              </span>
+              Engagement
+            </span>
+            <span className="dhara-cal-legend-item is-other">
+              <span className="dhara-cal-mark is-other">
+                <CalendarGlyph kind="other" />
+              </span>
+              Other
+            </span>
+          </div>
         </div>
 
-        <div className="card">
-          <h3 className="font-display text-lg font-semibold text-gold">Upcoming Bookings</h3>
-          <p className="mt-1 text-sm text-gray-500">Next scheduled studio events.</p>
+        <div className="dhara-cal-panel dhara-cal-side">
+          <h3>Upcoming Bookings</h3>
+          <p>Next scheduled studio events.</p>
 
           {upcomingQuery.isLoading ? (
-            <p className="mt-6 text-sm text-gray-500">Loading upcoming bookings...</p>
+            <p className="mt-6 text-[1.02rem] text-[#ffe7b8]">Loading upcoming bookings...</p>
           ) : upcomingBookings.length === 0 ? (
-            <p className="mt-6 text-sm text-gray-500">No upcoming bookings scheduled.</p>
+            <p className="mt-6 text-[1.02rem] text-[#ffe7b8]">No upcoming bookings scheduled.</p>
           ) : (
-            <div className="mt-5 space-y-3">
-              {upcomingBookings.map((booking) => (
-                <button
-                  key={booking.id}
-                  type="button"
-                  onClick={() => {
-                    setViewBooking(booking);
-                    setSelectedDay(null);
-                  }}
-                  className="w-full rounded-lg border border-surface-border bg-surface-elevated p-4 text-left transition hover:border-gold/30"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-gray-100">{booking.client.fullName}</p>
-                      <p className="text-xs text-gray-500">{booking.bookingNumber}</p>
-                    </div>
-                    <span
-                      className={cn(
-                        'rounded-full px-2 py-1 text-[10px] font-medium',
-                        getStatusStyles(booking.statusCode),
-                      )}
-                    >
-                      {getStatusLabel(booking.statusCode, booking.status)}
-                    </span>
+            upcomingBookings.map((booking) => (
+              <button
+                key={booking.id}
+                type="button"
+                onClick={() => {
+                  setViewBooking(booking);
+                  setSelectedDay(null);
+                }}
+                className="dhara-cal-up-item"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p>{booking.client.fullName}</p>
+                    <small>{booking.bookingNumber}</small>
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-gray-400">
-                    <p>{formatDate(booking.eventDate)}</p>
-                    <p>{booking.eventType}</p>
-                    <p className="col-span-2">{booking.venue || 'Venue TBD'}</p>
-                    <p className="text-gold">{formatCurrency(booking.totalAmount)}</p>
-                    <p>Balance {formatCurrency(booking.balanceAmount)}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
+                  <span className={cn('dhara-cal-status', getStatusStyles(booking.statusCode))}>
+                    {getStatusLabel(booking.statusCode, booking.status)}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[0.95rem] text-[#ffe7b8]">
+                  <p>{formatDate(booking.eventDate)}</p>
+                  <p>{booking.eventType}</p>
+                  <p className="col-span-2">{booking.venue || 'Venue TBD'}</p>
+                  <p className="text-[#ffd45a]">{formatCurrency(booking.totalAmount)}</p>
+                  <p>Balance {formatCurrency(booking.balanceAmount)}</p>
+                </div>
+              </button>
+            ))
           )}
         </div>
       </div>
 
       {selectedDay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="card w-full max-w-md">
-            <h3 className="font-display text-lg font-semibold text-gold">
-              {formatDate(selectedDay)}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
+        <div className="dhara-cal-modal">
+          <div className="dhara-cal-modal-card">
+            <h3>{formatDate(selectedDay)}</h3>
+            <p className="mt-1 text-[1.02rem] text-[#ffe7b8]">
               {(eventsByDate.get(selectedDay) ?? []).length > 0
                 ? `${(eventsByDate.get(selectedDay) ?? []).length} booking(s) on this date.`
                 : 'No bookings on this date yet.'}
@@ -465,13 +543,10 @@ export function CalendarPage() {
                   key={event.id}
                   type="button"
                   onClick={() => void openBookingDetails(event)}
-                  className={cn(
-                    'w-full rounded-lg border px-4 py-3 text-left',
-                    getStatusStyles(event.statusCode),
-                  )}
+                  className={cn('w-full rounded-lg border px-4 py-3 text-left', getStatusStyles(event.statusCode))}
                 >
                   <p className="font-medium">{event.clientName}</p>
-                  <p className="text-xs opacity-80">
+                  <p className="text-[1.02rem] text-[#fff1c9]">
                     {event.bookingNumber} · {event.eventType}
                   </p>
                 </button>
@@ -479,10 +554,10 @@ export function CalendarPage() {
               {(clientMarkersByDate.get(selectedDay) ?? []).map((marker) => (
                 <div
                   key={`${marker.clientId}-${marker.type}`}
-                  className="rounded-lg border border-surface-border bg-surface-elevated px-4 py-3"
+                  className="rounded-lg border border-[rgba(255,212,90,0.22)] bg-[rgba(255,255,255,0.04)] px-4 py-3"
                 >
-                  <p className="font-medium text-gray-100">{marker.clientName}</p>
-                  <p className="text-xs text-gray-400">
+                  <p className="font-medium text-[#fffdf8]">{marker.clientName}</p>
+                  <p className="text-[0.95rem] text-[#ffe7b8]">
                     {marker.type === 'birthday' ? 'Birthday' : 'Anniversary'}
                   </p>
                 </div>
@@ -490,16 +565,16 @@ export function CalendarPage() {
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setSelectedDay(null)}>
+              <button type="button" className="dhara-cal-btn" onClick={() => setSelectedDay(null)}>
                 Close
               </button>
               {canCreate && (
                 <button
                   type="button"
-                  className="btn-primary"
+                  className="dhara-cal-btn is-gold"
                   onClick={() => openCreateForDate(selectedDay)}
                 >
-                  <Plus className="mr-2 h-4 w-4" />
+                  <Plus strokeWidth={2.5} absoluteStrokeWidth />
                   Create Booking
                 </button>
               )}

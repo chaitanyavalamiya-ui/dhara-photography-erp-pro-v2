@@ -18,18 +18,18 @@ export function UnlockUserDialog({
   if (!open || !user) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-md">
-        <h2 className="font-display text-xl font-semibold text-gold">Unlock User</h2>
-        <p className="mt-3 text-sm text-gray-400">
-          Unlock <span className="text-gray-200">{user.fullName}</span> ({user.email})? This clears
-          the failed-login lock so they can sign in again.
+    <div className="dhara-usr-modal">
+      <div className="dhara-usr-modal-card">
+        <h2>Unlock User</h2>
+        <p className="dhara-usr-modal-sub">
+          Unlock <span className="dhara-usr-amt is-gold">{user.fullName}</span> ({user.email})? This
+          clears the failed-login lock so they can sign in again.
         </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+        <div className="dhara-usr-form-actions">
+          <button type="button" className="dhara-usr-btn" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="btn-primary" disabled={isSubmitting} onClick={onConfirm}>
+          <button type="button" className="dhara-usr-btn is-gold" disabled={isSubmitting} onClick={onConfirm}>
             {isSubmitting ? 'Unlocking...' : 'Unlock User'}
           </button>
         </div>

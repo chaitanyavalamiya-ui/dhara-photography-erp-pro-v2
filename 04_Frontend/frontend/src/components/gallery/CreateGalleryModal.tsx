@@ -102,23 +102,24 @@ export function CreateGalleryModal({
   const noBookingsAvailable = !bookingsLoading && !bookingsQuery.isError && bookings.length === 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card w-full max-w-lg">
-        <div className="mb-6 flex items-start justify-between">
+    <div className="dhara-gal-modal">
+      <div className="dhara-gal-modal-card">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">Create Gallery</h2>
-            <p className="mt-1 text-sm text-gray-400">Link a gallery to an existing booking</p>
+            <h2>Create Gallery</h2>
+            <p className="dhara-gal-modal-sub">Link a gallery to an existing booking</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-gal-icon-btn" aria-label="Close">
+            <X strokeWidth={2.4} absoluteStrokeWidth />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Booking</label>
+        <form onSubmit={handleSubmit(onSubmit)} className="dhara-gal-form">
+          <div className="dhara-gal-field">
+            <label htmlFor="create-gallery-booking-search">Booking</label>
             <input
-              className="input-field mb-2"
+              id="create-gallery-booking-search"
+              className="dhara-gal-input"
               placeholder="Search bookings..."
               value={bookingSearch}
               onChange={(e) => setBookingSearch(e.target.value)}
@@ -142,53 +143,61 @@ export function CreateGalleryModal({
               ))}
             </select>
             {bookingsQuery.isError && (
-              <p className="mt-1 text-xs text-red-400">Failed to load bookings. Please try again.</p>
+              <p className="dhara-gal-hint">Failed to load bookings. Please try again.</p>
             )}
             {noBookingsAvailable && (
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="dhara-gal-hint is-muted">
                 No bookings match this search, or no bookings exist yet.
               </p>
             )}
             {bookingAlreadyHasGallery && (
-              <p className="mt-1 text-xs text-red-400">
-                This booking already has an active gallery.
-              </p>
+              <p className="dhara-gal-hint">This booking already has an active gallery.</p>
             )}
-            {errors.bookingId && <p className="mt-1 text-xs text-red-400">{errors.bookingId.message}</p>}
+            {errors.bookingId && <p className="dhara-gal-hint">{errors.bookingId.message}</p>}
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Gallery Name</label>
-            <input className="input-field" {...register('name')} />
-            {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>}
+          <div className="dhara-gal-field">
+            <label htmlFor="create-gallery-name">Gallery Name</label>
+            <input id="create-gallery-name" className="dhara-gal-input" {...register('name')} />
+            {errors.name && <p className="dhara-gal-hint">{errors.name.message}</p>}
           </div>
 
           {resolvedBooking && (
-            <div className="rounded-lg border border-surface-border bg-surface-elevated p-3 text-sm text-gray-400">
-              <p>Client: <span className="text-gray-200">{resolvedBooking.client.fullName}</span></p>
-              <p>Event: <span className="text-gray-200">{resolvedBooking.eventType}</span></p>
+            <div className="dhara-gal-booking-card">
+              <p>Client: {resolvedBooking.client.fullName}</p>
+              <p>Event: {resolvedBooking.eventType}</p>
             </div>
           )}
 
-          <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Status</label>
-            <select className="input-field" {...register('status')}>
+          <div className="dhara-gal-field">
+            <label htmlFor="create-gallery-status">Status</label>
+            <select id="create-gallery-status" className="input-field" {...register('status')}>
               {GALLERY_STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Description / Notes</label>
-            <textarea rows={3} className="input-field resize-none" {...register('description')} />
+          <div className="dhara-gal-field">
+            <label htmlFor="create-gallery-notes">Description / Notes</label>
+            <textarea
+              id="create-gallery-notes"
+              rows={3}
+              className="dhara-gal-input"
+              style={{ resize: 'none', minHeight: '6.5rem' }}
+              {...register('description')}
+            />
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+          <div className="mt-2 flex justify-end gap-3">
+            <button type="button" className="dhara-gal-btn" onClick={onClose}>
+              Cancel
+            </button>
             <button
               type="submit"
-              className="btn-primary"
+              className="dhara-gal-btn is-gold"
               disabled={isSubmitting || bookingsLoading || noBookingsAvailable || bookingAlreadyHasGallery}
             >
               {isSubmitting ? 'Creating...' : 'Create Gallery'}

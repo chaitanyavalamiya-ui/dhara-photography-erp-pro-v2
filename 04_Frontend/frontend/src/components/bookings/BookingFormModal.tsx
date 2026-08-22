@@ -14,6 +14,7 @@ import { settingsService } from '@/services/settings-service';
 import { BookingItemsEditor } from '@/components/bookings/BookingItemsEditor';
 import { ClientSearchSelect } from '@/components/clients/ClientSearchSelect';
 import { calculateBookingTotals, expandPackageToBookingItems, formatBookingCurrency, assertEventDateRange, BOOKING_CLIENT_CHANGE_LOCKED_MESSAGE, isBookingClientChangeLocked } from '@/utils/booking-form';
+import '@/pages/bookings/bookings-page.css';
 
 interface BookingFormModalProps {
   open: boolean;
@@ -21,6 +22,7 @@ interface BookingFormModalProps {
   booking?: Booking | null;
   prefillDate?: string;
   isSubmitting?: boolean;
+  submitError?: string | null;
   onClose: () => void;
   onSubmit: (values: BookingFormData) => void;
   serviceRates: Awaited<ReturnType<typeof import('@/services/bookings-service').bookingsService.getServiceRates>>;
@@ -46,6 +48,7 @@ export function BookingFormModal({
   booking,
   prefillDate,
   isSubmitting,
+  submitError,
   onClose,
   onSubmit,
   serviceRates,
@@ -172,31 +175,31 @@ export function BookingFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[92vh] w-full max-w-5xl overflow-y-auto">
+    <div className="dhara-bookings-modal">
+      <div className="dhara-bookings-modal-card">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">
+            <h2>
               {mode === 'create' ? 'Add Booking' : 'Edit Booking'}
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-[1.02rem] text-[#ffe7b8]">
               Select a client, configure event details, and build the service package.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
+            className="rounded-lg p-2 text-[#ffe7b8] transition hover:text-[#ffd45a]"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {formError && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-              {formError}
+        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+          {(formError || submitError) && (
+            <div className="dhara-bookings-flash is-bad">
+              {formError ?? submitError}
             </div>
           )}
           <div className="grid gap-5 lg:grid-cols-2">
@@ -235,18 +238,18 @@ export function BookingFormModal({
           </div>
 
           {selectedClient && (
-            <div className="grid gap-4 rounded-lg border border-gold/20 bg-gold/5 p-4 sm:grid-cols-3">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-500">Client Name</p>
-                <p className="mt-1 text-sm text-gray-100">{selectedClient.fullName}</p>
+            <div className="dhara-bookings-finance sm:!grid-cols-3">
+              <div className="dhara-bookings-fact">
+                <p>Client Name</p>
+                <strong>{selectedClient.fullName}</strong>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-500">Mobile</p>
-                <p className="mt-1 text-sm text-gray-100">{selectedClient.mobile}</p>
+              <div className="dhara-bookings-fact">
+                <p>Mobile</p>
+                <strong>{selectedClient.mobile}</strong>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-500">Email</p>
-                <p className="mt-1 text-sm text-gray-100">{selectedClient.email || '—'}</p>
+              <div className="dhara-bookings-fact">
+                <p>Email</p>
+                <strong>{selectedClient.email || '—'}</strong>
               </div>
             </div>
           )}
@@ -332,7 +335,7 @@ export function BookingFormModal({
           </div>
 
           {(packagesQuery.data?.length ?? 0) > 0 && (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="dhara-bookings-section flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="flex-1">
                 <label className="mb-1.5 block text-sm font-medium text-gray-300">Apply Package</label>
                 <select
@@ -370,13 +373,13 @@ export function BookingFormModal({
             onChange={(items) => setForm((current) => ({ ...current, items }))}
           />
 
-          <div className="grid gap-4 rounded-xl border border-gold/20 bg-surface-elevated p-5 sm:grid-cols-2 lg:grid-cols-5">
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500">Subtotal</p>
-              <p className="mt-1 text-lg font-semibold text-gray-100">{formatBookingCurrency(totals.subtotal)}</p>
+          <div className="dhara-bookings-finance">
+            <div className="dhara-bookings-fact">
+              <p>Subtotal</p>
+              <strong>{formatBookingCurrency(totals.subtotal)}</strong>
             </div>
-            <div>
-              <label className="text-xs uppercase tracking-wider text-gray-500">Discount</label>
+            <div className="dhara-bookings-fact">
+              <label>Discount</label>
               <input
                 type="number"
                 min="0"
@@ -390,12 +393,12 @@ export function BookingFormModal({
                 }
               />
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500">Grand Total</p>
-              <p className="mt-1 text-lg font-semibold text-gold">{formatBookingCurrency(totals.totalAmount)}</p>
+            <div className="dhara-bookings-fact is-gold">
+              <p>Grand Total</p>
+              <strong>{formatBookingCurrency(totals.totalAmount)}</strong>
             </div>
-            <div>
-              <label className="text-xs uppercase tracking-wider text-gray-500">Advance</label>
+            <div className="dhara-bookings-fact is-ok">
+              <label>Advance</label>
               <input
                 type="number"
                 min="0"
@@ -410,27 +413,25 @@ export function BookingFormModal({
                 }
               />
               {advanceLocked && (
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-[#ffe7b8]">
                   Advance is managed from invoice payments.
                 </p>
               )}
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500">Balance</p>
-              <p className="mt-1 text-lg font-semibold text-gray-100">
-                {formatBookingCurrency(totals.balanceAmount)}
-              </p>
+            <div className="dhara-bookings-fact is-amber">
+              <p>Balance</p>
+              <strong>{formatBookingCurrency(totals.balanceAmount)}</strong>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className="flex justify-end gap-3 border-t border-[rgba(255,212,90,0.16)] pt-5">
+            <button type="button" className="dhara-bookings-ghost" onClick={onClose}>
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-primary"
-              disabled={isSubmitting || !form.clientId || form.items.length === 0}
+              className="dhara-bookings-add"
+              disabled={isSubmitting}
             >
               {isSubmitting ? 'Saving...' : mode === 'create' ? 'Create Booking' : 'Save Changes'}
             </button>

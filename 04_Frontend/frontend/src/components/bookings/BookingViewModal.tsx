@@ -17,6 +17,8 @@ import { BookingProgressSection } from './BookingProgressSection';
 import { BookingHistorySection } from './BookingHistorySection';
 import { BookingRemindersSection } from './BookingRemindersSection';
 import { cn } from '@/utils/cn';
+import { bookingPaymentClass, bookingStatusClass } from '@/components/bookings/booking-status';
+import '@/pages/bookings/bookings-page.css';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -67,40 +69,38 @@ export function BookingViewModal({
     );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden">
-        <div className="border-b border-surface-border px-6 py-4">
+    <div className="dhara-bookings dhara-bookings-modal">
+      <div className="dhara-bookings-modal-card is-wide flex max-h-[92vh] flex-col overflow-hidden">
+        <div className="border-b border-[rgba(255,212,90,0.16)] pb-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-wider text-gray-500">
-                {displayed.bookingNumber}
-              </p>
-              <h2 className="font-display text-2xl font-semibold text-gold">{displayed.eventType}</h2>
-              <p className="mt-1 text-sm text-gray-400">
-                {displayed.status} · {paymentStatus}
-              </p>
+              <p className="dhara-bookings-kicker">{displayed.bookingNumber}</p>
+              <h2>{displayed.eventType}</h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className={cn('dhara-bookings-badge', bookingStatusClass(displayed.statusCode))}>
+                  {displayed.status}
+                </span>
+                <span className={cn('dhara-bookings-badge', bookingPaymentClass(paymentStatus))}>
+                  {paymentStatus}
+                </span>
+              </div>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
+              className="rounded-lg p-2 text-[#ffe7b8] transition hover:text-[#ffd45a]"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="mt-4 flex gap-1 overflow-x-auto pb-1">
+          <div className="dhara-bookings-tabs mt-4">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                className={cn(
-                  'whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition',
-                  activeTab === tab.id
-                    ? 'bg-gold/15 text-gold'
-                    : 'text-gray-400 hover:bg-white/5 hover:text-gray-200',
-                )}
+                className={activeTab === tab.id ? 'is-on' : undefined}
                 onClick={() => setActiveTab(tab.id)}
               >
                 {tab.label}
@@ -109,7 +109,7 @@ export function BookingViewModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="flex-1 overflow-y-auto py-5">
           {detailQuery.isLoading && activeTab === 'overview' ? (
             <p className="text-sm text-gray-500">Loading booking details...</p>
           ) : detailQuery.isError ? (
@@ -118,42 +118,37 @@ export function BookingViewModal({
             <>
               {activeTab === 'overview' && (
                 <div className="space-y-6">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-                      <p className="text-xs uppercase tracking-wider text-gray-500">Client</p>
-                      <p className="mt-1 text-sm font-medium text-gray-100">
-                        {displayed.client.fullName}
-                      </p>
-                      <p className="text-sm text-gray-400">{displayed.client.mobile}</p>
+                  <div className="dhara-bookings-finance sm:!grid-cols-2">
+                    <div className="dhara-bookings-fact">
+                      <p>Client</p>
+                      <strong>{displayed.client.fullName}</strong>
+                      <span className="mt-1 block text-[0.95rem] text-[#ffe7b8]">{displayed.client.mobile}</span>
                     </div>
-                    <div className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-                      <p className="text-xs uppercase tracking-wider text-gray-500">Event</p>
-                      <p className="mt-1 text-sm text-gray-100">{formatDate(displayed.eventDate)}</p>
-                      <p className="mt-2 text-sm text-gray-300">{displayed.venue || '—'}</p>
-                      <p className="text-sm text-gray-400">{displayed.city || '—'}</p>
+                    <div className="dhara-bookings-fact">
+                      <p>Event</p>
+                      <strong>{formatDate(displayed.eventDate)}</strong>
+                      <span className="mt-1 block text-[0.95rem] text-[#ffe7b8]">{displayed.venue || '—'}</span>
+                      <span className="block text-[0.95rem] text-[#ffe7b8]">{displayed.city || '—'}</span>
                     </div>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="dhara-bookings-finance">
                     {[
-                      ['Subtotal', formatBookingCurrency(displayed.subtotal)],
-                      ['Discount', formatBookingCurrency(displayed.discount)],
-                      ['Grand Total', formatBookingCurrency(displayed.totalAmount)],
-                      ['Advance', formatBookingCurrency(displayed.advanceAmount)],
-                      ['Balance', formatBookingCurrency(displayed.balanceAmount)],
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="rounded-lg border border-surface-border bg-surface-elevated p-4"
-                      >
-                        <p className="text-xs uppercase tracking-wider text-gray-500">{label}</p>
-                        <p className="mt-1 text-sm font-semibold text-gray-100">{value}</p>
+                      ['Subtotal', formatBookingCurrency(displayed.subtotal), ''],
+                      ['Discount', formatBookingCurrency(displayed.discount), ''],
+                      ['Grand Total', formatBookingCurrency(displayed.totalAmount), 'is-gold'],
+                      ['Advance', formatBookingCurrency(displayed.advanceAmount), 'is-ok'],
+                      ['Balance', formatBookingCurrency(displayed.balanceAmount), 'is-amber'],
+                    ].map(([label, value, tone]) => (
+                      <div key={label} className={cn('dhara-bookings-fact', tone)}>
+                        <p>{label}</p>
+                        <strong>{value}</strong>
                       </div>
                     ))}
                   </div>
                   {displayed.notes && (
-                    <div className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-                      <p className="text-xs uppercase tracking-wider text-gray-500">Notes</p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-gray-300">{displayed.notes}</p>
+                    <div className="dhara-bookings-fact">
+                      <p>Notes</p>
+                      <strong className="whitespace-pre-wrap font-semibold">{displayed.notes}</strong>
                     </div>
                   )}
                   <BookingRelatedRecords booking={displayed} hasPermission={hasPermission} />
@@ -202,12 +197,12 @@ export function BookingViewModal({
           )}
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-surface-border px-6 py-4">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+        <div className="flex justify-end gap-3 border-t border-[rgba(255,212,90,0.16)] pt-4">
+          <button type="button" className="dhara-bookings-ghost" onClick={onClose}>
             Close
           </button>
           {canEdit && (
-            <button type="button" className="btn-primary" onClick={() => onEdit(displayed)}>
+            <button type="button" className="dhara-bookings-add" onClick={() => onEdit(displayed)}>
               Edit Booking
             </button>
           )}
@@ -323,7 +318,7 @@ function RelatedCard({
   }
 
   return (
-    <div className="rounded-lg border border-surface-border bg-surface-elevated p-4">
+    <div className="dhara-bookings-fact">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs uppercase tracking-wider text-gray-500">{title}</p>
         <Link to={href} className="text-xs font-medium text-gold hover:underline">

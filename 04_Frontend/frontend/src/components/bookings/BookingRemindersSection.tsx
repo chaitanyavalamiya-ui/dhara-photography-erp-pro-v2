@@ -2,10 +2,16 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { Booking } from '@/services/bookings-service';
-import { bookingOperationsService, REMINDER_TYPES } from '@/services/booking-operations-service';
+import {
+  BookingReminder,
+  bookingOperationsService,
+  REMINDER_TYPES,
+} from '@/services/booking-operations-service';
 import { useAuthStore } from '@/stores/auth-store';
+import { getApiErrorMessage } from '@/utils/api-error';
 import { formatDate } from '@/utils/booking-form';
 import { cn } from '@/utils/cn';
+import { DeleteReminderDialog } from './DeleteReminderDialog';
 
 interface BookingRemindersSectionProps {
   booking: Booking;
@@ -17,6 +23,8 @@ export function BookingRemindersSection({ booking }: BookingRemindersSectionProp
   const [reminderType, setReminderType] = useState('other');
   const [reminderDate, setReminderDate] = useState('');
   const [note, setNote] = useState('');
+  const [pendingDelete, setPendingDelete] = useState<BookingReminder | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const remindersQuery = useQuery({
     queryKey: ['bookings', booking.id, 'reminders'],
@@ -42,6 +50,18 @@ export function BookingRemindersSection({ booking }: BookingRemindersSectionProp
       bookingOperationsService.updateReminder(booking.id, id, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bookings', booking.id, 'reminders'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (reminderId: string) => bookingOperationsService.deleteReminder(booking.id, reminderId),
+    onSuccess: () => {
+      setDeleteError(null);
+      setPendingDelete(null);
+      queryClient.invalidateQueries({ queryKey: ['bookings', booking.id, 'reminders'] });
+    },
+    onError: (error: unknown) => {
+      setDeleteError(getApiErrorMessage(error, 'Failed to remove reminder.'));
     },
   });
 
@@ -128,11 +148,42 @@ export function BookingRemindersSection({ booking }: BookingRemindersSectionProp
                     Mark done
                   </button>
                 )}
+                {canUpdate && (
+                  <button
+                    type="button"
+                    className="text-xs text-gray-400 hover:text-red-400"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setPendingDelete(reminder);
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      <DeleteReminderDialog
+        open={Boolean(pendingDelete)}
+        reminder={pendingDelete}
+        isDeleting={deleteMutation.isPending}
+        error={deleteError}
+        onClose={() => {
+          if (deleteMutation.isPending) {
+            return;
+          }
+          setPendingDelete(null);
+          setDeleteError(null);
+        }}
+        onConfirm={() => {
+          if (pendingDelete) {
+            deleteMutation.mutate(pendingDelete.id);
+          }
+        }}
+      />
     </div>
   );
 }

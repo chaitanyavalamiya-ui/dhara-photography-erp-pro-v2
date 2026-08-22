@@ -150,6 +150,7 @@ export class BookingStaffPaymentService {
         ipAddress,
         userAgent,
         expenseId,
+        paymentId,
       );
     } else if (existing.status === 'paid' && existing.expenseId) {
       await this.archivePaymentExpense(
@@ -278,6 +279,33 @@ export class BookingStaffPaymentService {
     );
   }
 
+  private async resolvePaidExpenseId(
+    companyId: string,
+    assignment: { expenseId: string | null },
+    existingExpenseId?: string | null,
+    currentPaymentId?: string,
+  ): Promise<string | null> {
+    if (existingExpenseId) {
+      return existingExpenseId;
+    }
+
+    if (!assignment.expenseId) {
+      return null;
+    }
+
+    const claimedByOtherPayment = await this.prisma.bookingStaffPayment.findFirst({
+      where: {
+        companyId,
+        expenseId: assignment.expenseId,
+        archivedAt: null,
+        isActive: true,
+        ...(currentPaymentId ? { id: { not: currentPaymentId } } : {}),
+      },
+    });
+
+    return claimedByOtherPayment ? null : assignment.expenseId;
+  }
+
   private async syncPaidExpense(
     companyId: string,
     userId: string,
@@ -294,8 +322,16 @@ export class BookingStaffPaymentService {
     ipAddress?: string,
     userAgent?: string,
     existingExpenseId?: string | null,
+    currentPaymentId?: string,
   ): Promise<string | null> {
-    return this.expenseSync.syncAssignmentExpense(
+    const expenseId = await this.resolvePaidExpenseId(
+      companyId,
+      assignment,
+      existingExpenseId,
+      currentPaymentId,
+    );
+
+    const synced = await this.expenseSync.syncAssignmentExpense(
       companyId,
       userId,
       {
@@ -310,12 +346,21 @@ export class BookingStaffPaymentService {
         role: assignment.role,
         roleLabel: getStaffRoleLabel(assignment.role),
         agreedRate: amount,
-        expenseId: existingExpenseId ?? assignment.expenseId,
+        expenseId,
         assignmentDate: paymentDate,
       },
       ipAddress,
       userAgent,
     );
+
+    if (synced && assignment.expenseId && assignment.expenseId === synced) {
+      await this.prisma.bookingStaff.update({
+        where: { id: assignment.id },
+        data: { expenseId: null },
+      });
+    }
+
+    return synced;
   }
 
   private async assertBooking(companyId: string, bookingId: string) {

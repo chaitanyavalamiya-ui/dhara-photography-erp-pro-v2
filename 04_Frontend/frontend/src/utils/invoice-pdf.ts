@@ -312,32 +312,6 @@ function ignoreUnsafePdfCaptureElement(element: Element): boolean {
 export const INVOICE_PDF_A4_WIDTH_PX = 794;
 export const INVOICE_PDF_A4_MIN_HEIGHT_PX = 1123;
 
-function inlineNormalizedComputedStyles(root: HTMLElement): void {
-  const nodes = [root, ...Array.from(root.querySelectorAll('*'))];
-  const snapshots = nodes.map((node) => {
-    const htmlNode = asHtmlElement(node);
-    if (!htmlNode) {
-      return null;
-    }
-    const computed = getComputedStyle(htmlNode);
-    const entries: Array<[string, string]> = [];
-    for (let index = 0; index < computed.length; index += 1) {
-      const property = computed[index];
-      entries.push([property, normalizeCssColorValue(property, computed.getPropertyValue(property))]);
-    }
-    return { node: htmlNode, entries };
-  });
-
-  for (const snapshot of snapshots) {
-    if (!snapshot) {
-      continue;
-    }
-    for (const [property, value] of snapshot.entries) {
-      snapshot.node.style.setProperty(property, value, 'important');
-    }
-  }
-}
-
 export function getInvoicePdfCaptureTargetSize(element: HTMLElement): { width: number; height: number } {
   const rect = element.getBoundingClientRect();
   const styleWidth = Number.parseFloat(element.style.width) || 0;
@@ -362,6 +336,162 @@ export function getInvoicePdfCaptureTargetSize(element: HTMLElement): { width: n
   };
 }
 
+/** Isolates PDF capture from ERP dark-theme inheritance. Hex only — html2canvas-safe. */
+export const INVOICE_PDF_SAFE_CSS = `
+.dhara-inv-paper,
+.dhara-inv-paper * {
+  color-scheme: light !important;
+  mix-blend-mode: normal !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  isolation: auto !important;
+}
+.dhara-inv-paper {
+  overflow: visible !important;
+  background: #fbf6ee !important;
+  background-image: none !important;
+  color: #2c211c !important;
+  -webkit-text-fill-color: #2c211c !important;
+}
+.dhara-inv-paper-frame,
+.dhara-inv-paper-inner {
+  background: #fffcf7 !important;
+  background-image: none !important;
+}
+.dhara-inv-paper-dhara,
+.dhara-inv-paper-title {
+  overflow: visible !important;
+  padding-left: 2px !important;
+  color: #6b1d3a !important;
+  -webkit-text-fill-color: #6b1d3a !important;
+}
+.dhara-inv-paper-photography,
+.dhara-inv-paper-contact,
+.dhara-inv-paper-detail,
+.dhara-inv-paper-client,
+.dhara-inv-paper-event-name,
+.dhara-inv-paper-notes,
+.dhara-inv-paper-list li,
+.dhara-inv-paper-kv dd,
+.dhara-inv-paper-date,
+.dhara-inv-paper-date b,
+.dhara-inv-paper-pay-item dd,
+.dhara-inv-paper-total-row,
+.dhara-inv-paper-total-row span:last-child,
+.dhara-inv-paper-terms li,
+.dhara-inv-paper-sign-line p {
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+  color: #2c211c !important;
+  -webkit-text-fill-color: #2c211c !important;
+}
+.dhara-inv-paper-label,
+.dhara-inv-paper-tax,
+.dhara-inv-paper-number,
+.dhara-inv-paper-kv dt,
+.dhara-inv-paper-pay-item dt {
+  color: #6b1d3a !important;
+  -webkit-text-fill-color: #6b1d3a !important;
+}
+.dhara-inv-paper-kv dt,
+.dhara-inv-paper-pay-item dt,
+.dhara-inv-paper-patan {
+  color: #8a6a2f !important;
+  -webkit-text-fill-color: #8a6a2f !important;
+}
+.dhara-inv-paper-goldline,
+.dhara-inv-paper-footer-rule {
+  height: 3px !important;
+  max-height: 3px !important;
+  background: #c4a35a !important;
+  background-image: none !important;
+}
+.dhara-inv-paper-table {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  background: #fffcf7 !important;
+}
+.dhara-inv-paper-table th {
+  background: #6b1d3a !important;
+  background-image: none !important;
+  color: #faf4e8 !important;
+  -webkit-text-fill-color: #faf4e8 !important;
+}
+.dhara-inv-paper-table td {
+  background: #fffcf7 !important;
+  background-image: none !important;
+  color: #2c211c !important;
+  -webkit-text-fill-color: #2c211c !important;
+}
+.dhara-inv-paper-table tbody tr:nth-child(even) td {
+  background: #f7f0e4 !important;
+}
+.dhara-inv-paper-table .is-idx,
+.dhara-inv-paper-table td.is-amt {
+  color: #6b1d3a !important;
+  -webkit-text-fill-color: #6b1d3a !important;
+}
+.dhara-inv-paper-table th.is-amt,
+.dhara-inv-paper-table th.is-num {
+  color: #faf4e8 !important;
+  -webkit-text-fill-color: #faf4e8 !important;
+}
+.dhara-inv-paper-total-row.is-grand,
+.dhara-inv-paper-total-row.is-grand span:last-child {
+  color: #6b1d3a !important;
+  -webkit-text-fill-color: #6b1d3a !important;
+  background: #f4ead9 !important;
+}
+.dhara-inv-paper-total-row.is-balance,
+.dhara-inv-paper-total-row.is-balance span:last-child {
+  color: #faf4e8 !important;
+  -webkit-text-fill-color: #faf4e8 !important;
+  background: #6b1d3a !important;
+}
+.dhara-inv-paper-status.is-partially_paid {
+  color: #5c4518 !important;
+  -webkit-text-fill-color: #5c4518 !important;
+  background: #f1e2c0 !important;
+}
+.dhara-inv-paper-tagline {
+  color: #6b1d3a !important;
+  -webkit-text-fill-color: #6b1d3a !important;
+}
+`;
+
+export function applyInvoicePdfSafePaint(root: HTMLElement): void {
+  const documentRef = root.ownerDocument;
+  let styleEl = root.querySelector('style[data-invoice-pdf-safe]');
+  if (!styleEl) {
+    styleEl = documentRef.createElement('style');
+    styleEl.setAttribute('data-invoice-pdf-safe', 'true');
+    styleEl.textContent = INVOICE_PDF_SAFE_CSS;
+    root.insertBefore(styleEl, root.firstChild);
+  }
+
+  const nodes = [root, ...Array.from(root.querySelectorAll('*'))];
+  for (const node of nodes) {
+    const element = asHtmlElement(node);
+    if (!element || element.tagName === 'STYLE') {
+      continue;
+    }
+    element.style.setProperty('mix-blend-mode', 'normal', 'important');
+    element.style.setProperty('filter', 'none', 'important');
+    element.style.setProperty('backdrop-filter', 'none', 'important');
+    element.style.setProperty('opacity', '1', 'important');
+    element.style.setProperty('transform', 'none', 'important');
+    element.style.setProperty('background-clip', 'border-box', 'important');
+    element.style.setProperty('-webkit-background-clip', 'border-box', 'important');
+  }
+}
+
 export function applyInvoicePdfCaptureDimensions(
   element: HTMLElement,
   width = INVOICE_PDF_A4_WIDTH_PX,
@@ -373,8 +503,6 @@ export function applyInvoicePdfCaptureDimensions(
   element.style.setProperty('min-height', `${height}px`, 'important');
   element.style.setProperty('margin', '0', 'important');
   element.style.setProperty('box-shadow', 'none', 'important');
-  element.style.setProperty('background', '#ffffff', 'important');
-  element.style.setProperty('color', '#1a1a1a', 'important');
   element.style.setProperty('position', 'static', 'important');
   element.style.setProperty('transform', 'none', 'important');
   element.style.setProperty('overflow', 'visible', 'important');
@@ -461,12 +589,14 @@ export async function createInvoicePdfCaptureTarget(source: HTMLElement): Promis
   const height = Math.max(liveSize.height, INVOICE_PDF_A4_MIN_HEIGHT_PX);
 
   const iframe = createCaptureFrame();
+  iframe.style.width = `${width}px`;
+  iframe.style.height = `${height}px`;
   document.body.appendChild(iframe);
 
   const frameDocument = populateCaptureFrame(iframe);
   const hostFallback = document.createElement('div');
   hostFallback.setAttribute('data-invoice-pdf-capture', 'true');
-  hostFallback.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;min-height:${height}px;background:#ffffff;z-index:-1;pointer-events:none;`;
+  hostFallback.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;min-height:${height}px;background:#fbf6ee;z-index:-1;pointer-events:none;`;
 
   const parent = frameDocument?.body ?? hostFallback;
   if (parent === hostFallback) {
@@ -478,9 +608,10 @@ export async function createInvoicePdfCaptureTarget(source: HTMLElement): Promis
   captureTarget.removeAttribute('id');
   parent.appendChild(captureTarget);
 
-  normalizeInvoiceSubtreeForPdfCapture(source, captureTarget);
-  inlineNormalizedComputedStyles(captureTarget);
+  // Do not copy live computed styles from the ERP preview — inherited cream text and
+  // dark-theme paint make html2canvas render an incomplete invoice.
   normalizeInlineStylesInPlace(captureTarget);
+  applyInvoicePdfSafePaint(captureTarget);
   flattenPdfClonePaintSources(captureTarget);
   sanitizeZeroSizeCanvasesForPdfCapture(captureTarget);
   applyInvoicePdfCaptureDimensions(captureTarget, width, height);
@@ -505,11 +636,31 @@ export function addPaginatedCanvasToPdf(pdf: jsPDF, canvas: HTMLCanvasElement): 
   const contentWidth = A4_WIDTH_MM - PAGE_MARGIN_MM * 2;
   const contentHeight = A4_HEIGHT_MM - PAGE_MARGIN_MM * 2;
   const pageHeightPx = Math.max(1, Math.floor((canvas.width * contentHeight) / contentWidth));
+  // Ignore a thin leftover strip (capture min-height / rounding) that would print as a blank page.
+  const minTrailingSlicePx = Math.max(16, Math.round(pageHeightPx * 0.04));
+
+  if (canvas.height <= pageHeightPx + minTrailingSlicePx) {
+    const ratio = canvas.height / canvas.width;
+    let imageWidth = contentWidth;
+    let imageHeight = imageWidth * ratio;
+    if (imageHeight > contentHeight) {
+      imageHeight = contentHeight;
+      imageWidth = imageHeight / ratio;
+    }
+    pdf.addImage(canvas, 'PNG', PAGE_MARGIN_MM, PAGE_MARGIN_MM, imageWidth, imageHeight);
+    return;
+  }
+
   let offsetY = 0;
   let isFirstPage = true;
 
   while (offsetY < canvas.height) {
-    const sliceHeight = Math.min(pageHeightPx, canvas.height - offsetY);
+    const remaining = canvas.height - offsetY;
+    if (!isFirstPage && remaining < minTrailingSlicePx) {
+      break;
+    }
+
+    const sliceHeight = Math.min(pageHeightPx, remaining);
     const pageCanvas = document.createElement('canvas');
     pageCanvas.width = canvas.width;
     pageCanvas.height = sliceHeight;
@@ -635,7 +786,14 @@ export function flattenPdfClonePaintSources(root: HTMLElement): void {
     }
 
     const rect = element.getBoundingClientRect();
+    const className = element.className?.toString() ?? '';
     const color =
+      (/\bdhara-inv-paper-goldline\b|\bdhara-inv-paper-footer-rule\b/.test(className)
+        ? '#c4a35a'
+        : null) ??
+      (/\bdhara-inv-paper\b/.test(className) && !/\bdhara-inv-paper-/.test(className)
+        ? '#fbf6ee'
+        : null) ??
       extractOpaqueCssColor(backgroundImage) ??
       extractOpaqueCssColor(background) ??
       extractOpaqueCssColor(styleAttr) ??
@@ -659,12 +817,23 @@ export function flattenPdfClonePaintSources(root: HTMLElement): void {
       );
     }
 
-    if (rect.height < 2) {
+    const isPaperRule =
+      /\bdhara-inv-paper-goldline\b|\bdhara-inv-paper-footer-rule\b/.test(className);
+    if (isPaperRule) {
+      element.style.setProperty('height', '3px', 'important');
+      element.style.setProperty('min-height', '3px', 'important');
+      element.style.setProperty('width', '100%', 'important');
+      continue;
+    }
+
+    // Only pin 1px hairlines that already have a laid-out size. Off-screen clones
+    // often report 0x0 and must not be collapsed into a 2px square.
+    if (rect.height > 0 && rect.height < 2) {
       const height = Math.max(2, Math.round(rect.height) || element.offsetHeight || 2);
       element.style.setProperty('height', `${height}px`, 'important');
       element.style.setProperty('min-height', `${height}px`, 'important');
     }
-    if (rect.width < 2) {
+    if (rect.width > 0 && rect.width < 2) {
       const width = Math.max(2, Math.round(rect.width) || element.offsetWidth || 2);
       element.style.setProperty('width', `${width}px`, 'important');
       element.style.setProperty('min-width', `${width}px`, 'important');
@@ -684,7 +853,7 @@ export async function captureHtmlElementForPdf(element: HTMLElement): Promise<HT
     const canvas = await html2canvas(captureTarget, {
       scale: 2,
       useCORS: true,
-      backgroundColor: '#ffffff',
+      backgroundColor: '#fbf6ee',
       logging: false,
       scrollX: 0,
       scrollY: 0,
@@ -700,6 +869,7 @@ export async function captureHtmlElementForPdf(element: HTMLElement): Promise<HT
         }
         restoreCreatePattern = guardHtml2CanvasCreatePattern(clonedDocument.defaultView);
         normalizeInlineStylesInPlace(clonedRoot);
+        applyInvoicePdfSafePaint(clonedRoot);
         flattenPdfClonePaintSources(clonedRoot);
         sanitizeZeroSizeCanvasesForPdfCapture(clonedRoot);
         applyInvoicePdfCaptureDimensions(clonedRoot, width, height);

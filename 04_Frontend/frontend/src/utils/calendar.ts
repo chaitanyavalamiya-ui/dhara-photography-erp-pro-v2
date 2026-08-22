@@ -121,6 +121,14 @@ export function getBookingDatesInMonth(
   });
 }
 
+export function isCalendarBookingStartDate(event: CalendarBookingEvent, dateKey: string): boolean {
+  if (!event.eventDate) {
+    return false;
+  }
+
+  return event.eventDate.slice(0, 10) === dateKey;
+}
+
 export function getBookingDatesInRange(
   event: CalendarBookingEvent,
   dateFrom: string,

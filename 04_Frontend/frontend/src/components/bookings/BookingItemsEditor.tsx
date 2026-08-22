@@ -1,6 +1,7 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { Check, Plus, Trash2 } from 'lucide-react';
 import { BookingItem, ServiceRate } from '@/services/bookings-service';
 import { calculateItemAmount, formatBookingCurrency } from '@/utils/booking-form';
+import '@/pages/bookings/bookings-page.css';
 
 interface BookingItemsEditorProps {
   items: BookingItem[];
@@ -53,11 +54,11 @@ export function BookingItemsEditor({ items, serviceRates, onChange }: BookingIte
   };
 
   return (
-    <div className="space-y-4">
+    <div className="dhara-bookings-section space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="font-display text-lg font-semibold text-gold">Services</h3>
-          <p className="text-sm text-gray-500">
+          <h3>Services</h3>
+          <p className="text-[1.02rem] text-[#ffe7b8]">
             Add each service once. Use days or quantity to calculate the line amount.
           </p>
         </div>
@@ -82,6 +83,31 @@ export function BookingItemsEditor({ items, serviceRates, onChange }: BookingIte
           </select>
         </div>
       </div>
+
+      {serviceRates.length > 0 && (
+        <div className="dhara-bookings-chips">
+          {serviceRates.map((rate) => {
+            const selected = items.some((item) => item.serviceRateId === rate.id);
+            return (
+              <button
+                key={rate.id}
+                type="button"
+                className={selected ? 'dhara-bookings-chip is-on' : 'dhara-bookings-chip'}
+                onClick={() => addService(rate.id)}
+              >
+                <span>
+                  <strong>{rate.name}</strong>
+                  <small>
+                    {formatBookingCurrency(rate.defaultRate)}
+                    {rate.unit === 'day' ? ' / day' : ''}
+                  </small>
+                </span>
+                {selected ? <Check className="h-5 w-5 text-[#ffd45a]" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-surface-border px-4 py-8 text-center text-sm text-gray-500">
@@ -162,12 +188,26 @@ export function BookingItemsEditor({ items, serviceRates, onChange }: BookingIte
 
       <button
         type="button"
-        className="btn-secondary"
+        className="dhara-bookings-ghost"
         onClick={() => {
           const firstRate = serviceRates[0];
-          if (firstRate) addService(firstRate.id);
+          if (firstRate) {
+            addService(firstRate.id);
+            return;
+          }
+
+          onChange([
+            ...items,
+            {
+              serviceName: 'Photography',
+              quantity: 1,
+              unit: 'day',
+              rate: 0,
+              days: 1,
+              amount: 0,
+            },
+          ]);
         }}
-        disabled={serviceRates.length === 0}
       >
         <Plus className="mr-2 h-4 w-4" />
         Quick Add First Service

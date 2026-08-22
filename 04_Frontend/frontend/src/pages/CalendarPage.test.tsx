@@ -202,6 +202,32 @@ describe('CalendarPage', () => {
     expect(screen.queryByText('Cancelled Client')).not.toBeInTheDocument();
   });
 
+  it('shows a multi-day booking name once and keeps occupancy on each shoot day', async () => {
+    vi.mocked(bookingsService.getCalendar).mockResolvedValue([
+      {
+        id: 'multi',
+        bookingNumber: 'BK-000003',
+        clientName: 'Multi Day Client',
+        eventType: 'Wedding',
+        eventDate: '2026-08-15T00:00:00.000Z',
+        eventEndDate: '2026-08-18T00:00:00.000Z',
+        status: 'Confirmed',
+        statusCode: 'confirmed',
+        totalAmount: 50000,
+        balanceAmount: 10000,
+      },
+    ] as never);
+
+    renderPage();
+    await screen.findByLabelText('Month');
+    fireEvent.change(screen.getByLabelText('Year'), { target: { value: '2026' } });
+    fireEvent.change(screen.getByLabelText('Month'), { target: { value: '7' } });
+
+    expect(await screen.findByText('Multi Day Client')).toBeInTheDocument();
+    expect(screen.getAllByText('Multi Day Client')).toHaveLength(1);
+    expect(screen.getAllByLabelText('Booked').length).toBeGreaterThanOrEqual(4);
+  });
+
   it('shows birthday, anniversary, and booking indicators together', async () => {
     vi.mocked(bookingsService.getCalendar).mockResolvedValue([
       {

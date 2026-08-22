@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { StaffMember, StaffFormData } from '@/services/staff-service';
 import { StaffFormValues, staffFormSchema } from '@/utils/staff-form-schema';
 import { PAYMENT_TYPES, STAFF_ROLES } from '@/utils/staff-form';
+import '@/pages/staff/staff-page.css';
 
 interface StaffFormModalProps {
   open: boolean;
@@ -57,26 +58,19 @@ export function StaffFormModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-2xl overflow-y-auto">
-        <div className="mb-6 flex items-start justify-between gap-4">
+    <div className="dhara-stf-modal">
+      <div className="dhara-stf-modal-card is-wide">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">
-              {mode === 'create' ? 'Add Staff Member' : 'Edit Staff Member'}
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <h2>{mode === 'create' ? 'Add Staff Member' : 'Edit Staff Member'}</h2>
+            <p className="dhara-stf-modal-sub">
               {mode === 'create'
                 ? 'Create a new team member record.'
                 : 'Update staff profile and payment details.'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-stf-icon-btn" aria-label="Close">
+            <X />
           </button>
         </div>
 
@@ -95,40 +89,34 @@ export function StaffFormModal({
               isActive: values.isActive,
             }),
           )}
-          className="space-y-5"
+          className="dhara-stf-form"
         >
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">
-                Full Name <span className="text-gold">*</span>
+          <div className="dhara-stf-form-grid">
+            <div className="dhara-stf-span-2">
+              <label>
+                Full Name <span className="dhara-stf-amt is-gold">*</span>
               </label>
-              <input className="input-field" {...register('fullName')} />
-              {errors.fullName && (
-                <p className="mt-1 text-xs text-red-400">{errors.fullName.message}</p>
-              )}
+              <input className="dhara-stf-input" {...register('fullName')} />
+              {errors.fullName && <p className="dhara-stf-err">{errors.fullName.message}</p>}
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">Mobile</label>
-              <input className="input-field" placeholder="9876543210" {...register('mobile')} />
-              {errors.mobile && (
-                <p className="mt-1 text-xs text-red-400">{errors.mobile.message}</p>
-              )}
+              <label>Mobile</label>
+              <input className="dhara-stf-input" placeholder="9876543210" {...register('mobile')} />
+              {errors.mobile && <p className="dhara-stf-err">{errors.mobile.message}</p>}
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">Email</label>
-              <input className="input-field" type="email" {...register('email')} />
-              {errors.email && (
-                <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>
-              )}
+              <label>Email</label>
+              <input className="dhara-stf-input" type="email" {...register('email')} />
+              {errors.email && <p className="dhara-stf-err">{errors.email.message}</p>}
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">
-                Role <span className="text-gold">*</span>
+              <label>
+                Role <span className="dhara-stf-amt is-gold">*</span>
               </label>
-              <select className="input-field" {...register('role')}>
+              <select className="dhara-stf-input" {...register('role')}>
                 {STAFF_ROLES.map((role) => (
                   <option key={role.code} value={role.code}>
                     {role.label}
@@ -138,13 +126,13 @@ export function StaffFormModal({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">Joining Date</label>
-              <input className="input-field" type="date" {...register('joiningDate')} />
+              <label>Joining Date</label>
+              <input className="dhara-stf-input" type="date" {...register('joiningDate')} />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">Payment Type</label>
-              <select className="input-field" {...register('paymentType')}>
+              <label>Payment Type</label>
+              <select className="dhara-stf-input" {...register('paymentType')}>
                 {PAYMENT_TYPES.map((type) => (
                   <option key={type.code} value={type.code}>
                     {type.label}
@@ -154,35 +142,40 @@ export function StaffFormModal({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">Default Rate (₹)</label>
-              <input className="input-field" type="number" min={0} step="0.01" {...register('defaultRate')} />
+              <label>Default Rate (₹)</label>
+              <input
+                className="dhara-stf-input"
+                type="number"
+                min={0}
+                step="0.01"
+                {...register('defaultRate')}
+              />
+              {errors.defaultRate && <p className="dhara-stf-err">{errors.defaultRate.message}</p>}
             </div>
 
             {mode === 'edit' && (
-              <div className="flex items-center gap-2 pt-7">
-                <input id="isActive" type="checkbox" className="h-4 w-4" {...register('isActive')} />
-                <label htmlFor="isActive" className="text-sm text-gray-300">
-                  Active staff member
-                </label>
-              </div>
+              <label className="dhara-stf-check" htmlFor="isActive">
+                <input id="isActive" type="checkbox" {...register('isActive')} />
+                Active staff member
+              </label>
             )}
 
-            <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">Address</label>
-              <textarea className="input-field min-h-[80px]" {...register('address')} />
+            <div className="dhara-stf-span-2">
+              <label>Address</label>
+              <textarea className="dhara-stf-input" rows={3} {...register('address')} />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-gray-300">Notes</label>
-              <textarea className="input-field min-h-[80px]" {...register('notes')} />
+            <div className="dhara-stf-span-2">
+              <label>Notes</label>
+              <textarea className="dhara-stf-input" rows={3} {...register('notes')} />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className="dhara-stf-form-actions">
+            <button type="button" className="dhara-stf-btn" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button type="submit" className="dhara-stf-btn is-gold" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : mode === 'create' ? 'Add Staff' : 'Save Changes'}
             </button>
           </div>

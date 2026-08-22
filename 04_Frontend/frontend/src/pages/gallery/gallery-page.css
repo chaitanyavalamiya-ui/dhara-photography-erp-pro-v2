@@ -1,0 +1,993 @@
+/* LOCKED APPROVED BASELINE: */
+/* Do not modify this Gallery module without an explicit user request. */
+
+/* Gallery Management preview styles — scoped to .dhara-gallery only. */
+
+.dhara-gallery {
+  --gal-gold: #ffd45a;
+  --gal-amber: #ff9a3c;
+  --gal-maroon: #be123c;
+  --gal-cyan: #22d3ee;
+  --gal-blue: #38bdf8;
+  --gal-purple: #c084fc;
+  --gal-magenta: #ff4ec8;
+  --gal-rose: #fb7185;
+  --gal-glass:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03) 38%, rgba(10, 4, 8, 0.34)),
+    rgba(14, 6, 10, 0.66);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+  color: #fffdf8;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.dhara-gallery *,
+.dhara-gallery *::before,
+.dhara-gallery *::after {
+  box-sizing: border-box;
+}
+
+.dhara-gallery svg {
+  shape-rendering: geometricPrecision;
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.dhara-gal-hero,
+.dhara-gal-panel,
+.dhara-gal-kpi,
+.dhara-gal-card,
+.dhara-gal-empty,
+.dhara-gal-error,
+.dhara-gal-modal-card,
+.dhara-gal-dialog {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgba(255, 212, 90, 0.26);
+  background: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 16px 36px rgba(0, 0, 0, 0.28);
+}
+
+.dhara-gal-hero::before,
+.dhara-gal-panel::before,
+.dhara-gal-kpi::before,
+.dhara-gal-card::before,
+.dhara-gal-empty::before,
+.dhara-gal-error::before,
+.dhara-gal-modal-card::before,
+.dhara-gal-dialog::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--gal-glass);
+  backdrop-filter: blur(18px) saturate(1.18);
+  pointer-events: none;
+}
+
+.dhara-gal-hero > *,
+.dhara-gal-panel > *,
+.dhara-gal-kpi > *,
+.dhara-gal-card > *,
+.dhara-gal-empty > *,
+.dhara-gal-error > *,
+.dhara-gal-modal-card > *,
+.dhara-gal-dialog > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dhara-gal-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 11.5rem;
+  width: 100%;
+  padding: 1.7rem 1.8rem 1.55rem;
+  border-radius: 1.25rem;
+  animation: dhara-gal-rise 560ms ease both;
+}
+
+.dhara-gal-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(108deg, transparent 12%, rgba(255, 212, 90, 0.12) 32%, transparent 46%),
+    radial-gradient(480px 200px at 92% 8%, rgba(255, 212, 90, 0.22), transparent 60%),
+    radial-gradient(320px 180px at 6% 90%, rgba(190, 18, 60, 0.38), transparent 64%),
+    radial-gradient(280px 150px at 72% 100%, rgba(192, 132, 252, 0.2), transparent 62%),
+    radial-gradient(220px 120px at 40% 0%, rgba(34, 211, 238, 0.16), transparent 68%),
+    radial-gradient(circle, rgba(255, 212, 90, 0.48) 0.7px, transparent 1.15px);
+  background-size: auto, auto, auto, auto, auto, 30px 30px;
+  animation: dhara-gal-drift 26s linear infinite;
+}
+
+.dhara-gal-kicker {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-gal-hero h2 {
+  margin: 0.4rem 0 0;
+  font-family: 'Cormorant Garamond', 'Noto Serif Gujarati', serif;
+  font-size: clamp(2.4rem, 4.2vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.05;
+  color: #fffdf8;
+}
+
+.dhara-gal-hero-copy {
+  margin: 0.55rem 0 0;
+  max-width: 46rem;
+  font-family: 'Noto Sans Gujarati', 'Noto Serif Gujarati', sans-serif;
+  font-size: clamp(1.16rem, 1.6vw, 1.32rem);
+  font-weight: 700;
+  line-height: 1.5;
+  color: #fff1c9;
+}
+
+.dhara-gal-hero-art {
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.dhara-gal-hero-art svg {
+  width: min(9.5rem, 100%);
+  height: auto;
+  filter: none;
+}
+
+@media (min-width: 900px) {
+  .dhara-gal-hero {
+    grid-template-columns: minmax(0, 1.6fr) minmax(140px, 0.5fr);
+    align-items: center;
+  }
+  .dhara-gal-hero-art {
+    display: flex;
+  }
+}
+
+.dhara-gal-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14.5rem, 1fr));
+  gap: 0.9rem;
+  width: 100%;
+}
+
+.dhara-gal-kpi {
+  padding: 1.15rem 1.15rem 1.05rem;
+  border-radius: 1.1rem;
+  overflow: visible;
+  animation: dhara-gal-rise 560ms ease both;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.dhara-gal-kpi:hover {
+  transform: translateY(-3px);
+}
+
+.dhara-gal-kpi.is-gold { --kpi: #ffd45a; --glow: rgba(255, 212, 90, 0.45); }
+.dhara-gal-kpi.is-cyan { --kpi: #22d3ee; --glow: rgba(34, 211, 238, 0.45); }
+.dhara-gal-kpi.is-magenta { --kpi: #ff4ec8; --glow: rgba(255, 78, 200, 0.45); }
+
+.dhara-gal-kpi {
+  border-color: color-mix(in srgb, var(--kpi, var(--gal-gold)) 70%, white 8%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 16px var(--glow, rgba(255, 212, 90, 0.24));
+}
+
+.dhara-gal-kpi-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.dhara-gal-kpi h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff6d6;
+  text-shadow: none;
+  filter: none;
+}
+
+.dhara-gal-kpi strong {
+  display: block;
+  margin-top: 0.55rem;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.95rem, 2.6vw, 2.45rem);
+  line-height: 1;
+  color: #fffdf8;
+  text-shadow: none;
+  filter: none;
+}
+
+.dhara-gal-icon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  min-width: 3.5rem;
+  min-height: 3.5rem;
+  flex-shrink: 0;
+  border-radius: 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--kpi, var(--gal-gold)) 85%, white);
+  color: var(--kpi, var(--gal-gold));
+  background: color-mix(in srgb, var(--kpi, var(--gal-gold)) 22%, transparent);
+  box-shadow: 0 0 14px var(--glow, rgba(255, 212, 90, 0.32));
+}
+
+.dhara-gal-icon svg {
+  width: 1.9rem;
+  height: 1.9rem;
+  filter: none;
+  stroke-width: 2.35;
+}
+
+.dhara-gal-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  padding: 1.2rem 1.25rem;
+  border-radius: 1.15rem;
+}
+
+.dhara-gal-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.dhara-gal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.dhara-gal-field.is-search {
+  flex: 1 1 18rem;
+}
+
+.dhara-gal-field label {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff1c9;
+}
+
+.dhara-gal-input-wrap {
+  position: relative;
+}
+
+.dhara-gal-input-wrap svg {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  width: 1.45rem;
+  height: 1.45rem;
+  transform: translateY(-50%);
+  color: #ffd45a;
+  pointer-events: none;
+  filter: none;
+}
+
+.dhara-gallery .dhara-gal-input,
+.dhara-gallery .dhara-gal-field .input-field,
+.dhara-gallery .dhara-gal-field select.input-field,
+.dhara-gallery .dhara-gal-settings .input-field,
+.dhara-gallery .dhara-gal-form .input-field {
+  width: 100%;
+  min-height: 3.25rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.28);
+  background: rgba(10, 4, 8, 0.48);
+  color: #fffdf8;
+  font-size: 1.08rem;
+  font-weight: 700;
+  padding: 0.55rem 0.9rem;
+}
+
+.dhara-gallery .dhara-gal-input.is-icon {
+  padding-left: 2.7rem;
+}
+
+.dhara-gallery .dhara-gal-input:focus,
+.dhara-gallery .dhara-gal-field .input-field:focus {
+  outline: none;
+  border-color: var(--gal-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.18), 0 0 16px rgba(255, 212, 90, 0.18);
+}
+
+.dhara-gal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3.25rem;
+  min-width: 3.25rem;
+  padding: 0.62rem 1.15rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.28);
+  background: rgba(10, 4, 8, 0.42);
+  color: #fffdf8;
+  font-size: 1.12rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.dhara-gal-btn svg {
+  width: 1.55rem;
+  height: 1.55rem;
+  filter: none;
+  stroke-width: 2.4;
+}
+
+.dhara-gal-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(255, 212, 90, 0.55);
+  box-shadow: 0 0 18px rgba(255, 212, 90, 0.28);
+}
+
+.dhara-gal-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.dhara-gal-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dhara-gal-btn.is-gold {
+  background: linear-gradient(135deg, #9f1239, #c9a227);
+  border-color: rgba(255, 212, 90, 0.55);
+  box-shadow: 0 0 18px rgba(255, 212, 90, 0.3);
+}
+
+.dhara-gal-btn.is-cyan {
+  border-color: rgba(34, 211, 238, 0.45);
+  color: #a5f3fc;
+}
+
+.dhara-gal-btn.is-danger {
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fecaca;
+}
+
+.dhara-gal-btn.is-danger:hover:not(:disabled) {
+  border-color: rgba(248, 113, 113, 0.75);
+  box-shadow: 0 0 16px rgba(248, 113, 113, 0.28);
+}
+
+.dhara-gal-flash {
+  padding: 0.9rem 1.05rem;
+  border-radius: 0.9rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.dhara-gal-flash.is-ok {
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+  color: #bbf7d0;
+}
+
+.dhara-gal-flash.is-bad {
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
+.dhara-gal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.dhara-gal-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 17.5rem;
+  padding: 0;
+  border-radius: 1.1rem;
+  overflow: hidden;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.dhara-gal-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 212, 90, 0.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 22px rgba(255, 212, 90, 0.2);
+}
+
+.dhara-gal-card.is-wedding { border-color: rgba(255, 212, 90, 0.42); }
+.dhara-gal-card.is-prewedding { border-color: rgba(34, 211, 238, 0.42); }
+.dhara-gal-card.is-engagement { border-color: rgba(192, 132, 252, 0.42); }
+.dhara-gal-card.is-bday { border-color: rgba(255, 78, 200, 0.42); }
+.dhara-gal-card.is-shower { border-color: rgba(56, 189, 248, 0.42); }
+.dhara-gal-card.is-couple { border-color: rgba(251, 113, 133, 0.42); }
+
+.dhara-gal-cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 8.4rem;
+  overflow: hidden;
+  background:
+    radial-gradient(180px 90px at 20% 20%, rgba(255, 212, 90, 0.16), transparent 70%),
+    radial-gradient(160px 80px at 90% 80%, rgba(255, 78, 200, 0.12), transparent 70%),
+    linear-gradient(180deg, rgba(20, 8, 12, 0.2), rgba(6, 2, 4, 0.72));
+}
+
+.dhara-gal-card.is-prewedding .dhara-gal-cover {
+  background:
+    radial-gradient(180px 90px at 20% 20%, rgba(34, 211, 238, 0.18), transparent 70%),
+    linear-gradient(180deg, rgba(8, 16, 22, 0.2), rgba(6, 2, 4, 0.72));
+}
+
+.dhara-gal-card.is-engagement .dhara-gal-cover {
+  background:
+    radial-gradient(180px 90px at 20% 20%, rgba(192, 132, 252, 0.2), transparent 70%),
+    linear-gradient(180deg, rgba(16, 8, 24, 0.2), rgba(6, 2, 4, 0.72));
+}
+
+.dhara-gal-card.is-bday .dhara-gal-cover {
+  background:
+    radial-gradient(180px 90px at 20% 20%, rgba(255, 78, 200, 0.2), transparent 70%),
+    linear-gradient(180deg, rgba(24, 8, 16, 0.2), rgba(6, 2, 4, 0.72));
+}
+
+.dhara-gal-cover svg {
+  width: 3.4rem;
+  height: 3.4rem;
+  color: #ffe08a;
+  filter: none;
+}
+
+.dhara-gal-cover-meta {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.7rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 212, 90, 0.35);
+  background: rgba(8, 3, 6, 0.72);
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #fffdf8;
+}
+
+.dhara-gal-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.95rem 1rem 1rem;
+}
+
+.dhara-gal-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.dhara-gal-card-top p {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-gal-card-top h3 {
+  margin: 0.2rem 0 0;
+  font-size: 1.22rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #fffdf8;
+}
+
+.dhara-gal-card-client {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 650;
+  color: #fff1c9;
+}
+
+.dhara-gal-card-meta {
+  margin: 0.15rem 0 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: #f8f4ea;
+}
+
+.dhara-gal-status {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fffdf8;
+}
+
+.dhara-gal-status.is-active { border-color: rgba(74, 222, 128, 0.45); color: #86efac; }
+.dhara-gal-status.is-review { border-color: rgba(255, 154, 60, 0.45); color: #fdba74; }
+.dhara-gal-status.is-approved { border-color: rgba(56, 189, 248, 0.45); color: #7dd3fc; }
+.dhara-gal-status.is-delivered { border-color: rgba(255, 212, 90, 0.5); color: #ffd45a; }
+.dhara-gal-status.is-draft { border-color: rgba(148, 163, 184, 0.4); color: #e2e8f0; }
+
+.dhara-gal-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.7rem;
+}
+
+.dhara-gal-card-actions .dhara-gal-btn {
+  min-height: 2.9rem;
+  font-size: 1rem;
+}
+
+.dhara-gal-skeleton {
+  min-height: 17.5rem;
+  border-radius: 1.1rem;
+  animation: dhara-gal-pulse 1.4s ease-in-out infinite;
+}
+
+.dhara-gal-empty,
+.dhara-gal-error {
+  min-height: 18rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 2rem 1.4rem;
+  border-radius: 1.15rem;
+  text-align: center;
+}
+
+.dhara-gal-empty svg,
+.dhara-gal-error svg {
+  width: 3.6rem;
+  height: 3.6rem;
+  color: #ffd45a;
+  filter: none;
+}
+
+.dhara-gal-error svg {
+  color: #fecaca;
+}
+
+.dhara-gal-empty p,
+.dhara-gal-error p {
+  margin: 0;
+  font-size: 1.16rem;
+  font-weight: 700;
+  color: #fff1c9;
+}
+
+.dhara-gal-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.dhara-gal-pager span {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff1c9;
+}
+
+.dhara-gal-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.dhara-gal-modal.is-detail {
+  z-index: 50;
+}
+
+.dhara-gal-modal.is-archive {
+  z-index: 60;
+}
+
+.dhara-gal-modal-card {
+  width: 100%;
+  max-width: 32rem;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 1.4rem 1.45rem;
+  border-radius: 1.15rem;
+}
+
+.dhara-gal-modal-card.is-wide {
+  max-width: 76rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.dhara-gal-modal-card h2,
+.dhara-gal-dialog h2 {
+  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #ffe08a;
+}
+
+.dhara-gal-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.2rem 1.4rem;
+  border-bottom: 1px solid rgba(255, 212, 90, 0.18);
+}
+
+.dhara-gal-modal-head p {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+
+.dhara-gal-modal-head h2 {
+  margin: 0.2rem 0 0;
+}
+
+.dhara-gal-modal-sub {
+  margin: 0.35rem 0 0 !important;
+  font-size: 1.05rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: #fff1c9 !important;
+}
+
+.dhara-gal-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.2rem 1.4rem 1.4rem;
+}
+
+.dhara-gal-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.dhara-gal-settings label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff1c9;
+}
+
+.dhara-gal-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 10rem;
+  margin-bottom: 1rem;
+  padding: 1.2rem;
+  border-radius: 1rem;
+  border: 1.5px dashed rgba(255, 212, 90, 0.42);
+  background: rgba(10, 4, 8, 0.35);
+  text-align: center;
+  color: #fff1c9;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.dhara-gal-drop.is-over {
+  border-color: rgba(34, 211, 238, 0.75);
+  background: rgba(34, 211, 238, 0.08);
+  box-shadow: 0 0 22px rgba(34, 211, 238, 0.22);
+}
+
+.dhara-gal-drop svg {
+  width: 2.8rem;
+  height: 2.8rem;
+  color: #ffd45a;
+}
+
+.dhara-gal-drop p {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #fffdf8;
+}
+
+.dhara-gal-drop small {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffe7b8;
+}
+
+.dhara-gal-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.75rem;
+}
+
+.dhara-gal-thumb {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 212, 90, 0.22);
+  background: rgba(8, 3, 6, 0.5);
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dhara-gal-thumb:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 212, 90, 0.55);
+  box-shadow: 0 0 16px rgba(255, 212, 90, 0.18);
+}
+
+.dhara-gal-thumb img,
+.dhara-gal-thumb .dhara-gal-thumb-media {
+  aspect-ratio: 1;
+  width: 100%;
+  object-fit: cover;
+  transition: transform 220ms ease;
+}
+
+.dhara-gal-thumb:hover img {
+  transform: scale(1.06);
+}
+
+.dhara-gal-thumb-bar {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.82));
+}
+
+.dhara-gal-thumb-bar p {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fffdf8;
+}
+
+.dhara-gal-thumb-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.dhara-gal-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  min-width: 2.15rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fffdf8;
+  cursor: pointer;
+}
+
+.dhara-gal-icon-btn svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.dhara-gal-icon-btn:hover {
+  color: #ffd45a;
+}
+
+.dhara-gal-icon-btn.is-danger:hover {
+  color: #fecaca;
+}
+
+.dhara-gal-selected {
+  position: absolute;
+  top: 0.55rem;
+  left: 0.55rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  background: #ffd45a;
+  color: #4a0d1a;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dhara-gal-upload-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.22);
+  background: rgba(8, 3, 6, 0.4);
+}
+
+.dhara-gal-upload-item {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dhara-gal-progress {
+  margin-top: 0.4rem;
+  height: 0.45rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dhara-gal-progress > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #be123c, #ffd45a);
+}
+
+.dhara-gal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.dhara-gal-form .dhara-gal-field {
+  flex: 1 1 auto;
+}
+
+.dhara-gal-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: #fecaca;
+}
+
+.dhara-gal-hint.is-muted {
+  color: #ffe7b8;
+}
+
+.dhara-gal-booking-card {
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 212, 90, 0.22);
+  background: rgba(8, 3, 6, 0.35);
+  font-size: 1.02rem;
+  font-weight: 650;
+  color: #fff1c9;
+}
+
+.dhara-gal-dialog {
+  width: 100%;
+  max-width: 28rem;
+  padding: 1.35rem 1.4rem;
+  border-radius: 1.15rem;
+}
+
+.dhara-gal-dialog-copy {
+  margin: 0.45rem 0 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.45;
+  color: #fff1c9;
+}
+
+.dhara-gal-lightbox {
+  background: rgba(8, 3, 6, 0.92);
+}
+
+.dhara-gal-lightbox-bar {
+  border-bottom: 1px solid rgba(255, 212, 90, 0.22);
+  background: rgba(18, 8, 12, 0.88);
+}
+
+.dhara-gal-lightbox-bar p {
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #ffd45a;
+}
+
+.dhara-gal-lightbox-bar button svg {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+@keyframes dhara-gal-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dhara-gal-drift {
+  from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+  to { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 30px 30px; }
+}
+
+@keyframes dhara-gal-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dhara-gal-hero,
+  .dhara-gal-kpi,
+  .dhara-gal-hero::after,
+  .dhara-gal-card,
+  .dhara-gal-btn,
+  .dhara-gal-thumb,
+  .dhara-gal-skeleton {
+    animation: none;
+    transition: none;
+  }
+  .dhara-gal-kpi:hover,
+  .dhara-gal-card:hover,
+  .dhara-gal-btn:hover,
+  .dhara-gal-thumb:hover {
+    transform: none;
+  }
+  .dhara-gal-thumb:hover img {
+    transform: none;
+  }
+}

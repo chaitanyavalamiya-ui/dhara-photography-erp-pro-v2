@@ -1,0 +1,329 @@
+/* LOCKED DASHBOARD — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL */
+/* ERP shell chrome only — never imported by the Login Page. */
+
+.dhara-erp-shell {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  --erp-gold: #ffd45a;
+  --erp-amber: #f59e0b;
+  --erp-maroon: #9f1239;
+  --erp-cyan: #22d3ee;
+  --erp-blue: #38bdf8;
+  --erp-purple: #c084fc;
+  --erp-magenta: #f472b6;
+  --erp-pink: #fb7185;
+  background:
+    radial-gradient(920px 480px at 8% -10%, rgba(159, 18, 57, 0.38), transparent 58%),
+    radial-gradient(680px 360px at 88% 4%, rgba(192, 132, 252, 0.16), transparent 52%),
+    radial-gradient(760px 420px at 70% 92%, rgba(34, 211, 238, 0.1), transparent 58%),
+    radial-gradient(1000px 600px at 40% 120%, rgba(64, 12, 22, 0.5), transparent 60%),
+    #090406;
+  position: relative;
+}
+
+.dhara-erp-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(circle, rgba(255, 212, 90, 0.35) 0.7px, transparent 1.1px),
+    radial-gradient(circle, rgba(34, 211, 238, 0.28) 0.6px, transparent 1px);
+  background-size: 52px 52px, 78px 78px;
+  background-position: 0 0, 24px 18px;
+  opacity: 0.18;
+  animation: dhara-erp-dust 28s linear infinite;
+}
+
+.dhara-erp-shell > * {
+  z-index: 1;
+}
+
+.dhara-erp-workspace {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.dhara-erp-shell .dhara-page {
+  background: transparent;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.dhara-erp-shell .dhara-page > * {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.dhara-erp-sidebar {
+  background:
+    linear-gradient(180deg, rgba(127, 29, 29, 0.28) 0%, rgba(10, 4, 8, 0.78) 34%),
+    rgba(10, 4, 8, 0.72);
+  border-right: 1px solid rgba(255, 212, 90, 0.22) !important;
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.04),
+    18px 0 48px rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(22px) saturate(1.15);
+}
+
+.dhara-erp-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.dhara-erp-mark {
+  display: grid;
+  place-items: center;
+  width: 2.85rem;
+  height: 2.85rem;
+  flex-shrink: 0;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(255, 212, 90, 0.55);
+  background: linear-gradient(180deg, rgba(255, 212, 90, 0.24), rgba(88, 18, 32, 0.45));
+  color: var(--erp-gold);
+  box-shadow: 0 0 22px rgba(255, 212, 90, 0.28);
+}
+
+.dhara-erp-mark svg {
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
+.dhara-erp-sidebar .dhara-nav-item {
+  gap: 0.85rem;
+  min-height: 3.05rem;
+  margin-bottom: 0.22rem;
+  padding: 0.58rem 0.78rem;
+  font-size: 1.12rem;
+  font-weight: 600;
+  color: #fff4e4;
+  border: 1px solid transparent;
+  transition: transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.dhara-erp-nav-icon {
+  display: grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex-shrink: 0;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 14px color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.dhara-erp-sidebar .dhara-nav-item svg {
+  width: 1.28rem;
+  height: 1.28rem;
+}
+
+.dhara-erp-sidebar .dhara-nav-item.is-gold { color: #ffe08a; }
+.dhara-erp-sidebar .dhara-nav-item.is-amber { color: #fbbf24; }
+.dhara-erp-sidebar .dhara-nav-item.is-cyan { color: #67e8f9; }
+.dhara-erp-sidebar .dhara-nav-item.is-blue { color: #7dd3fc; }
+.dhara-erp-sidebar .dhara-nav-item.is-purple { color: #d8b4fe; }
+.dhara-erp-sidebar .dhara-nav-item.is-magenta,
+.dhara-erp-sidebar .dhara-nav-item.is-pink { color: #f9a8d4; }
+
+.dhara-erp-sidebar .dhara-nav-item:hover {
+  transform: translateX(4px);
+  background: rgba(255, 255, 255, 0.05);
+  filter: none;
+}
+
+.dhara-erp-sidebar .dhara-nav-item:hover .dhara-erp-nav-icon {
+  transform: scale(1.08);
+  box-shadow: 0 0 18px color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.dhara-erp-sidebar .dhara-nav-item:hover svg {
+  filter: none;
+}
+
+.dhara-erp-sidebar .dhara-nav-item.is-active {
+  color: #ffd45a;
+  background: linear-gradient(
+    90deg,
+    rgba(159, 18, 57, 0.55),
+    rgba(255, 212, 90, 0.18)
+  );
+  border-color: rgba(255, 212, 90, 0.62);
+  box-shadow:
+    inset 3px 0 0 #ffd45a,
+    0 0 22px rgba(255, 212, 90, 0.38),
+    0 10px 22px rgba(159, 18, 57, 0.32);
+}
+
+.dhara-erp-sidebar .dhara-nav-item.is-active .dhara-erp-nav-icon {
+  color: #ffd45a;
+  border-color: rgba(255, 212, 90, 0.7);
+  background: rgba(255, 212, 90, 0.16);
+  box-shadow: 0 0 18px rgba(255, 212, 90, 0.45);
+}
+
+.dhara-erp-sidebar .dhara-nav-item.is-active svg {
+  color: #ffd45a;
+}
+
+.dhara-erp-header {
+  min-height: 5.6rem;
+  height: auto;
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+  background: rgba(12, 5, 9, 0.55);
+  border-bottom: 1px solid rgba(255, 212, 90, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.dhara-erp-greeting {
+  min-width: 0;
+}
+
+.dhara-erp-phase {
+  margin: 0 0 0.12rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--erp-gold);
+}
+
+.dhara-erp-greeting h1 {
+  margin: 0;
+  font-family: 'Cormorant Garamond', 'Noto Serif Gujarati', serif;
+  font-size: clamp(1.85rem, 2.8vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.12;
+  color: #fffdf8;
+}
+
+.dhara-erp-greeting .dhara-erp-gujarati {
+  margin: 0.32rem 0 0;
+  font-family: 'Noto Sans Gujarati', serif;
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: #ffe7b8;
+}
+
+.dhara-erp-studio {
+  margin: 0 0 0.18rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--erp-gold);
+}
+
+.dhara-erp-date {
+  display: none;
+  font-size: 1rem;
+  font-weight: 650;
+  white-space: nowrap;
+  color: #ffe7b8;
+}
+
+@media (min-width: 1024px) {
+  .dhara-erp-date {
+    display: block;
+  }
+}
+
+.dhara-erp-search {
+  min-height: 3.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 212, 90, 0.32);
+  background: rgba(12, 5, 8, 0.48);
+  font-size: 1.02rem;
+  color: #fff8ee;
+  backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.dhara-erp-notify {
+  position: relative;
+}
+
+.dhara-erp-notify::after {
+  content: '';
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 999px;
+  background: #fb7185;
+  box-shadow: 0 0 0 2px #16090c, 0 0 10px rgba(251, 113, 133, 0.8);
+}
+
+.dhara-erp-menu {
+  position: relative;
+}
+
+.dhara-erp-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 30;
+  min-width: 15.5rem;
+  padding: 0.55rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 212, 90, 0.28);
+  background: rgba(14, 6, 10, 0.94);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+}
+
+.dhara-erp-menu-panel button,
+.dhara-erp-menu-panel a {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  background: transparent;
+  padding: 0.62rem 0.7rem;
+  border-radius: 0.55rem;
+  color: var(--dhara-text-primary);
+  font: inherit;
+  font-size: 0.98rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dhara-erp-menu-panel button:hover,
+.dhara-erp-menu-panel a:hover {
+  background: color-mix(in srgb, var(--dhara-accent) 10%, transparent);
+}
+
+@keyframes dhara-erp-dust {
+  from { background-position: 0 0, 24px 18px; }
+  to { background-position: 52px 52px, 102px 96px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dhara-erp-shell::before,
+  .dhara-erp-sidebar .dhara-nav-item,
+  .dhara-erp-sidebar .dhara-nav-item svg,
+  .dhara-erp-nav-icon {
+    animation: none;
+    transition: none;
+  }
+
+  .dhara-erp-sidebar .dhara-nav-item:hover {
+    transform: none;
+  }
+}

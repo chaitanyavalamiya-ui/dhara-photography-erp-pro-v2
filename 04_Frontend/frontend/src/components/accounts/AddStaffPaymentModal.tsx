@@ -12,6 +12,7 @@ import {
 import { staffService } from '@/services/staff-service';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { todayIso } from '@/utils/studio-date';
+import '@/pages/accounts/accounts-page.css';
 
 const schema = z.object({
   staffId: z.string().min(1, 'Select staff'),
@@ -116,32 +117,25 @@ export function AddStaffPaymentModal({
   const bookings = bookingsQuery.data?.items ?? [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-md overflow-y-auto">
+    <div className="dhara-acc dhara-acc-modal">
+      <div className="dhara-acc-modal-card">
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">
-              {isEdit ? 'Edit Staff Payment' : 'Add Staff Payment'}
-            </h2>
-            <p className="mt-1 text-sm text-gray-400">
+            <h2>{isEdit ? 'Edit Staff Payment' : 'Add Staff Payment'}</h2>
+            <p className="dhara-acc-modal-sub">
               {isEdit
                 ? 'Update this staff payment expense'
                 : 'Record a staff payment as one expense ledger entry'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 hover:text-gold"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-acc-icon-btn" aria-label="Close">
+            <X />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="dhara-acc-form">
           <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Staff</label>
+            <label>Staff</label>
             <select className="input-field" {...register('staffId')}>
               <option value="">
                 {staffQuery.isLoading ? 'Loading staff...' : 'Select staff...'}
@@ -153,17 +147,15 @@ export function AddStaffPaymentModal({
               ))}
             </select>
             {staffQuery.isError && (
-              <p className="mt-1 text-xs text-red-400">
+              <p className="dhara-acc-err">
                 {getApiErrorMessage(staffQuery.error, 'Failed to load staff.')}
               </p>
             )}
-            {errors.staffId && (
-              <p className="mt-1 text-xs text-red-400">{errors.staffId.message}</p>
-            )}
+            {errors.staffId && <p className="dhara-acc-err">{errors.staffId.message}</p>}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Booking (optional)</label>
+            <label>Booking (optional)</label>
             <select className="input-field" {...register('bookingId')}>
               <option value="">No booking</option>
               {bookings.map((booking) => (
@@ -173,14 +165,14 @@ export function AddStaffPaymentModal({
               ))}
             </select>
             {bookingsQuery.isError && (
-              <p className="mt-1 text-xs text-red-400">
+              <p className="dhara-acc-err">
                 {getApiErrorMessage(bookingsQuery.error, 'Failed to load bookings.')}
               </p>
             )}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Amount (₹)</label>
+            <label>Amount (₹)</label>
             <input
               type="number"
               min="0.01"
@@ -188,21 +180,17 @@ export function AddStaffPaymentModal({
               className="input-field"
               {...register('amount', { valueAsNumber: true })}
             />
-            {errors.amount && (
-              <p className="mt-1 text-xs text-red-400">{errors.amount.message}</p>
-            )}
+            {errors.amount && <p className="dhara-acc-err">{errors.amount.message}</p>}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Payment Date</label>
+            <label>Payment Date</label>
             <input type="date" className="input-field" {...register('paymentDate')} />
-            {errors.paymentDate && (
-              <p className="mt-1 text-xs text-red-400">{errors.paymentDate.message}</p>
-            )}
+            {errors.paymentDate && <p className="dhara-acc-err">{errors.paymentDate.message}</p>}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Payment Method</label>
+            <label>Payment Method</label>
             <select className="input-field" {...register('paymentModeCode')}>
               {STAFF_PAYMENT_METHOD_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -211,27 +199,27 @@ export function AddStaffPaymentModal({
               ))}
             </select>
             {errors.paymentModeCode && (
-              <p className="mt-1 text-xs text-red-400">{errors.paymentModeCode.message}</p>
+              <p className="dhara-acc-err">{errors.paymentModeCode.message}</p>
             )}
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Reference Number</label>
+            <label>Reference Number</label>
             <input className="input-field" {...register('referenceNumber')} />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm text-gray-300">Notes</label>
+            <label>Notes</label>
             <textarea rows={2} className="input-field resize-none" {...register('notes')} />
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className="dhara-acc-form-actions">
+            <button type="button" className="dhara-acc-btn" onClick={onClose}>
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-primary"
+              className="dhara-acc-btn is-gold"
               disabled={isSubmitting || staffQuery.isLoading || staffItems.length === 0}
             >
               {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Record Staff Payment'}

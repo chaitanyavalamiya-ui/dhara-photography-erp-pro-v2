@@ -1,0 +1,691 @@
+/* LOCKED CLIENTS MANAGEMENT MODULE — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL */
+/* Clients module only — do not import from Login or Dashboard. */
+
+.dhara-clients {
+  --c-gold: #ffd45a;
+  --c-amber: #ff9a3c;
+  --c-maroon: #be123c;
+  --c-cyan: #22d3ee;
+  --c-blue: #38bdf8;
+  --c-purple: #c084fc;
+  --c-magenta: #ff4ec8;
+  --c-glass:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03) 36%, rgba(10, 4, 8, 0.28)),
+    rgba(14, 6, 10, 0.62);
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  color: #fffdf8;
+  -webkit-font-smoothing: auto;
+}
+
+.dhara-clients-hero,
+.dhara-clients-card,
+.dhara-clients-panel,
+.dhara-clients-modal-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1.15rem;
+  border: 1px solid rgba(255, 212, 90, 0.26);
+  background: transparent;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 16px 36px rgba(0, 0, 0, 0.28);
+}
+
+.dhara-clients-hero::before,
+.dhara-clients-card::before,
+.dhara-clients-panel::before,
+.dhara-clients-modal-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--c-glass);
+  backdrop-filter: blur(18px) saturate(1.2);
+  pointer-events: none;
+}
+
+.dhara-clients-hero > *,
+.dhara-clients-card > *,
+.dhara-clients-panel > *,
+.dhara-clients-modal-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dhara-clients-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 8.5rem;
+  padding: 1.45rem 1.6rem;
+  animation: dhara-clients-rise 520ms ease both;
+}
+
+.dhara-clients-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(420px 180px at 92% 10%, rgba(255, 212, 90, 0.18), transparent 60%),
+    radial-gradient(320px 160px at 8% 90%, rgba(192, 132, 252, 0.16), transparent 62%),
+    radial-gradient(circle, rgba(255, 212, 90, 0.45) 0.7px, transparent 1.1px);
+  background-size: auto, auto, 34px 34px;
+  animation: dhara-clients-drift 22s linear infinite;
+}
+
+.dhara-clients-kicker {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--c-gold);
+}
+
+.dhara-clients-hero h2 {
+  margin: 0.35rem 0 0;
+  font-family: 'Cormorant Garamond', 'Noto Serif Gujarati', serif;
+  font-size: clamp(2rem, 3.4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: #fffdf8;
+}
+
+.dhara-clients-hero p {
+  margin: 0.4rem 0 0;
+  font-family: 'Noto Sans Gujarati', 'Noto Serif Gujarati', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ffe7b8;
+}
+
+.dhara-clients-hero-art {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .dhara-clients-hero {
+    grid-template-columns: minmax(0, 1.5fr) 140px;
+    align-items: center;
+  }
+  .dhara-clients-hero-art {
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+.dhara-clients-kpis {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.95rem;
+}
+
+@media (min-width: 720px) {
+  .dhara-clients-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1180px) {
+  .dhara-clients-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.dhara-clients-kpi {
+  padding: 1.2rem 1.2rem 1.05rem;
+  overflow: visible;
+  animation: dhara-clients-rise 560ms ease both;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.dhara-clients-kpi:nth-child(2) { animation-delay: 70ms; }
+.dhara-clients-kpi:nth-child(3) { animation-delay: 140ms; }
+.dhara-clients-kpi:nth-child(4) { animation-delay: 210ms; }
+
+.dhara-clients-kpi:hover {
+  transform: translateY(-3px);
+}
+
+.dhara-clients-kpi.is-gold { --kpi: #ffd45a; --glow: rgba(255, 212, 90, 0.5); }
+.dhara-clients-kpi.is-cyan { --kpi: #22d3ee; --glow: rgba(34, 211, 238, 0.5); }
+.dhara-clients-kpi.is-magenta { --kpi: #ff4ec8; --glow: rgba(255, 78, 200, 0.5); }
+.dhara-clients-kpi.is-amber { --kpi: #ff9a3c; --glow: rgba(255, 154, 60, 0.5); }
+
+.dhara-clients-kpi {
+  border-color: color-mix(in srgb, var(--kpi, var(--c-gold)) 70%, white 8%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 0 18px var(--glow, rgba(255, 212, 90, 0.28));
+}
+
+.dhara-clients-kpi-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.dhara-clients-kpi h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #fff1c9;
+  text-shadow: none;
+  filter: none;
+}
+
+.dhara-clients-kpi strong {
+  display: block;
+  margin-top: 0.7rem;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.9rem, 2.8vw, 2.45rem);
+  line-height: 1;
+  color: #fffdf8;
+  text-shadow: none;
+  filter: none;
+}
+
+.dhara-clients-kpi span {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.92rem;
+  color: #ffe7b8;
+}
+
+.dhara-clients-icon {
+  display: grid;
+  place-items: center;
+  width: 3.15rem;
+  height: 3.15rem;
+  border-radius: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--kpi, var(--c-gold)) 75%, white);
+  color: var(--kpi, var(--c-gold));
+  background: color-mix(in srgb, var(--kpi, var(--c-gold)) 16%, transparent);
+  box-shadow: 0 0 16px var(--glow, rgba(255, 212, 90, 0.35));
+}
+
+.dhara-clients-icon.is-gold { --kpi: #ffd45a; --glow: rgba(255, 212, 90, 0.5); }
+.dhara-clients-icon.is-magenta { --kpi: #ff4ec8; --glow: rgba(255, 78, 200, 0.5); }
+
+.dhara-clients-icon svg {
+  width: 1.55rem;
+  height: 1.55rem;
+  filter: drop-shadow(0 0 6px var(--glow, rgba(255, 212, 90, 0.5)));
+}
+
+.dhara-clients-events {
+  display: grid;
+  gap: 0.95rem;
+}
+
+@media (min-width: 900px) {
+  .dhara-clients-events {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.dhara-clients-panel {
+  padding: 1.15rem 1.2rem;
+}
+
+.dhara-clients-panel h3 {
+  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.45rem;
+  color: #fff4d4;
+}
+
+.dhara-clients-event {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.15rem;
+  border-bottom: 1px solid rgba(255, 212, 90, 0.1);
+}
+
+.dhara-clients-event:last-child {
+  border-bottom: 0;
+}
+
+.dhara-clients-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.1rem 1.15rem;
+}
+
+@media (min-width: 960px) {
+  .dhara-clients-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.dhara-clients-search {
+  position: relative;
+  flex: 1;
+  width: 100%;
+}
+
+.dhara-clients-search svg {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  transform: translateY(-50%);
+  color: var(--c-gold);
+  pointer-events: none;
+}
+
+.dhara-clients-search input {
+  width: 100%;
+  min-height: 3.15rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 212, 90, 0.3);
+  background: rgba(10, 4, 8, 0.45);
+  padding: 0.7rem 1rem 0.7rem 2.8rem;
+  color: #fffdf8;
+  font-size: 1.02rem;
+}
+
+.dhara-clients-search input:focus {
+  outline: none;
+  border-color: var(--c-gold);
+  box-shadow: 0 0 0 3px rgba(255, 212, 90, 0.18);
+}
+
+.dhara-clients-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.dhara-clients-select,
+.dhara-clients-chip {
+  min-height: 2.7rem;
+  border-radius: 0.8rem;
+  border: 1px solid rgba(255, 212, 90, 0.24);
+  background: rgba(10, 4, 8, 0.42);
+  color: #fffdf8;
+  font-size: 0.98rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.dhara-clients-chip.is-on {
+  border-color: var(--c-gold);
+  box-shadow: 0 0 14px rgba(255, 212, 90, 0.22);
+  color: var(--c-gold);
+}
+
+.dhara-clients-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0.65rem 1.15rem;
+  border: 1px solid rgba(255, 212, 90, 0.55);
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, #9f1239, #c9a227);
+  color: #fffdf8;
+  font-size: 1.02rem;
+  font-weight: 800;
+  box-shadow: 0 0 18px rgba(255, 212, 90, 0.28);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.dhara-clients-add:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 26px rgba(255, 212, 90, 0.4);
+}
+
+.dhara-clients-add:active {
+  transform: translateY(1px);
+}
+
+.dhara-clients-table-wrap {
+  overflow-x: auto;
+  animation: dhara-clients-rise 600ms ease both;
+}
+
+.dhara-clients-table {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.dhara-clients-table th {
+  padding: 0.85rem 0.7rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ffe7b8;
+  border-bottom: 1px solid rgba(255, 212, 90, 0.16);
+}
+
+.dhara-clients-table th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dhara-clients-table td {
+  padding: 0.95rem 0.7rem;
+  font-size: 1.02rem;
+  color: #fff8ee;
+  border-bottom: 1px solid rgba(255, 212, 90, 0.08);
+  vertical-align: middle;
+}
+
+.dhara-clients-table tbody tr {
+  transition: background-color 160ms ease;
+}
+
+.dhara-clients-table tbody tr:hover {
+  background: rgba(255, 212, 90, 0.07);
+}
+
+.dhara-clients-name {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.dhara-clients-name p {
+  margin: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.dhara-clients-name small {
+  color: #ffe7b8;
+  font-size: 0.88rem;
+}
+
+.dhara-clients-money {
+  font-weight: 700;
+  color: var(--c-gold);
+}
+
+.dhara-clients-money.is-pending {
+  color: var(--c-amber);
+}
+
+.dhara-clients-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 999px;
+  font-weight: 800;
+  color: #fffdf8;
+  box-shadow: 0 0 12px currentColor;
+}
+
+.dhara-clients-avatar.is-sm { width: 2.3rem; height: 2.3rem; font-size: 0.72rem; }
+.dhara-clients-avatar.is-md { width: 2.85rem; height: 2.85rem; font-size: 0.82rem; }
+.dhara-clients-avatar.is-lg { width: 4.4rem; height: 4.4rem; font-size: 1.25rem; }
+.dhara-clients-avatar.is-gold { background: linear-gradient(135deg, #9a3412, #ffd45a); color: #ffd45a; }
+.dhara-clients-avatar.is-cyan { background: linear-gradient(135deg, #0e7490, #22d3ee); color: #67e8f9; }
+.dhara-clients-avatar.is-purple { background: linear-gradient(135deg, #6b21a8, #c084fc); color: #e9d5ff; }
+.dhara-clients-avatar.is-magenta { background: linear-gradient(135deg, #9d174d, #ff4ec8); color: #fbcfe8; }
+.dhara-clients-avatar.is-amber { background: linear-gradient(135deg, #9a3412, #ff9a3c); color: #fdba74; }
+.dhara-clients-avatar.is-blue { background: linear-gradient(135deg, #1e3a8a, #38bdf8); color: #bae6fd; }
+
+.dhara-clients-badge {
+  display: inline-flex;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dhara-clients-badge.is-ok { color: #bbf7d0; background: rgba(16, 185, 129, 0.28); }
+.dhara-clients-badge.is-off { color: #e2e8f0; background: rgba(148, 163, 184, 0.22); }
+
+.dhara-clients-actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.dhara-clients-actions button {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border: 1px solid rgba(255, 212, 90, 0.22);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: #ffe7b8;
+}
+
+.dhara-clients-actions svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.dhara-clients-actions button.is-danger:hover {
+  color: #fb7185;
+  border-color: #fb7185;
+}
+
+.dhara-clients-cards {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .dhara-clients-table-wrap {
+    display: none;
+  }
+  .dhara-clients-cards {
+    display: grid;
+    gap: 0.8rem;
+  }
+}
+
+.dhara-clients-mobile-card {
+  padding: 1rem;
+}
+
+.dhara-clients-empty,
+.dhara-clients-error {
+  padding: 2.2rem 1rem;
+  text-align: center;
+}
+
+.dhara-clients-empty h3,
+.dhara-clients-error h3 {
+  margin: 0.7rem 0 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.7rem;
+}
+
+.dhara-clients-empty p,
+.dhara-clients-error p {
+  margin: 0.45rem auto 0;
+  max-width: 28rem;
+  font-size: 1rem;
+  color: #ffe7b8;
+}
+
+.dhara-clients-skel {
+  min-height: 6.5rem;
+  border-radius: 1.1rem;
+  background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.1), rgba(255,255,255,0.04));
+  background-size: 200% 100%;
+  animation: dhara-clients-shimmer 1.4s linear infinite;
+}
+
+.dhara-clients-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: 0.98rem;
+  color: #ffe7b8;
+}
+
+.dhara-clients-ghost {
+  min-height: 2.6rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 212, 90, 0.24);
+  background: rgba(10, 4, 8, 0.4);
+  color: #fffdf8;
+  font-size: 0.95rem;
+}
+
+.dhara-clients-ghost:disabled {
+  opacity: 0.45;
+}
+
+.dhara-clients-flash {
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  font-size: 0.98rem;
+}
+
+.dhara-clients-flash.is-ok {
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.12);
+  color: #bbf7d0;
+}
+
+.dhara-clients-flash.is-bad {
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
+.dhara-clients-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.dhara-clients-modal-card {
+  width: 100%;
+  max-width: 44rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.4rem 1.45rem 1.25rem;
+}
+
+.dhara-clients-modal-card.is-narrow {
+  max-width: 28rem;
+}
+
+.dhara-clients-modal-card h2 {
+  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.7rem;
+  color: var(--c-gold);
+}
+
+.dhara-clients-modal-card label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffe7b8;
+}
+
+.dhara-clients-modal-card .input-field,
+.dhara-clients-modal-card input,
+.dhara-clients-modal-card textarea,
+.dhara-clients-modal-card select {
+  min-height: 2.9rem;
+  font-size: 1rem;
+}
+
+.dhara-clients-profile {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.dhara-clients-facts {
+  display: grid;
+  gap: 0.7rem;
+}
+
+@media (min-width: 640px) {
+  .dhara-clients-facts {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.dhara-clients-fact {
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 212, 90, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dhara-clients-fact p {
+  margin: 0;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ffe7b8;
+}
+
+.dhara-clients-fact strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+@keyframes dhara-clients-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dhara-clients-drift {
+  from { background-position: 0 0, 0 0, 0 0; }
+  to { background-position: 0 0, 0 0, 34px 34px; }
+}
+
+@keyframes dhara-clients-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dhara-clients-hero,
+  .dhara-clients-kpi,
+  .dhara-clients-hero::after,
+  .dhara-clients-skel,
+  .dhara-clients-add {
+    animation: none;
+    transition: none;
+  }
+  .dhara-clients-kpi:hover,
+  .dhara-clients-add:hover {
+    transform: none;
+  }
+}

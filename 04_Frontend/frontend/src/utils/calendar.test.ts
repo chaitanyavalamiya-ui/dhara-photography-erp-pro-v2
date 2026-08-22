@@ -8,6 +8,7 @@ import {
   getVisibleCalendarRange,
   groupClientMarkersByDate,
   groupOccupyingEventsByDate,
+  isCalendarBookingStartDate,
   isWeddingEventType,
   occupiesCalendarDay,
   shiftCalendarMonth,
@@ -74,6 +75,18 @@ describe('calendar occupancy', () => {
     );
 
     expect(grouped.get(previousMonthDay)?.[0].id).toBe('spillover');
+  });
+
+  it('treats only the booking start date as the named chip day', () => {
+    const multiDay = event({
+      eventDate: '2026-08-15T00:00:00.000Z',
+      eventEndDate: '2026-08-18T00:00:00.000Z',
+    });
+
+    expect(isCalendarBookingStartDate(multiDay, '2026-08-15')).toBe(true);
+    expect(isCalendarBookingStartDate(multiDay, '2026-08-16')).toBe(false);
+    expect(isCalendarBookingStartDate(multiDay, '2026-08-18')).toBe(false);
+    expect(isCalendarBookingStartDate(event({ eventDate: null }), '2026-08-15')).toBe(false);
   });
 
   it('excludes adjacent-month spillover from month summary totals', () => {

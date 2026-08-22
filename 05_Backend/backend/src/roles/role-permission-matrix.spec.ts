@@ -31,6 +31,21 @@ describe('Role permission matrix', () => {
     expect(seed).toContain("!p.code.startsWith('roles.manage')");
   });
 
+  it('grants robo.chat only through owner/admin defaults, not manager/staff/viewer lists', () => {
+    expect(seed).toContain("code: 'robo.chat'");
+    expect(seed).toContain("module: 'robo'");
+    expect(seed).toContain("action: 'chat'");
+    const managerBlock = seed.slice(seed.indexOf('manager: ['), seed.indexOf('staff: ['));
+    const staffBlock = seed.slice(seed.indexOf('staff: ['), seed.indexOf('viewer: ['));
+    const viewerBlock = seed.slice(
+      seed.indexOf('viewer: ['),
+      seed.indexOf('};', seed.indexOf('viewer: [')),
+    );
+    expect(managerBlock).not.toContain('robo.chat');
+    expect(staffBlock).not.toContain('robo.chat');
+    expect(viewerBlock).not.toContain('robo.chat');
+  });
+
   it('gives Staff create on clients/bookings/payments/expenses but not archive', () => {
     const staffBlock = seed.slice(seed.indexOf('staff: ['), seed.indexOf('viewer: ['));
     expect(staffBlock).toContain("'clients.create'");

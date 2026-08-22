@@ -242,4 +242,8 @@ export const bookingOperationsService = {
     );
     return data.data;
   },
+
+  async deleteReminder(bookingId: string, reminderId: string): Promise<void> {
+    await apiClient.delete(`/bookings/${bookingId}/reminders/${reminderId}`);
+  },
 };

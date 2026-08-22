@@ -119,48 +119,52 @@ export function UserFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-md overflow-y-auto">
-        <div className="mb-6 flex items-start justify-between">
+    <div className="dhara-usr-modal">
+      <div className="dhara-usr-modal-card">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">
-              {isEdit ? 'Edit User' : 'Add User'}
-            </h2>
-            <p className="mt-1 text-sm text-gray-400">
+            <h2>{isEdit ? 'Edit User' : 'Add User'}</h2>
+            <p className="dhara-usr-modal-sub">
               {isEdit ? 'Update account details and roles' : 'Create a new ERP login'}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-usr-icon-btn" aria-label="Close">
+            <X />
           </button>
         </div>
 
         {isEdit ? (
-          <form onSubmit={editForm.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={editForm.handleSubmit(onSubmit)} className="dhara-usr-form">
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Full Name</label>
-              <input className="input-field" {...editForm.register('fullName')} />
+              <label>Full Name</label>
+              <input className="dhara-usr-input" {...editForm.register('fullName')} />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Email</label>
-              <input className="input-field" {...editForm.register('email')} />
+              <label>Email</label>
+              <input className="dhara-usr-input" {...editForm.register('email')} />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">New Password</label>
-              <input type="password" className="input-field" placeholder="Leave blank to keep current" {...editForm.register('password')} />
+              <label>New Password</label>
+              <input
+                type="password"
+                className="dhara-usr-input"
+                placeholder="Leave blank to keep current"
+                autoComplete="new-password"
+                {...editForm.register('password')}
+              />
               {editForm.formState.errors.password && (
-                <p className="mt-1 text-xs text-red-400">{editForm.formState.errors.password.message}</p>
+                <p className="dhara-usr-err">{editForm.formState.errors.password.message}</p>
               )}
             </div>
-            <label className="flex items-center gap-2 text-sm text-gray-300">
-              <input type="checkbox" className="rounded border-surface-border" {...editForm.register('isActive')} />
+            <label className="dhara-usr-check">
+              <input type="checkbox" {...editForm.register('isActive')} />
               Active
             </label>
             <div>
-              <label className="mb-2 block text-sm text-gray-300">Roles</label>
-              <div className="space-y-2">
+              <label>Roles</label>
+              <div className="mt-2 space-y-2">
                 {roles.map((role) => (
-                  <label key={role.id} className="flex items-center gap-2 text-sm text-gray-300">
+                  <label key={role.id} className="dhara-usr-check">
                     <input
                       type="checkbox"
                       checked={editForm.watch('roleIds').includes(role.id)}
@@ -175,35 +179,42 @@ export function UserFormModal({
                 ))}
               </div>
             </div>
-            <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <div className="dhara-usr-form-actions">
+              <button type="button" className="dhara-usr-btn" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="submit" className="dhara-usr-btn is-gold" disabled={isSubmitting}>
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </form>
         ) : (
-          <form onSubmit={createForm.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={createForm.handleSubmit(onSubmit)} className="dhara-usr-form">
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Full Name</label>
-              <input className="input-field" {...createForm.register('fullName')} />
+              <label>Full Name</label>
+              <input className="dhara-usr-input" {...createForm.register('fullName')} />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Email</label>
-              <input className="input-field" {...createForm.register('email')} />
+              <label>Email</label>
+              <input className="dhara-usr-input" {...createForm.register('email')} />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Password</label>
-              <input type="password" className="input-field" {...createForm.register('password')} />
+              <label>Password</label>
+              <input
+                type="password"
+                className="dhara-usr-input"
+                autoComplete="new-password"
+                {...createForm.register('password')}
+              />
               {createForm.formState.errors.password && (
-                <p className="mt-1 text-xs text-red-400">{createForm.formState.errors.password.message}</p>
+                <p className="dhara-usr-err">{createForm.formState.errors.password.message}</p>
               )}
             </div>
             <div>
-              <label className="mb-2 block text-sm text-gray-300">Roles</label>
-              <div className="space-y-2">
+              <label>Roles</label>
+              <div className="mt-2 space-y-2">
                 {roles.map((role) => (
-                  <label key={role.id} className="flex items-center gap-2 text-sm text-gray-300">
+                  <label key={role.id} className="dhara-usr-check">
                     <input
                       type="checkbox"
                       checked={createForm.watch('roleIds').includes(role.id)}
@@ -218,9 +229,11 @@ export function UserFormModal({
                 ))}
               </div>
             </div>
-            <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <div className="dhara-usr-form-actions">
+              <button type="button" className="dhara-usr-btn" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="submit" className="dhara-usr-btn is-gold" disabled={isSubmitting}>
                 {isSubmitting ? 'Creating...' : 'Create User'}
               </button>
             </div>

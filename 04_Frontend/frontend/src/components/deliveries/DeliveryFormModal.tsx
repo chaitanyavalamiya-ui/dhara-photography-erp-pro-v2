@@ -10,6 +10,7 @@ import {
   DeliverableType,
   DeliveryStatus,
 } from '@/services/deliveries-service';
+import '@/pages/deliveries/deliveries-page.css';
 
 interface DeliveryFormModalProps {
   open: boolean;
@@ -17,6 +18,7 @@ interface DeliveryFormModalProps {
   delivery?: DeliveryItem | null;
   prefillBookingId?: string;
   isSubmitting?: boolean;
+  premium?: boolean;
   onClose: () => void;
   onSubmit: (values: {
     bookingId: string;
@@ -36,6 +38,7 @@ export function DeliveryFormModal({
   delivery,
   prefillBookingId,
   isSubmitting,
+  premium = false,
   onClose,
   onSubmit,
 }: DeliveryFormModalProps) {
@@ -117,17 +120,36 @@ export function DeliveryFormModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-lg overflow-y-auto">
+    <div
+      className={
+        premium
+          ? 'dhara-del dhara-del-modal'
+          : 'fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4'
+      }
+    >
+      <div
+        className={
+          premium
+            ? 'dhara-del-modal-card'
+            : 'card max-h-[90vh] w-full max-w-lg overflow-y-auto'
+        }
+      >
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">
+            <h2 className={premium ? undefined : 'font-display text-xl font-semibold text-gold'}>
               {isEdit ? 'Update Delivery' : 'Add Delivery Item'}
             </h2>
-            <p className="mt-1 text-sm text-gray-400">Track client deliverables for a booking.</p>
+            <p className={premium ? 'dhara-del-modal-sub' : 'mt-1 text-sm text-gray-400'}>
+              Track client deliverables for a booking.
+            </p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
-            <X className="h-5 w-5" />
+          <button
+            type="button"
+            onClick={onClose}
+            className={premium ? 'dhara-del-icon-btn' : 'rounded-lg p-2 text-gray-400 hover:text-gold'}
+            aria-label="Close"
+          >
+            <X className={premium ? undefined : 'h-5 w-5'} />
           </button>
         </div>
 
@@ -146,7 +168,7 @@ export function DeliveryFormModal({
               notes,
             });
           }}
-          className="space-y-4"
+          className={premium ? 'dhara-del-form' : 'space-y-4'}
         >
           <div>
             <label className="mb-1.5 block text-sm text-gray-300">Booking</label>
@@ -253,11 +275,15 @@ export function DeliveryFormModal({
             />
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className={premium ? 'dhara-del-form-actions' : 'flex justify-end gap-3 border-t border-surface-border pt-5'}>
+            <button type="button" className={premium ? 'dhara-del-btn' : 'btn-secondary'} onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            <button
+              type="submit"
+              className={premium ? 'dhara-del-btn is-gold' : 'btn-primary'}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Delivery'}
             </button>
           </div>

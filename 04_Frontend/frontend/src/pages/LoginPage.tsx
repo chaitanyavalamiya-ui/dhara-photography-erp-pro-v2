@@ -1,10 +1,29 @@
-import { useEffect } from 'react';
+/**
+ * FINAL LOCKED LOGIN PAGE — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
+ *
+ * This file is the approved Login Page baseline. Do not change markup, copy,
+ * layout, styling hooks, assets, or login behavior unless the user explicitly
+ * requests a specific Login Page change.
+ */
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
-import { Camera } from 'lucide-react';
+import {
+  BarChart3,
+  Building2,
+  CalendarDays,
+  FileText,
+  Images,
+  Lock,
+  LogIn,
+  Mail,
+  Settings,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 import { useAuthStore } from '@/stores/auth-store';
 import { authService } from '@/services/auth-service';
 import { getLoginErrorMessage } from '@/utils/api-error';
@@ -13,6 +32,18 @@ import {
   peekRememberedPostLoginPath,
   clearRememberedPostLoginPath,
 } from '@/utils/post-login-path';
+import './login-page.css';
+
+const REMEMBER_KEY = 'dhara-login-remember';
+
+const FEATURES = [
+  { icon: CalendarDays, label: 'કૅલેન્ડર બુકિંગ મેનેજમેન્ટ' },
+  { icon: Users, label: 'ક્લાયન્ટ સંબંધ વ્યવસ્થાપન' },
+  { icon: FileText, label: 'ઇન્વોઇસ અને પેમેન્ટ' },
+  { icon: Images, label: 'ગેલેરી મેનેજમેન્ટ' },
+  { icon: BarChart3, label: 'રિપોર્ટ્સ અને એનાલિટિક્સ' },
+  { icon: Settings, label: 'સેટિંગ્સ અને કસ્ટમાઇઝેશન' },
+] as const;
 
 const loginSchema = z.object({
   companyCode: z.string().trim().min(1, 'Studio code is required').max(64, 'Studio code is too long'),
@@ -26,9 +57,29 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>;
 
+function readRememberedCredentials(): Pick<LoginForm, 'companyCode' | 'email'> & { remember: boolean } {
+  try {
+    const raw = localStorage.getItem(REMEMBER_KEY);
+    if (!raw) {
+      return { remember: false, companyCode: '', email: '' };
+    }
+    const parsed = JSON.parse(raw) as { companyCode?: string; email?: string };
+    return {
+      remember: true,
+      companyCode: parsed.companyCode ?? '',
+      email: parsed.email ?? '',
+    };
+  } catch {
+    return { remember: false, companyCode: '', email: '' };
+  }
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const remembered = readRememberedCredentials();
+  const [rememberMe, setRememberMe] = useState(remembered.remember);
+  const [forgotHint, setForgotHint] = useState(false);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const setAuth = useAuthStore((s) => s.setAuth);
   const postLoginPath = resolvePostLoginPath(
@@ -42,6 +93,11 @@ export function LoginPage() {
     formState: { errors },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      companyCode: remembered.companyCode,
+      email: remembered.email,
+      password: '',
+    },
   });
 
   useEffect(() => {
@@ -59,118 +115,188 @@ export function LoginPage() {
     },
   });
 
-  const onSubmit = (data: LoginForm) => {
-    loginMutation.mutate(data);
-  };
-
   return (
-    <div className="flex min-h-screen">
-      <div className="hidden flex-1 flex-col justify-between bg-maroon-dark p-12 lg:flex">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gold/20">
-              <Camera className="h-6 w-6 text-gold" />
-            </div>
-            <div>
-              <p className="font-display text-xl font-bold text-gold">Dhara Photography</p>
-              <p className="text-sm text-gray-400">Patan — Premium Wedding Studio</p>
-            </div>
-          </div>
-        </div>
+    <div className="dhara-login">
+      <div className="dhara-login__background" aria-hidden />
+      <div className="dhara-login__frame" aria-hidden />
+      <span className="dhara-login__corner dhara-login__corner--tl" aria-hidden />
+      <span className="dhara-login__corner dhara-login__corner--tr" aria-hidden />
+      <span className="dhara-login__corner dhara-login__corner--bl" aria-hidden />
+      <span className="dhara-login__corner dhara-login__corner--br" aria-hidden />
 
-        <div className="space-y-4">
-          <h2 className="font-display text-4xl font-bold leading-tight text-white">
-            Manage your studio
+      <div className="dhara-login__content">
+        <section className="dhara-login__brand" aria-label="Dhara Photography branding">
+          <p className="dhara-login__kicker">|| યાદે કૃષ્ણ: ||</p>
+          <h1 className="dhara-login__title">
+            ધારા
             <br />
-            <span className="text-gold">with elegance.</span>
-          </h2>
-          <p className="max-w-md text-gray-400">
-            Professional ERP for bookings, clients, invoices, and studio operations.
+            ફોટોગ્રાફી
+          </h1>
+          <p className="dhara-login__erp">ERP PRO</p>
+          <div className="dhara-login__rule dhara-login__rule--short" aria-hidden />
+          <p className="dhara-login__tagline">તમારું સ્ટુડિયો, અમારી ટેકનોલોજી</p>
+          <p className="dhara-login__desc">
+            બુકિંગ, ક્લાયન્ટ, ઇન્વોઇસ, ગેલેરી, એકાઉન્ટ્સ અને
+            <br />
+            અન્ય સ્ટુડિયો મેનેજમેન્ટ માટે સંપૂર્ણ ERP સોલ્યુશન.
           </p>
-        </div>
 
-        <p className="text-xs text-gray-600">
-          © {new Date().getFullYear()} Dhara Photography Patan
-        </p>
-      </div>
+          <ul className="dhara-login__features">
+            {FEATURES.map(({ icon: Icon, label }) => (
+              <li key={label}>
+                <span className="dhara-login__feature-icon" aria-hidden>
+                  <Icon />
+                </span>
+                {label}
+              </li>
+            ))}
+          </ul>
 
-      <div className="flex flex-1 items-center justify-center bg-surface p-8">
-        <div className="w-full max-w-md">
-          <div className="mb-8 lg:hidden">
-            <p className="font-display text-2xl font-bold text-gold">Dhara Photography</p>
-            <p className="text-sm text-gray-500">Patan</p>
-          </div>
+          <div className="dhara-login__rule" aria-hidden />
+          <p className="dhara-login__credit">
+            © 2025 Dhara Photography Patan
+            <br />
+            All rights reserved.
+          </p>
+        </section>
 
-          <h1 className="mb-2 text-2xl font-semibold text-gray-100">Welcome back</h1>
-          <p className="mb-8 text-sm text-gray-500">Sign in with your studio code and account</p>
+        <div className="dhara-login__stage" aria-hidden />
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div>
-              <label htmlFor="companyCode" className="mb-1.5 block text-sm font-medium text-gray-300">
-                Studio code
-              </label>
-              <input
-                id="companyCode"
-                type="text"
-                autoComplete="organization"
-                className="input-field"
-                placeholder="DHARA-PATAN"
-                {...register('companyCode')}
-              />
-              {errors.companyCode && (
-                <p className="mt-1 text-xs text-red-400">{errors.companyCode.message}</p>
-              )}
+        <section className="dhara-login__panel" aria-label="Login">
+          <div className="dhara-login__card">
+            <span className="dhara-login__card-corner dhara-login__card-corner--tl" aria-hidden />
+            <span className="dhara-login__card-corner dhara-login__card-corner--tr" aria-hidden />
+            <span className="dhara-login__card-corner dhara-login__card-corner--bl" aria-hidden />
+            <span className="dhara-login__card-corner dhara-login__card-corner--br" aria-hidden />
+
+            <div className="dhara-login__card-ornament" aria-hidden>
+              <span />
+              ◆
+              <span />
             </div>
+            <h2 className="dhara-login__card-title">સ્વાગત છે</h2>
+            <p className="dhara-login__card-sub">કૃપા કરીને તમારા સ્ટુડિયો એકાઉન્ટમાં સાઇન ઇન કરો</p>
 
-            <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-gray-300">
-                Email
-              </label>
-              <input
-                id="email"
-                type="text"
-                inputMode="email"
-                autoComplete="email"
-                className="input-field"
-                placeholder="admin@dharaphotography.local"
-                {...register('email')}
-              />
-              {errors.email && <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-300">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                className="input-field"
-                placeholder="••••••••"
-                {...register('password')}
-              />
-              {errors.password && (
-                <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
-              )}
-            </div>
-
-            {loginMutation.isError && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                {getLoginErrorMessage(loginMutation.error)}
+            <form
+              onSubmit={handleSubmit((data) => {
+                if (rememberMe) {
+                  localStorage.setItem(
+                    REMEMBER_KEY,
+                    JSON.stringify({ companyCode: data.companyCode, email: data.email }),
+                  );
+                } else {
+                  localStorage.removeItem(REMEMBER_KEY);
+                }
+                loginMutation.mutate(data);
+              })}
+            >
+              <div>
+                <label htmlFor="companyCode">સ્ટુડિયો કોડ</label>
+                <div className="dhara-login__input-wrap">
+                  <Building2 className="dhara-login__input-icon" aria-hidden />
+                  <input
+                    id="companyCode"
+                    type="text"
+                    autoComplete="organization"
+                    className="input-field"
+                    placeholder="DHARA-PATAN"
+                    {...register('companyCode')}
+                  />
+                </div>
+                {errors.companyCode && (
+                  <p className="mt-1 text-xs text-red-400">{errors.companyCode.message}</p>
+                )}
               </div>
-            )}
 
-            <button type="submit" disabled={loginMutation.isPending} className="btn-primary w-full">
-              {loginMutation.isPending ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
+              <div>
+                <label htmlFor="email">ઈમેઈલ</label>
+                <div className="dhara-login__input-wrap">
+                  <Mail className="dhara-login__input-icon" aria-hidden />
+                  <input
+                    id="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    className="input-field"
+                    placeholder="admin@dharaphotography.local"
+                    {...register('email')}
+                  />
+                </div>
+                {errors.email && <p className="mt-1 text-xs text-red-400">{errors.email.message}</p>}
+              </div>
 
-          <p className="mt-6 text-center text-xs text-gray-600">
-            Development credentials are configured via environment variables.
-          </p>
-        </div>
+              <div>
+                <label htmlFor="password">પાસવર્ડ</label>
+                <div className="dhara-login__input-wrap">
+                  <Lock className="dhara-login__input-icon" aria-hidden />
+                  <input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    className="input-field"
+                    placeholder="••••••••"
+                    {...register('password')}
+                  />
+                </div>
+                {errors.password && (
+                  <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
+                )}
+              </div>
+
+              <div className="dhara-login__row">
+                <label className="dhara-login__remember" htmlFor="rememberMe">
+                  <input
+                    id="rememberMe"
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(event) => setRememberMe(event.target.checked)}
+                  />
+                  મને યાદ રાખો
+                </label>
+                <button
+                  type="button"
+                  className="dhara-login__forgot"
+                  onClick={() => setForgotHint(true)}
+                >
+                  પાસવર્ડ ભૂલી ગયા?
+                </button>
+              </div>
+              {forgotHint && (
+                <p className="dhara-login__forgot-hint">
+                  પાસવર્ડ રીસેટ માટે સ્ટુડિયો એડમિનનો સંપર્ક કરો.
+                </p>
+              )}
+
+              {loginMutation.isError && (
+                <div className="dhara-login__error" role="alert">
+                  {getLoginErrorMessage(loginMutation.error)}
+                </div>
+              )}
+
+              <button type="submit" disabled={loginMutation.isPending} className="btn-primary w-full">
+                <LogIn aria-hidden />
+                {loginMutation.isPending ? 'Signing in...' : 'સાઇન ઇન કરો'}
+              </button>
+            </form>
+
+            <p className="dhara-login__secure">
+              <ShieldCheck aria-hidden />
+              તમારી માહિતી સુરક્ષિત અને ગુપ્ત રાખવામાં આવે છે.
+            </p>
+            <div className="dhara-login__card-ornament dhara-login__card-ornament--footer" aria-hidden>
+              <span />
+              ◆
+              <span />
+            </div>
+          </div>
+        </section>
       </div>
+
+      <p className="dhara-login__quote">
+        <span className="dhara-login__quote-flourish" aria-hidden />
+        <span className="dhara-login__quote-text">|| કર્મણ્યેવાધિકારસ્તે મા ફલેષુ કદાચન ||</span>
+        <span className="dhara-login__quote-flourish" aria-hidden />
+      </p>
     </div>
   );
 }

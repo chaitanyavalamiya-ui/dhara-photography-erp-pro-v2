@@ -1,5 +1,6 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { RequirePermissions } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { RoboService } from './robo.service';
@@ -12,6 +13,7 @@ export class RoboController {
   constructor(private readonly roboService: RoboService) {}
 
   @Post('chat')
+  @RequirePermissions('robo.chat')
   @ApiOperation({ summary: 'Ask Robo a read-only ERP question' })
   async chat(
     @CurrentUser() user: JwtPayload,

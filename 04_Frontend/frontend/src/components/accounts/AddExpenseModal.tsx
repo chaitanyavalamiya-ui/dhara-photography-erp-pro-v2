@@ -13,6 +13,7 @@ import {
   getExpenseSourceLabel,
   isSystemLinkedExpense,
 } from '@/services/expenses-service';
+import '@/pages/expenses/expenses-page.css';
 
 const schema = z.object({
   categoryCode: z.string().min(1, 'Select category'),
@@ -108,37 +109,33 @@ export function AddExpenseModal({
   const sourceDescription = expense ? getExpenseSourceDescription(getExpenseSource(expense)) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[90vh] w-full max-w-md overflow-y-auto">
+    <div className="dhara-exp dhara-exp-modal">
+      <div className="dhara-exp-modal-card">
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">
-              {isEdit ? 'Edit Expense' : 'Add Expense'}
-            </h2>
-            <p className="mt-1 text-sm text-gray-400">
+            <h2>{isEdit ? 'Edit Expense' : 'Add Expense'}</h2>
+            <p className="dhara-exp-modal-sub">
               {isEdit ? 'Update expense details' : 'Record a studio expense'}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 hover:text-gold"
-          >
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-exp-icon-btn" aria-label="Close">
+            <X />
           </button>
         </div>
 
         {locked && expense && (
-          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-            <p className="font-medium">{getExpenseSourceLabel(getExpenseSource(expense))}</p>
-            <p className="mt-1 text-xs text-amber-100/80">{sourceDescription}</p>
+          <div className="dhara-exp-flash is-bad" style={{ marginBottom: '1rem' }}>
+            <p>{getExpenseSourceLabel(getExpenseSource(expense))}</p>
+            <p className="dhara-exp-note" style={{ margin: '0.35rem 0 0' }}>
+              {sourceDescription}
+            </p>
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="dhara-exp-form">
           <fieldset disabled={locked} className="space-y-4 disabled:opacity-60">
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Category</label>
+              <label>Category</label>
               <select className="input-field" {...register('categoryCode')}>
                 {categoryOptions.options.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -147,12 +144,12 @@ export function AddExpenseModal({
                 ))}
               </select>
               {errors.categoryCode && (
-                <p className="mt-1 text-xs text-red-400">{errors.categoryCode.message}</p>
+                <p className="dhara-exp-err">{errors.categoryCode.message}</p>
               )}
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Amount (₹)</label>
+              <label>Amount (₹)</label>
               <input
                 type="number"
                 min="0.01"
@@ -160,31 +157,27 @@ export function AddExpenseModal({
                 className="input-field"
                 {...register('amount', { valueAsNumber: true })}
               />
-              {errors.amount && (
-                <p className="mt-1 text-xs text-red-400">{errors.amount.message}</p>
-              )}
+              {errors.amount && <p className="dhara-exp-err">{errors.amount.message}</p>}
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Date</label>
+              <label>Date</label>
               <input type="date" className="input-field" {...register('expenseDate')} />
-              {errors.expenseDate && (
-                <p className="mt-1 text-xs text-red-400">{errors.expenseDate.message}</p>
-              )}
+              {errors.expenseDate && <p className="dhara-exp-err">{errors.expenseDate.message}</p>}
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Description</label>
+              <label>Description</label>
               <input className="input-field" {...register('description')} />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Vendor / Person</label>
+              <label>Vendor / Person</label>
               <input className="input-field" {...register('vendorPerson')} />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Link to Booking</label>
+              <label>Link to Booking</label>
               <select className="input-field" {...register('bookingId')}>
                 <option value="">None</option>
                 {(bookingsQuery.data?.items ?? []).map((b) => (
@@ -196,7 +189,7 @@ export function AddExpenseModal({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Payment Method</label>
+              <label>Payment Method</label>
               <select className="input-field" {...register('paymentModeCode')}>
                 <option value="">None</option>
                 {paymentModeOptions.options.map((opt) => (
@@ -208,7 +201,7 @@ export function AddExpenseModal({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Receipt / Reference</label>
+              <label>Receipt / Reference</label>
               <input
                 className="input-field"
                 placeholder="Bill no., UTR, or receipt number"
@@ -217,17 +210,17 @@ export function AddExpenseModal({
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Notes</label>
+              <label>Notes</label>
               <textarea rows={2} className="input-field resize-none" {...register('notes')} />
             </div>
           </fieldset>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+          <div className="dhara-exp-form-actions">
+            <button type="button" className="dhara-exp-btn" onClick={onClose}>
               {locked ? 'Close' : 'Cancel'}
             </button>
             {!locked && (
-              <button type="submit" className="btn-primary" disabled={isSubmitting}>
+              <button type="submit" className="dhara-exp-btn is-gold" disabled={isSubmitting}>
                 {isSubmitting ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Expense'}
               </button>
             )}

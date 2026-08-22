@@ -1,6 +1,10 @@
+/**
+ * LOCKED APPROVED BASELINE:
+ * Do not modify this Gallery module without an explicit user request.
+ */
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, Image, Plus, Search, Trash2 } from 'lucide-react';
+import { AlertCircle, Camera, Eye, Images, Plus, Search, Trash2 } from 'lucide-react';
 import { ClientSearchSelect } from '@/components/clients/ClientSearchSelect';
 import { bookingsService } from '@/services/bookings-service';
 import {
@@ -12,8 +16,14 @@ import { useAuthStore } from '@/stores/auth-store';
 import { CreateGalleryModal } from '@/components/gallery/CreateGalleryModal';
 import { GalleryDetailModal } from '@/components/gallery/GalleryDetailModal';
 import { ArchiveGalleryDialog } from '@/components/gallery/ArchiveGalleryDialog';
+import {
+  galleryEventTone,
+  galleryStatusLabel,
+  galleryStatusTone,
+} from '@/components/gallery/gallery-visual';
 import { getApiErrorMessage } from '@/utils/api-error';
 import { cn } from '@/utils/cn';
+import './gallery/gallery-page.css';
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -22,21 +32,6 @@ function formatDate(value?: string | null) {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function statusBadgeClass(status: string) {
-  switch (status) {
-    case 'active':
-      return 'bg-green-500/15 text-green-400 border-green-500/30';
-    case 'client_review':
-      return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
-    case 'approved':
-      return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
-    case 'delivered':
-      return 'bg-gold/15 text-gold border-gold/30';
-    default:
-      return 'bg-gray-500/15 text-gray-400 border-gray-500/30';
-  }
 }
 
 export function GalleryPage() {
@@ -48,6 +43,8 @@ export function GalleryPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [clientFilter, setClientFilter] = useState('');
   const [bookingFilter, setBookingFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'eventDate' | 'name'>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -73,7 +70,7 @@ export function GalleryPage() {
   });
 
   const listQuery = useQuery({
-    queryKey: ['galleries', page, search, statusFilter, clientFilter, bookingFilter],
+    queryKey: ['galleries', page, search, statusFilter, clientFilter, bookingFilter, sortBy, sortOrder],
     queryFn: () =>
       galleriesService.list({
         page,
@@ -82,8 +79,8 @@ export function GalleryPage() {
         status: statusFilter,
         clientId: clientFilter || undefined,
         bookingId: bookingFilter || undefined,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
+        sortBy,
+        sortOrder,
       }),
   });
 
@@ -145,196 +142,263 @@ export function GalleryPage() {
     bookingOptions.unshift(selectedBookingQuery.data);
   }
 
+  const matchingGalleries = listQuery.data?.total;
+  const photosInView = galleries.reduce((sum, gallery) => sum + gallery.photoCount, 0);
+  const galleriesWithPhotos = galleries.filter((gallery) => gallery.photoCount > 0).length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="dhara-gallery">
+      <section className="dhara-gal-hero">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-gold">Gallery</h1>
-          <p className="text-sm text-gray-400">Manage client photo galleries linked to bookings</p>
+          <p className="dhara-gal-kicker">DHARA PHOTOGRAPHY ERP PRO</p>
+          <h2>Gallery Management</h2>
+          <p className="dhara-gal-hero-copy">
+            ક્લાયન્ટની યાદો, ફોટા અને ગેલેરીને સુંદર રીતે સંભાળો અને સાચવો.
+          </p>
         </div>
-        {canCreate && (
-          <button type="button" className="btn-primary" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 inline h-4 w-4" />
-            Create Gallery
-          </button>
-        )}
+        <div className="dhara-gal-hero-art" aria-hidden>
+          <svg viewBox="0 0 120 120" fill="none">
+            <rect x="18" y="28" width="84" height="64" rx="12" stroke="#ffd45a" strokeWidth="2.4" />
+            <circle cx="60" cy="60" r="18" stroke="#22d3ee" strokeWidth="2.2" />
+            <circle cx="60" cy="60" r="8" fill="#ff4ec8" />
+            <rect x="78" y="36" width="14" height="10" rx="3" fill="rgba(255,212,90,0.35)" stroke="#ffd45a" />
+            <path d="M32 92h56" stroke="#ffe7b8" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </div>
+      </section>
+
+      <div className="dhara-gal-kpis">
+        <article className="dhara-gal-kpi is-gold">
+          <div className="dhara-gal-kpi-top">
+            <h3>Matching Galleries</h3>
+            <span className="dhara-gal-icon">
+              <Images strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : matchingGalleries ?? 0}</strong>
+        </article>
+        <article className="dhara-gal-kpi is-cyan">
+          <div className="dhara-gal-kpi-top">
+            <h3>Photos On This Page</h3>
+            <span className="dhara-gal-icon">
+              <Camera strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : photosInView}</strong>
+        </article>
+        <article className="dhara-gal-kpi is-magenta">
+          <div className="dhara-gal-kpi-top">
+            <h3>With Photos (Page)</h3>
+            <span className="dhara-gal-icon">
+              <Eye strokeWidth={2.35} absoluteStrokeWidth />
+            </span>
+          </div>
+          <strong>{listQuery.isLoading ? '—' : galleriesWithPhotos}</strong>
+        </article>
       </div>
 
       {feedback && (
-        <div
-          className={cn(
-            'rounded-lg border px-4 py-3 text-sm',
-            feedback.type === 'success'
-              ? 'border-green-500/30 bg-green-500/10 text-green-400'
-              : 'border-red-500/30 bg-red-500/10 text-red-400',
-          )}
-        >
+        <div className={cn('dhara-gal-flash', feedback.type === 'success' ? 'is-ok' : 'is-bad')}>
           {feedback.message}
         </div>
       )}
 
-      <div className="card space-y-4">
-        <form onSubmit={handleSearch} className="flex flex-col gap-3 lg:flex-row lg:items-end">
-          <div className="flex-1">
-            <label className="mb-1.5 block text-xs text-gray-500">Search</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+      <form className="dhara-gal-panel dhara-gal-toolbar" onSubmit={handleSearch}>
+        <div className="dhara-gal-toolbar-row">
+          <div className="dhara-gal-field is-search">
+            <label htmlFor="gallery-search">Search</label>
+            <div className="dhara-gal-input-wrap">
+              <Search aria-hidden />
               <input
-                className="input-field pl-10"
+                id="gallery-search"
+                className="dhara-gal-input is-icon"
                 placeholder="Gallery name, client, booking..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
           </div>
-
-          <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500">Client</label>
-              <ClientSearchSelect
-                value={clientFilter}
-                onChange={(clientId) => {
-                  setClientFilter(clientId);
-                  setPage(1);
-                }}
-                emptyLabel="All clients"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500">Booking</label>
-              <select
-                className="input-field"
-                value={bookingFilter}
-                onChange={(e) => {
-                  setBookingFilter(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">All bookings</option>
-                {(bookingOptions).map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.bookingNumber} — {b.client.fullName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs text-gray-500">Status</label>
-              <select
-                className="input-field"
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="all">All statuses</option>
-                {GALLERY_STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="dhara-gal-field">
+            <label>Client</label>
+            <ClientSearchSelect
+              value={clientFilter}
+              onChange={(clientId) => {
+                setClientFilter(clientId);
+                setPage(1);
+              }}
+              emptyLabel="All clients"
+            />
           </div>
-
-          <button type="submit" className="btn-secondary whitespace-nowrap">
+          <div className="dhara-gal-field">
+            <label htmlFor="gallery-booking">Booking</label>
+            <select
+              id="gallery-booking"
+              className="input-field"
+              value={bookingFilter}
+              onChange={(e) => {
+                setBookingFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All bookings</option>
+              {bookingOptions.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.bookingNumber} — {b.client.fullName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="dhara-gal-field">
+            <label htmlFor="gallery-status">Status</label>
+            <select
+              id="gallery-status"
+              className="input-field"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="all">All statuses</option>
+              {GALLERY_STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="dhara-gal-field">
+            <label htmlFor="gallery-sort">Sort</label>
+            <select
+              id="gallery-sort"
+              className="input-field"
+              value={`${sortBy}:${sortOrder}`}
+              onChange={(e) => {
+                const [nextSort, nextOrder] = e.target.value.split(':') as [
+                  'createdAt' | 'eventDate' | 'name',
+                  'asc' | 'desc',
+                ];
+                setSortBy(nextSort);
+                setSortOrder(nextOrder);
+                setPage(1);
+              }}
+            >
+              <option value="createdAt:desc">Newest created</option>
+              <option value="createdAt:asc">Oldest created</option>
+              <option value="eventDate:desc">Event date (newest)</option>
+              <option value="eventDate:asc">Event date (oldest)</option>
+              <option value="name:asc">Name A–Z</option>
+              <option value="name:desc">Name Z–A</option>
+            </select>
+          </div>
+          <button type="submit" className="dhara-gal-btn is-cyan">
             Search
           </button>
-        </form>
-      </div>
+          {canCreate && (
+            <button type="button" className="dhara-gal-btn is-gold" onClick={() => setCreateOpen(true)}>
+              <Plus strokeWidth={2.5} absoluteStrokeWidth />
+              Create Gallery
+            </button>
+          )}
+        </div>
+      </form>
 
       {listQuery.isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="dhara-gal-grid">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="card h-40 animate-pulse bg-surface-elevated" />
+            <div key={i} className="dhara-gal-card dhara-gal-skeleton" />
           ))}
         </div>
       ) : listQuery.isError ? (
-        <div className="card border-red-500/30 text-red-400">
-          {getApiErrorMessage(listQuery.error, 'Failed to load galleries.')}
+        <div className="dhara-gal-error">
+          <AlertCircle strokeWidth={2.4} absoluteStrokeWidth />
+          <p>{getApiErrorMessage(listQuery.error, 'Failed to load galleries.')}</p>
+          <button type="button" className="dhara-gal-btn is-cyan" onClick={() => void listQuery.refetch()}>
+            Retry
+          </button>
         </div>
       ) : galleries.length === 0 ? (
-        <div className="card flex min-h-64 flex-col items-center justify-center text-center">
-          <Image className="h-12 w-12 text-gray-600" />
-          <p className="mt-3 text-gray-400">
+        <div className="dhara-gal-empty">
+          <Images strokeWidth={2.4} absoluteStrokeWidth />
+          <p>
             {hasFilters ? 'No galleries match your filters.' : 'No galleries yet.'}
           </p>
           {canCreate && !hasFilters && (
-            <button type="button" className="btn-primary mt-4" onClick={() => setCreateOpen(true)}>
+            <button type="button" className="dhara-gal-btn is-gold" onClick={() => setCreateOpen(true)}>
               Create your first gallery
             </button>
           )}
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="dhara-gal-grid">
             {galleries.map((gallery: Gallery) => (
-              <div key={gallery.id} className="card group transition hover:border-gold/40">
-                <div className="mb-3 flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-500">{gallery.bookingNumber}</p>
-                    <h3 className="truncate font-medium text-gray-100">{gallery.name}</h3>
-                    <p className="truncate text-sm text-gray-400">{gallery.clientName}</p>
-                  </div>
-                  <span
-                    className={cn(
-                      'shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase',
-                      statusBadgeClass(gallery.status),
-                    )}
-                  >
-                    {gallery.status.replace('_', ' ')}
+              <article
+                key={gallery.id}
+                className={cn('dhara-gal-card', galleryEventTone(gallery.eventType))}
+              >
+                <div className="dhara-gal-cover" aria-hidden>
+                  <Camera strokeWidth={2.2} absoluteStrokeWidth />
+                  <span className="dhara-gal-cover-meta">
+                    {gallery.photoCount} photo{gallery.photoCount === 1 ? '' : 's'}
                   </span>
                 </div>
-
-                <div className="mb-4 space-y-1 text-sm text-gray-400">
-                  <p>Event: {gallery.eventType || '—'}</p>
-                  <p>Date: {formatDate(gallery.eventDate)}</p>
-                  <p>{gallery.photoCount} photo{gallery.photoCount === 1 ? '' : 's'}</p>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary w-full text-xs"
-                    onClick={() => setDetailGalleryId(gallery.id)}
-                  >
-                    <Eye className="mr-1.5 inline h-3.5 w-3.5" />
-                    Open Gallery
-                  </button>
-                  {canArchive && (
+                <div className="dhara-gal-card-body">
+                  <div className="dhara-gal-card-top">
+                    <div className="min-w-0">
+                      <p>{gallery.bookingNumber}</p>
+                      <h3 className="truncate">{gallery.name}</h3>
+                    </div>
+                    <span className={cn('dhara-gal-status', galleryStatusTone(gallery.status))}>
+                      {galleryStatusLabel(gallery.status)}
+                    </span>
+                  </div>
+                  <p className="dhara-gal-card-client truncate">{gallery.clientName}</p>
+                  <p className="dhara-gal-card-meta">
+                    {gallery.eventType || 'Event'} · {formatDate(gallery.eventDate)}
+                  </p>
+                  <div className="dhara-gal-card-actions">
                     <button
                       type="button"
-                      className="btn-secondary px-3 text-xs text-red-400 hover:text-red-300"
-                      onClick={() => setArchiveGallery(gallery)}
-                      aria-label="Archive gallery"
+                      className="dhara-gal-btn is-cyan"
+                      style={{ flex: 1 }}
+                      onClick={() => setDetailGalleryId(gallery.id)}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Eye strokeWidth={2.4} absoluteStrokeWidth />
+                      Open Gallery
                     </button>
-                  )}
+                    {canArchive && (
+                      <button
+                        type="button"
+                        className="dhara-gal-btn is-danger"
+                        onClick={() => setArchiveGallery(gallery)}
+                        aria-label="Archive gallery"
+                      >
+                        <Trash2 strokeWidth={2.4} absoluteStrokeWidth />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
 
           {(listQuery.data?.totalPages ?? 1) > 1 && (
-            <div className="flex items-center justify-center gap-2">
+            <div className="dhara-gal-pager">
               <button
                 type="button"
-                className="btn-secondary px-3 py-1 text-xs"
+                className="dhara-gal-btn"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
               >
                 Previous
               </button>
-              <span className="text-sm text-gray-400">
+              <span>
                 Page {page} of {listQuery.data?.totalPages}
               </span>
               <button
                 type="button"
-                className="btn-secondary px-3 py-1 text-xs"
+                className="dhara-gal-btn"
                 disabled={page >= (listQuery.data?.totalPages ?? 1)}
                 onClick={() => setPage((p) => p + 1)}
               >

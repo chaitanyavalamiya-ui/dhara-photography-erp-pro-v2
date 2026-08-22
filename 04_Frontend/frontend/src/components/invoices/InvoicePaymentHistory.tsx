@@ -24,24 +24,24 @@ export function InvoicePaymentHistory({
 }: InvoicePaymentHistoryProps) {
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-surface-border bg-surface-elevated px-4 py-6 text-center text-sm text-gray-500">
-        Loading payment history...
+      <div className="dhara-inv-empty" style={{ minHeight: '8rem' }}>
+        <p>Loading payment history...</p>
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-6 text-center text-sm text-red-400">
-        Failed to load payment history.
+      <div className="dhara-inv-error" style={{ minHeight: '8rem' }}>
+        <p>Failed to load payment history.</p>
       </div>
     );
   }
 
   if (payments.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-surface-border px-4 py-6 text-center text-sm text-gray-500">
-        No payments recorded for this invoice yet.
+      <div className="dhara-inv-empty" style={{ minHeight: '8rem' }}>
+        <p>No payments recorded for this invoice yet.</p>
       </div>
     );
   }
@@ -51,66 +51,61 @@ export function InvoicePaymentHistory({
     .reduce((sum, payment) => sum + payment.amount, 0);
 
   return (
-    <div className="rounded-lg border border-surface-border bg-surface-elevated">
-      <div className="flex items-center justify-between border-b border-surface-border px-4 py-3">
-        <h3 className="font-display text-sm font-semibold text-gold">Payment History</h3>
-        <p className="text-xs text-gray-500">
+    <div className="dhara-inv-pay">
+      <div className="dhara-inv-pay-head">
+        <h3>Payment History</h3>
+        <p>
           Total paid:{' '}
-          <span className="font-semibold text-green-400">{formatCurrency(totalPaid)}</span>
+          <span className="font-extrabold text-[#86efac]">{formatCurrency(totalPaid)}</span>
         </p>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-sm">
+        <table>
           <thead>
-            <tr className="border-b border-surface-border text-xs uppercase tracking-wider text-gray-500">
-              <th className="px-4 py-2.5">Date</th>
-              <th className="px-4 py-2.5">Receipt</th>
-              <th className="px-4 py-2.5">Method</th>
-              <th className="px-4 py-2.5">Reference</th>
-              <th className="px-4 py-2.5 text-right">Amount</th>
-              {(canVoid || canEdit) && <th className="px-4 py-2.5 text-right">Actions</th>}
+            <tr>
+              <th>Date</th>
+              <th>Receipt</th>
+              <th>Method</th>
+              <th>Reference</th>
+              <th className="text-right">Amount</th>
+              {(canVoid || canEdit) && <th className="text-right">Actions</th>}
             </tr>
           </thead>
           <tbody>
             {payments.map((payment) => (
-              <tr key={payment.id} className="border-b border-surface-border/60 text-gray-300">
-                <td className="px-4 py-2.5">{formatDate(payment.paymentDate)}</td>
-                <td className="px-4 py-2.5">
+              <tr key={payment.id}>
+                <td>{formatDate(payment.paymentDate)}</td>
+                <td>
                   {payment.receiptNumber ?? '—'}
                   {payment.isVoided && (
-                    <span className="ml-2 rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] uppercase text-red-400">
-                      Voided
-                    </span>
+                    <span className="dhara-inv-status is-overdue ml-2">Voided</span>
                   )}
                 </td>
-                <td className="px-4 py-2.5">{payment.paymentModeLabel}</td>
-                <td className="px-4 py-2.5">{payment.transactionReference ?? '—'}</td>
+                <td>{payment.paymentModeLabel}</td>
+                <td>{payment.transactionReference ?? '—'}</td>
                 <td
                   className={
                     payment.isVoided
-                      ? 'px-4 py-2.5 text-right font-medium text-gray-500 line-through'
-                      : 'px-4 py-2.5 text-right font-medium text-green-400'
+                      ? 'text-right font-extrabold text-gray-500 line-through'
+                      : 'text-right font-extrabold text-[#86efac]'
                   }
                 >
                   {formatCurrency(payment.amount)}
                 </td>
                 {(canVoid || canEdit) && (
-                  <td className="px-4 py-2.5 text-right">
+                  <td className="text-right">
                     {!payment.isVoided && (
                       <div className="flex justify-end gap-3">
                         {canEdit && onEdit && (
-                          <button
-                            type="button"
-                            className="text-xs text-gold hover:text-gold/80"
-                            onClick={() => onEdit(payment)}
-                          >
+                          <button type="button" className="dhara-inv-btn is-cyan" style={{ minHeight: '2.5rem' }} onClick={() => onEdit(payment)}>
                             Edit
                           </button>
                         )}
                         {canVoid && onVoid && (
                           <button
                             type="button"
-                            className="text-xs text-red-400 hover:text-red-300"
+                            className="dhara-inv-btn is-danger"
+                            style={{ minHeight: '2.5rem' }}
                             disabled={isVoidingId === payment.id}
                             onClick={() => onVoid(payment)}
                           >

@@ -316,7 +316,7 @@ export function GalleryLightbox({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[70] flex flex-col bg-[#12080c]/95 backdrop-blur-sm"
+      className="dhara-gal-lightbox fixed inset-0 z-[70] flex flex-col"
       role="dialog"
       aria-modal="true"
       aria-label="Gallery photo viewer"
@@ -327,7 +327,7 @@ export function GalleryLightbox({
         aria-hidden="true"
       />
 
-      <div className="relative z-10 flex items-center justify-between gap-3 border-b border-gold/20 bg-[#1a0d12]/80 px-3 py-3 sm:px-5">
+      <div className="dhara-gal-lightbox-bar relative z-10 flex items-center justify-between gap-3 px-3 py-3 sm:px-5">
         <p className="truncate text-sm font-medium text-gold">
           {currentPhoto.originalName}
         </p>

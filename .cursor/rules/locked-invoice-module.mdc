@@ -1,0 +1,70 @@
+---
+description: Invoice module is a locked final design — never change it unless the user explicitly asks.
+alwaysApply: true
+---
+
+# LOCKED INVOICE MODULE — DO NOT MODIFY WITHOUT EXPLICIT USER APPROVAL
+
+The Invoice module is an approved, frozen baseline (premium cinematic Invoice Management UI plus the royal printable invoice paper). Do not change, redesign, restyle, restyle-via-globals, add, remove, resize, or reposition anything in it unless the user explicitly requests that specific Invoice change in the current conversation.
+
+This lock is independent of the Login Page, Dashboard, Clients Management, Calendar, Bookings, and Gallery locks. All remain fully in force.
+
+## Before editing any file below
+
+Require an explicit user instruction that clearly asks to modify Invoice (for example: “change the Invoice paper header” or “update the Invoice preview toolbar”). Unrelated work, other modules, refactors, “while we’re here” polish, and inferred improvements are not approval.
+
+## Locked files (do not edit without explicit approval)
+
+Page, styles, and visual helpers:
+
+- `04_Frontend/frontend/src/pages/InvoicesPage.tsx`
+- `04_Frontend/frontend/src/pages/invoices/invoices-page.css`
+- `04_Frontend/frontend/src/components/invoices/invoice-visual.ts`
+
+Invoice preview, document, and action UI:
+
+- `04_Frontend/frontend/src/components/invoices/InvoiceViewModal.tsx`
+- `04_Frontend/frontend/src/components/invoices/InvoiceViewModal.test.tsx`
+- `04_Frontend/frontend/src/components/invoices/InvoiceDocument.tsx`
+- `04_Frontend/frontend/src/components/invoices/InvoiceDocument.test.tsx`
+- `04_Frontend/frontend/src/components/invoices/invoice-paper-styles.ts`
+- `04_Frontend/frontend/src/components/invoices/InvoicePaymentHistory.tsx`
+- `04_Frontend/frontend/src/components/invoices/InvoicePaymentHistory.test.tsx`
+- `04_Frontend/frontend/src/components/invoices/GenerateInvoiceModal.tsx`
+- `04_Frontend/frontend/src/components/invoices/EditInvoiceModal.tsx`
+- `04_Frontend/frontend/src/components/invoices/InvoiceDeliverablesFields.tsx`
+
+Invoice-specific utilities, PDF/print helpers, and API client:
+
+- `04_Frontend/frontend/src/utils/invoice.ts`
+- `04_Frontend/frontend/src/utils/invoice-pdf.ts`
+- `04_Frontend/frontend/src/utils/invoice-pdf.test.ts`
+- `04_Frontend/frontend/src/utils/invoice-deliverables.ts`
+- `04_Frontend/frontend/src/utils/invoice-deliverables.test.ts`
+- `04_Frontend/frontend/src/services/invoices-service.ts`
+
+## Preserve exactly
+
+- Invoice Management layout and visual hierarchy (hero, KPIs, search/filters, table/cards, generate/edit/view flow)
+- Crystal/glass ERP chrome for the Invoice *module screens* (not the printable paper)
+- Invoice Preview modal layout and scroll behavior as last approved: viewport-fit modal, sticky action toolbar (Add Payment, Edit, Print, PDF, Share, WhatsApp, Close), body `scrollTop` reset on open, `overflow-anchor: none`, invoice document first then Payment History below — do not reintroduce the auto-scroll/jump bug
+- Premium royal invoice *paper* design (ivory A4, maroon/gold frame, typography, table, totals, stamp, footer tagline) as last approved
+- Existing Invoice functionality: list/get APIs, totals/calculations, deliverables, Print, PDF generation, Share, WhatsApp, payment history UI wiring, permissions, and routes
+- Invoice-related tests and their assertions
+
+## Other work must stay independent
+
+Work on Login, Dashboard, Clients, Bookings, Calendar, Gallery, and other modules without touching the files above.
+
+If you must change shared CSS, layout shells, or shared files that Invoice *calls* (`payments-service`, `AddPaymentModal`, `booking-form` formatters, `api-error`, `cn`):
+
+- Do not alter `.dhara-inv`, `.dhara-inv-*`, `.dhara-inv-paper`, `invoices-page.css`, or `invoice-paper-styles.ts`.
+- Scope new styles so they cannot override Invoice descendants or the printable paper.
+- Prefer new class names over changing globals used by Invoice.
+- Other modules may *call* those shared files, but must preserve Invoice’s current appearance and functionality exactly (including preview open-at-top behavior and `#invoice-document-print` capture for Print/PDF). Do not edit the locked Invoice files listed above without explicit Invoice approval.
+
+## Allowed exception
+
+Only modify the Invoice module when the user clearly asks for a specific Invoice change in that conversation.
+
+Do not weaken `.cursor/rules/locked-login-page.mdc`, `.cursor/rules/locked-dashboard.mdc`, `.cursor/rules/locked-clients-module.mdc`, `.cursor/rules/locked-calendar-module.mdc`, or `.cursor/rules/locked-gallery-module.mdc`.

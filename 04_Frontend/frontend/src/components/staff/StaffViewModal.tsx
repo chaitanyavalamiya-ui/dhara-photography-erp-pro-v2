@@ -4,6 +4,9 @@ import { StaffDetail } from '@/services/staff-service';
 import { equipmentService } from '@/services/equipment-service';
 import { formatCurrency, formatDate, formatStaffPayment } from '@/utils/staff-form';
 import { useAuthStore } from '@/stores/auth-store';
+import { staffInitials, staffStatusTone } from '@/components/staff/staff-visual';
+import { cn } from '@/utils/cn';
+import '@/pages/staff/staff-page.css';
 
 interface StaffViewModalProps {
   open: boolean;
@@ -24,35 +27,37 @@ export function StaffViewModal({ open, staff, isLoading, onClose, onEdit }: Staf
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[92vh] w-full max-w-4xl overflow-y-auto">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-wider text-gray-500">
-              {staff?.staffCode ?? 'Loading...'}
-            </p>
-            <h2 className="font-display text-2xl font-semibold text-gold">
-              {staff?.fullName ?? 'Staff Profile'}
-            </h2>
-            <p className="mt-1 text-sm text-gray-400">
-              {staff ? `${staff.roleLabel} · ${staff.isActive ? 'Active' : 'Inactive'}` : ''}
-            </p>
+    <div className="dhara-stf-modal">
+      <div className="dhara-stf-modal-card is-profile">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-4">
+            {staff && (
+              <span className="dhara-stf-avatar is-lg">{staffInitials(staff.fullName)}</span>
+            )}
+            <div>
+              <p className="dhara-stf-kicker">{staff?.staffCode ?? 'Loading...'}</p>
+              <h2>{staff?.fullName ?? 'Staff Profile'}</h2>
+              {staff && (
+                <p className="dhara-stf-modal-sub">
+                  {staff.roleLabel} ·{' '}
+                  <span className={cn('dhara-stf-pill', staffStatusTone(staff.isActive))}>
+                    {staff.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </p>
+              )}
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-gray-400 transition hover:bg-white/5 hover:text-gold"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-stf-icon-btn" aria-label="Close">
+            <X />
           </button>
         </div>
 
         {isLoading || !staff ? (
-          <p className="py-8 text-center text-sm text-gray-400">Loading staff profile...</p>
+          <p className="dhara-stf-note">Loading staff profile...</p>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <p className="dhara-stf-section-title">Staff Information</p>
+            <div className="dhara-stf-facts">
               {[
                 ['Mobile', staff.mobile || '—'],
                 ['Email', staff.email || '—'],
@@ -61,71 +66,62 @@ export function StaffViewModal({ open, staff, isLoading, onClose, onEdit }: Staf
                 ['Total Assignments', String(staff.totalAssignments)],
                 ['Total Expenses', formatCurrency(staff.totalExpenseAmount)],
               ].map(([label, value]) => (
-                <div
-                  key={label}
-                  className="rounded-lg border border-surface-border bg-surface-elevated p-4"
-                >
-                  <p className="text-xs uppercase tracking-wider text-gray-500">{label}</p>
-                  <p className="mt-1 text-sm text-gray-100">{value}</p>
+                <div key={label} className="dhara-stf-fact">
+                  <span>{label}</span>
+                  <strong>{value}</strong>
                 </div>
               ))}
             </div>
 
             {staff.address && (
-              <div className="mt-4 rounded-lg border border-surface-border bg-surface-elevated p-4">
-                <p className="text-xs uppercase tracking-wider text-gray-500">Address</p>
-                <p className="mt-1 text-sm text-gray-300">{staff.address}</p>
+              <div className="dhara-stf-fact" style={{ marginTop: '0.85rem' }}>
+                <span>Address</span>
+                <strong>{staff.address}</strong>
               </div>
             )}
 
             {staff.notes && (
-              <div className="mt-4 rounded-lg border border-surface-border bg-surface-elevated p-4">
-                <p className="text-xs uppercase tracking-wider text-gray-500">Notes</p>
-                <p className="mt-1 whitespace-pre-wrap text-sm text-gray-300">{staff.notes}</p>
+              <div className="dhara-stf-fact" style={{ marginTop: '0.85rem' }}>
+                <span>Notes</span>
+                <strong style={{ whiteSpace: 'pre-wrap' }}>{staff.notes}</strong>
               </div>
             )}
 
-            <div className="mt-6 grid gap-4 lg:grid-cols-2">
-              <section className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-                <h3 className="text-sm font-semibold text-gold">Upcoming Bookings</h3>
+            <div className="dhara-stf-assign-grid">
+              <section>
+                <h3 className="dhara-stf-section-title">Upcoming Bookings</h3>
                 {staff.upcomingBookings.length === 0 ? (
-                  <p className="mt-3 text-sm text-gray-500">No upcoming assignments.</p>
+                  <p className="dhara-stf-note">No upcoming assignments.</p>
                 ) : (
-                  <ul className="mt-3 space-y-2">
+                  <ul className="dhara-stf-assign-list">
                     {staff.upcomingBookings.map((assignment) => (
-                      <li
-                        key={assignment.id}
-                        className="rounded-md border border-surface-border px-3 py-2 text-sm"
-                      >
-                        <p className="font-medium text-gray-100">
+                      <li key={assignment.id} className="dhara-stf-booking-pick">
+                        <p>
                           {assignment.bookingNumber} · {assignment.eventType}
                         </p>
-                        <p className="text-gray-400">
+                        <span>
                           {assignment.roleLabel} · {formatDate(assignment.eventDate)}
-                        </p>
+                        </span>
                       </li>
                     ))}
                   </ul>
                 )}
               </section>
 
-              <section className="rounded-lg border border-surface-border bg-surface-elevated p-4">
-                <h3 className="text-sm font-semibold text-gold">Recent Completed Bookings</h3>
+              <section>
+                <h3 className="dhara-stf-section-title">Recent Completed Bookings</h3>
                 {staff.recentCompletedBookings.length === 0 ? (
-                  <p className="mt-3 text-sm text-gray-500">No completed assignments yet.</p>
+                  <p className="dhara-stf-note">No completed assignments yet.</p>
                 ) : (
-                  <ul className="mt-3 space-y-2">
+                  <ul className="dhara-stf-assign-list">
                     {staff.recentCompletedBookings.map((assignment) => (
-                      <li
-                        key={assignment.id}
-                        className="rounded-md border border-surface-border px-3 py-2 text-sm"
-                      >
-                        <p className="font-medium text-gray-100">
+                      <li key={assignment.id} className="dhara-stf-booking-pick">
+                        <p>
                           {assignment.bookingNumber} · {assignment.eventType}
                         </p>
-                        <p className="text-gray-400">
+                        <span>
                           {assignment.roleLabel} · {formatDate(assignment.eventDate)}
-                        </p>
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -133,34 +129,28 @@ export function StaffViewModal({ open, staff, isLoading, onClose, onEdit }: Staf
               </section>
             </div>
 
-            <section className="mt-4 rounded-lg border border-surface-border bg-surface-elevated p-4">
-              <h3 className="text-sm font-semibold text-gold">Recent Payments / Expenses</h3>
+            <section>
+              <h3 className="dhara-stf-section-title">Recent Payments / Expenses</h3>
               {staff.recentExpenses.length === 0 ? (
-                <p className="mt-3 text-sm text-gray-500">No staff-related expenses recorded.</p>
+                <p className="dhara-stf-note">No staff-related expenses recorded.</p>
               ) : (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead className="text-xs uppercase tracking-wider text-gray-500">
+                <div className="dhara-stf-table-wrap">
+                  <table className="dhara-stf-table">
+                    <thead>
                       <tr>
-                        <th className="px-3 py-2">Date</th>
-                        <th className="px-3 py-2">Description</th>
-                        <th className="px-3 py-2">Booking</th>
-                        <th className="px-3 py-2 text-right">Amount</th>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Booking</th>
+                        <th>Amount</th>
                       </tr>
                     </thead>
                     <tbody>
                       {staff.recentExpenses.map((expense) => (
-                        <tr key={expense.id} className="border-t border-surface-border">
-                          <td className="px-3 py-2 text-gray-300">{formatDate(expense.expenseDate)}</td>
-                          <td className="px-3 py-2 text-gray-100">
-                            {expense.description || 'Staff payment'}
-                          </td>
-                          <td className="px-3 py-2 text-gray-400">
-                            {expense.bookingNumber || '—'}
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium text-gold">
-                            {formatCurrency(expense.amount)}
-                          </td>
+                        <tr key={expense.id}>
+                          <td>{formatDate(expense.expenseDate)}</td>
+                          <td>{expense.description || 'Staff payment'}</td>
+                          <td>{expense.bookingNumber || '—'}</td>
+                          <td className="dhara-stf-amt is-gold">{formatCurrency(expense.amount)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -170,11 +160,11 @@ export function StaffViewModal({ open, staff, isLoading, onClose, onEdit }: Staf
             </section>
 
             {canEquipment && (
-              <section className="mt-4 rounded-lg border border-surface-border bg-surface-elevated p-4">
-                <h3 className="text-sm font-semibold text-gold">Equipment History</h3>
+              <section>
+                <h3 className="dhara-stf-section-title">Equipment History</h3>
                 {equipmentQuery.data ? (
                   <>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-5">
+                    <div className="dhara-stf-facts">
                       {[
                         ['Total Issues', equipmentQuery.data.totalIssues],
                         ['Currently Holding', equipmentQuery.data.currentlyHolding],
@@ -182,34 +172,37 @@ export function StaffViewModal({ open, staff, isLoading, onClose, onEdit }: Staf
                         ['Missing', equipmentQuery.data.missing],
                         ['Damaged', equipmentQuery.data.damaged],
                       ].map(([label, value]) => (
-                        <div key={String(label)}>
-                          <p className="text-xs uppercase text-gray-500">{label}</p>
-                          <p className="text-sm text-gray-100">{value}</p>
+                        <div key={String(label)} className="dhara-stf-fact">
+                          <span>{label}</span>
+                          <strong>{value}</strong>
                         </div>
                       ))}
                     </div>
-                    <ul className="mt-3 space-y-2 text-sm">
+                    <ul className="dhara-stf-assign-list">
                       {equipmentQuery.data.issues.map((issue) => (
-                        <li key={issue.id} className="rounded-md border border-surface-border px-3 py-2">
-                          {issue.issueNumber} · {issue.bookingNumber} · {issue.status}
+                        <li key={issue.id} className="dhara-stf-booking-pick">
+                          <p>
+                            {issue.issueNumber} · {issue.bookingNumber}
+                          </p>
+                          <span>{issue.status}</span>
                         </li>
                       ))}
                     </ul>
                   </>
                 ) : (
-                  <p className="mt-3 text-sm text-gray-500">No equipment issues for this staff member.</p>
+                  <p className="dhara-stf-note">No equipment issues for this staff member.</p>
                 )}
               </section>
             )}
           </>
         )}
 
-        <div className="mt-6 flex justify-end gap-3 border-t border-surface-border pt-5">
-          <button type="button" className="btn-secondary" onClick={onClose}>
+        <div className="dhara-stf-form-actions">
+          <button type="button" className="dhara-stf-btn" onClick={onClose}>
             Close
           </button>
           {staff && (
-            <button type="button" className="btn-primary" onClick={() => onEdit(staff)}>
+            <button type="button" className="dhara-stf-btn is-gold" onClick={() => onEdit(staff)}>
               Edit Staff
             </button>
           )}

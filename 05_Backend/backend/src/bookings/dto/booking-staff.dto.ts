@@ -41,7 +41,10 @@ export class CreateBookingStaffDto {
   @MaxLength(2000)
   notes?: string;
 
-  @ApiPropertyOptional({ description: 'Sync agreed rate to staff expense record' })
+  @ApiPropertyOptional({
+    description:
+      'Deprecated. Assignment stores payable/cost only; cash expense is created when a staff payment is marked paid.',
+  })
   @IsOptional()
   syncExpense?: boolean;
 }
@@ -76,7 +79,10 @@ export class UpdateBookingStaffDto {
   @IsUUID()
   staffId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description:
+      'Deprecated. Assignment stores payable/cost only; cash expense is created when a staff payment is marked paid.',
+  })
   @IsOptional()
   syncExpense?: boolean;
 }

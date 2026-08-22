@@ -66,28 +66,28 @@ export function EditAlbumModal({ open, album, isSubmitting, onClose, onSubmit }:
   if (!open || !album) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="card max-h-[92vh] w-full max-w-2xl overflow-y-auto">
-        <div className="mb-6 flex items-start justify-between">
+    <div className="dhara-alb-modal">
+      <div className="dhara-alb-modal-card">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">Edit Album</h2>
-            <p className="mt-1 text-sm text-gray-400">{album.bookingNumber} — {album.clientName}</p>
+            <h2>Edit Album</h2>
+            <p className="dhara-alb-modal-sub">{album.bookingNumber} — {album.clientName}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:text-gold">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="dhara-alb-icon-btn" aria-label="Close">
+            <X strokeWidth={2.4} absoluteStrokeWidth />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm text-gray-300">Album Name</label>
+        <form onSubmit={handleSubmit(onSubmit)} className="dhara-alb-form">
+          <div className="dhara-alb-form-grid">
+            <div className="dhara-alb-span-2">
+              <label>Album Name</label>
               <input className="input-field" {...register('name')} />
-              {errors.name && <p className="mt-1 text-xs text-red-400">{errors.name.message}</p>}
+              {errors.name && <p className="dhara-alb-error-text">{errors.name.message}</p>}
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Album Type</label>
+              <label>Album Type</label>
               <select className="input-field" {...register('albumType')}>
                 {ALBUM_TYPE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -96,7 +96,7 @@ export function EditAlbumModal({ open, album, isSubmitting, onClose, onSubmit }:
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Status</label>
+              <label>Status</label>
               <select className="input-field" {...register('status')}>
                 {ALBUM_STATUS_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -105,49 +105,49 @@ export function EditAlbumModal({ open, album, isSubmitting, onClose, onSubmit }:
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Selling Price (₹)</label>
+              <label>Selling Price (₹)</label>
               <input type="number" min={0} step="0.01" className="input-field" {...register('albumPrice')} />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Pages</label>
+              <label>Pages</label>
               <input type="number" min={0} className="input-field" {...register('pageCount')} />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Order Date</label>
+              <label>Order Date</label>
               <input type="date" className="input-field" {...register('orderDate')} />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Expected Delivery</label>
+              <label>Expected Delivery</label>
               <input type="date" className="input-field" {...register('expectedDeliveryDate')} />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Actual Delivery</label>
+              <label>Actual Delivery</label>
               <input type="date" className="input-field" {...register('actualDeliveryDate')} />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Vendor / Printer</label>
+              <label>Vendor / Printer</label>
               <input className="input-field" {...register('vendorName')} />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm text-gray-300">Vendor Expense (₹)</label>
+              <label>Vendor Expense (₹)</label>
               <input type="number" min={0} step="0.01" className="input-field" {...register('vendorExpense')} />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="mb-1.5 block text-sm text-gray-300">Notes</label>
+            <div className="dhara-alb-span-2">
+              <label>Notes</label>
               <textarea rows={3} className="input-field resize-none" {...register('notes')} />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 border-t border-surface-border pt-5">
-            <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={isSubmitting}>
+          <div className="dhara-alb-form-actions">
+            <button type="button" className="dhara-alb-btn" onClick={onClose}>Cancel</button>
+            <button type="submit" className="dhara-alb-btn is-gold" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>

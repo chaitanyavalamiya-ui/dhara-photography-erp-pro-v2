@@ -1,9 +1,19 @@
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
-const A4_WIDTH_MM = 210;
-const A4_HEIGHT_MM = 297;
-const PAGE_MARGIN_MM = 12;
+/** Canonical invoice paper = one A4 sheet. Do not add extra PDF page margins. */
+export const A4_WIDTH_MM = 210;
+export const A4_HEIGHT_MM = 297;
+/**
+ * jsPDF can emit a blank second page when an image is even 0.1mm past 297mm.
+ * Keep a hair of inset so one visual A4 sheet stays one PDF page.
+ */
+export const INVOICE_PDF_A4_FIT_HEIGHT_MM = 296.5;
+/**
+ * Normal Dhara invoices are one A4 sheet. Scale the whole capture onto that sheet
+ * unless the bitmap is clearly longer than two full pages of content.
+ */
+export const INVOICE_PDF_SINGLE_PAGE_OVERFLOW_RATIO = 1;
 
 const UNSUPPORTED_COLOR_FUNCTION_PATTERN =
   /(?<![\w-])(?:color-mix|light-dark|oklch|oklab|lch|hwb|lab|color)\(/i;
@@ -312,6 +322,14 @@ function ignoreUnsafePdfCaptureElement(element: Element): boolean {
 export const INVOICE_PDF_A4_WIDTH_PX = 794;
 export const INVOICE_PDF_A4_MIN_HEIGHT_PX = 1123;
 
+export function getInvoicePdfPageHeightPx(canvasWidth: number): number {
+  return Math.max(1, Math.round((canvasWidth * A4_HEIGHT_MM) / A4_WIDTH_MM));
+}
+
+export function shouldFitInvoicePdfOnSingleA4Page(canvasWidth: number, canvasHeight: number): boolean {
+  return canvasWidth >= 1 && canvasHeight >= 1;
+}
+
 export function getInvoicePdfCaptureTargetSize(element: HTMLElement): { width: number; height: number } {
   const rect = element.getBoundingClientRect();
   const styleWidth = Number.parseFloat(element.style.width) || 0;
@@ -354,6 +372,8 @@ export const INVOICE_PDF_SAFE_CSS = `
   isolation: auto !important;
 }
 .dhara-inv-paper {
+  display: flex !important;
+  flex-direction: column !important;
   overflow: visible !important;
   background: #fbf6ee !important;
   background-image: none !important;
@@ -362,15 +382,42 @@ export const INVOICE_PDF_SAFE_CSS = `
 }
 .dhara-inv-paper-frame,
 .dhara-inv-paper-inner {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
   background: #fffcf7 !important;
   background-image: none !important;
 }
-.dhara-inv-paper-dhara,
+.dhara-inv-paper-inner > * {
+  flex-shrink: 0 !important;
+}
+.dhara-inv-paper-bottom {
+  margin-top: auto !important;
+}
 .dhara-inv-paper-title {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 6px !important;
+  line-height: 1.15 !important;
   overflow: visible !important;
   padding-left: 2px !important;
   color: #6b1d3a !important;
   -webkit-text-fill-color: #6b1d3a !important;
+}
+.dhara-inv-paper-dhara {
+  display: block !important;
+  line-height: 1.15 !important;
+  overflow: visible !important;
+  padding-left: 2px !important;
+  color: #6b1d3a !important;
+  -webkit-text-fill-color: #6b1d3a !important;
+}
+.dhara-inv-paper-photography {
+  display: block !important;
+  margin-top: 0 !important;
+  line-height: 1.35 !important;
 }
 .dhara-inv-paper-photography,
 .dhara-inv-paper-contact,
@@ -497,15 +544,36 @@ export function applyInvoicePdfCaptureDimensions(
   width = INVOICE_PDF_A4_WIDTH_PX,
   height = INVOICE_PDF_A4_MIN_HEIGHT_PX,
 ): void {
+  element.style.setProperty('display', 'flex', 'important');
+  element.style.setProperty('flex-direction', 'column', 'important');
   element.style.setProperty('width', `${width}px`, 'important');
   element.style.setProperty('min-width', `${width}px`, 'important');
   element.style.setProperty('max-width', `${width}px`, 'important');
+  element.style.setProperty('height', `${height}px`, 'important');
   element.style.setProperty('min-height', `${height}px`, 'important');
   element.style.setProperty('margin', '0', 'important');
   element.style.setProperty('box-shadow', 'none', 'important');
   element.style.setProperty('position', 'static', 'important');
   element.style.setProperty('transform', 'none', 'important');
   element.style.setProperty('overflow', 'visible', 'important');
+
+  const frame = element.querySelector('.dhara-inv-paper-frame');
+  const inner = element.querySelector('.dhara-inv-paper-inner');
+  for (const node of [frame, inner]) {
+    if (!(node instanceof HTMLElement)) {
+      continue;
+    }
+    node.style.setProperty('display', 'flex', 'important');
+    node.style.setProperty('flex-direction', 'column', 'important');
+    node.style.setProperty('flex', '1 1 auto', 'important');
+    node.style.setProperty('width', '100%', 'important');
+    node.style.setProperty('height', '100%', 'important');
+  }
+
+  const bottom = element.querySelector('.dhara-inv-paper-bottom');
+  if (bottom instanceof HTMLElement) {
+    bottom.style.setProperty('margin-top', 'auto', 'important');
+  }
 }
 
 export function assertInvoicePdfCaptureTarget(
@@ -582,10 +650,11 @@ export async function createInvoicePdfCaptureTarget(source: HTMLElement): Promis
   captureTarget: HTMLElement;
   width: number;
   height: number;
+  applyMeasuredSize: () => { width: number; height: number };
   cleanup: () => void;
 }> {
+  const width = INVOICE_PDF_A4_WIDTH_PX;
   const liveSize = getInvoicePdfCaptureTargetSize(source);
-  const width = liveSize.width;
   const height = Math.max(liveSize.height, INVOICE_PDF_A4_MIN_HEIGHT_PX);
 
   const iframe = createCaptureFrame();
@@ -617,10 +686,23 @@ export async function createInvoicePdfCaptureTarget(source: HTMLElement): Promis
   applyInvoicePdfCaptureDimensions(captureTarget, width, height);
   assertInvoicePdfCaptureTarget(captureTarget, source.textContent?.trim().slice(0, 32) || undefined);
 
+  const applyMeasuredSize = () => {
+    const measured = getInvoicePdfCaptureTargetSize(captureTarget);
+    const nextWidth = INVOICE_PDF_A4_WIDTH_PX;
+    const nextHeight = Math.max(measured.height, INVOICE_PDF_A4_MIN_HEIGHT_PX);
+    iframe.style.width = `${nextWidth}px`;
+    iframe.style.height = `${nextHeight}px`;
+    hostFallback.style.width = `${nextWidth}px`;
+    hostFallback.style.minHeight = `${nextHeight}px`;
+    applyInvoicePdfCaptureDimensions(captureTarget, nextWidth, nextHeight);
+    return { width: nextWidth, height: nextHeight };
+  };
+
   return {
     captureTarget,
     width,
     height,
+    applyMeasuredSize,
     cleanup: () => {
       iframe.remove();
       hostFallback.remove();
@@ -628,26 +710,220 @@ export async function createInvoicePdfCaptureTarget(source: HTMLElement): Promis
   };
 }
 
-export function addPaginatedCanvasToPdf(pdf: jsPDF, canvas: HTMLCanvasElement): void {
+const INVOICE_PDF_KEEP_TOGETHER_SELECTOR = [
+  '.dhara-inv-paper-header',
+  '.dhara-inv-paper-parties',
+  '.dhara-inv-paper-summary',
+  '.dhara-inv-paper-pay',
+  '.dhara-inv-paper-box',
+  '.dhara-inv-paper-bottom',
+  '.dhara-inv-paper-footer',
+  '.dhara-inv-paper-table thead',
+  '.dhara-inv-paper-table tbody tr',
+].join(',');
+
+export function collectInvoicePdfKeepTogetherRanges(root: HTMLElement): { start: number; end: number }[] {
+  const rootRect = root.getBoundingClientRect();
+  return Array.from(root.querySelectorAll(INVOICE_PDF_KEEP_TOGETHER_SELECTOR))
+    .map((node) => {
+      const rect = node.getBoundingClientRect();
+      return {
+        start: rect.top - rootRect.top,
+        end: rect.bottom - rootRect.top,
+      };
+    })
+    .filter((range) => range.end - range.start > 2)
+    .sort((left, right) => left.start - right.start);
+}
+
+export function scaleInvoicePdfKeepTogetherRanges(
+  ranges: { start: number; end: number }[],
+  scale: number,
+): { start: number; end: number }[] {
+  return ranges.map((range) => ({
+    start: Math.round(range.start * scale),
+    end: Math.round(range.end * scale),
+  }));
+}
+
+export function chooseInvoicePdfSliceHeight(
+  offsetY: number,
+  maxSliceHeight: number,
+  canvasHeight: number,
+  keepTogetherRanges: { start: number; end: number }[] = [],
+): number {
+  const remaining = canvasHeight - offsetY;
+  const preferred = Math.min(maxSliceHeight, remaining);
+  if (preferred <= 1 || preferred === remaining) {
+    return preferred;
+  }
+
+  const preferredEnd = offsetY + preferred;
+  const minBreak = offsetY + Math.round(maxSliceHeight * 0.28);
+  const hit = keepTogetherRanges.find(
+    (range) => range.start < preferredEnd && range.end > preferredEnd + 1,
+  );
+
+  if (hit && hit.start > offsetY && hit.start >= minBreak) {
+    return Math.max(1, hit.start - offsetY);
+  }
+
+  return preferred;
+}
+
+function readInvoicePdfKeepTogetherRanges(
+  canvas: HTMLCanvasElement,
+): { start: number; end: number }[] {
+  const raw = canvas.dataset.invoicePdfKeepTogether;
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as { start: number; end: number }[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function isInvoicePdfPaperPixel(red: number, green: number, blue: number, alpha: number): boolean {
+  if (alpha < 16) {
+    return true;
+  }
+  return red > 220 && green > 208 && blue > 175 && Math.abs(red - green) < 45;
+}
+
+function invoicePdfBandHasContent(
+  context: CanvasRenderingContext2D,
+  width: number,
+  y: number,
+  bandHeight: number,
+  canvasHeight: number,
+): boolean {
+  const top = Math.max(0, Math.min(y, canvasHeight - 1));
+  const height = Math.max(1, Math.min(bandHeight, canvasHeight - top));
+  const pixels = context.getImageData(0, top, width, height).data;
+  const sampleStep = 16;
+  let ink = 0;
+  let samples = 0;
+  for (let index = 0; index < pixels.length; index += sampleStep) {
+    samples += 1;
+    if (
+      !isInvoicePdfPaperPixel(
+        pixels[index] ?? 0,
+        pixels[index + 1] ?? 0,
+        pixels[index + 2] ?? 0,
+        pixels[index + 3] ?? 255,
+      )
+    ) {
+      ink += 1;
+    }
+  }
+  return samples > 0 && ink / samples > 0.02;
+}
+
+export function findQuietInvoicePdfSliceHeight(
+  canvas: HTMLCanvasElement,
+  offsetY: number,
+  maxSliceHeight: number,
+): number {
+  const remaining = canvas.height - offsetY;
+  const preferred = Math.min(maxSliceHeight, remaining);
+  if (preferred <= 1 || preferred === remaining) {
+    return preferred;
+  }
+
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context?.getImageData) {
+    return preferred;
+  }
+
+  const minSliceHeight = Math.max(1, Math.round(maxSliceHeight * 0.58));
+  // Must be taller than the label/value gap inside Payment Information.
+  const bandHeight = 48;
+  try {
+    for (let sliceHeight = preferred; sliceHeight >= minSliceHeight; sliceHeight -= 2) {
+      const y = offsetY + sliceHeight - bandHeight;
+      if (y < offsetY) {
+        break;
+      }
+      if (!invoicePdfBandHasContent(context, canvas.width, y, bandHeight, canvas.height)) {
+        return sliceHeight;
+      }
+    }
+  } catch {
+    return preferred;
+  }
+
+  return preferred;
+}
+
+function padInvoiceCanvasToA4(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const pageHeightPx = getInvoicePdfPageHeightPx(canvas.width);
+  if (canvas.height + 1 >= pageHeightPx) {
+    return canvas;
+  }
+
+  try {
+    const padded = document.createElement('canvas');
+    padded.width = canvas.width;
+    padded.height = pageHeightPx;
+    const context = padded.getContext('2d');
+    if (!context) {
+      return canvas;
+    }
+    context.fillStyle = '#fbf6ee';
+    context.fillRect(0, 0, padded.width, padded.height);
+    context.drawImage(canvas, 0, 0);
+    return padded;
+  } catch {
+    return canvas;
+  }
+}
+
+function addSingleA4CanvasToPdf(pdf: jsPDF, canvas: HTMLCanvasElement): void {
+  const source = padInvoiceCanvasToA4(canvas);
+  const pageHeightPx = getInvoicePdfPageHeightPx(source.width);
+  if (source.height <= pageHeightPx + 32) {
+    pdf.addImage(
+      source,
+      'PNG',
+      0,
+      0,
+      A4_WIDTH_MM,
+      INVOICE_PDF_A4_FIT_HEIGHT_MM,
+      undefined,
+      'FAST',
+    );
+    return;
+  }
+
+  const ratio = source.height / source.width;
+  let imageWidth = A4_WIDTH_MM;
+  let imageHeight = imageWidth * ratio;
+  if (imageHeight > INVOICE_PDF_A4_FIT_HEIGHT_MM) {
+    imageHeight = INVOICE_PDF_A4_FIT_HEIGHT_MM;
+    imageWidth = imageHeight / ratio;
+  }
+  const x = Math.max(0, (A4_WIDTH_MM - imageWidth) / 2);
+  pdf.addImage(source, 'PNG', x, 0, imageWidth, imageHeight, undefined, 'FAST');
+}
+
+export function addPaginatedCanvasToPdf(
+  pdf: jsPDF,
+  canvas: HTMLCanvasElement,
+  keepTogetherRanges: { start: number; end: number }[] = [],
+): void {
   if (!canvas.width || !canvas.height) {
     throw new Error('PDF capture was empty.');
   }
 
-  const contentWidth = A4_WIDTH_MM - PAGE_MARGIN_MM * 2;
-  const contentHeight = A4_HEIGHT_MM - PAGE_MARGIN_MM * 2;
-  const pageHeightPx = Math.max(1, Math.floor((canvas.width * contentHeight) / contentWidth));
-  // Ignore a thin leftover strip (capture min-height / rounding) that would print as a blank page.
+  const ranges = keepTogetherRanges.length > 0 ? keepTogetherRanges : readInvoicePdfKeepTogetherRanges(canvas);
+  const pageHeightPx = getInvoicePdfPageHeightPx(canvas.width);
   const minTrailingSlicePx = Math.max(16, Math.round(pageHeightPx * 0.04));
 
-  if (canvas.height <= pageHeightPx + minTrailingSlicePx) {
-    const ratio = canvas.height / canvas.width;
-    let imageWidth = contentWidth;
-    let imageHeight = imageWidth * ratio;
-    if (imageHeight > contentHeight) {
-      imageHeight = contentHeight;
-      imageWidth = imageHeight / ratio;
-    }
-    pdf.addImage(canvas, 'PNG', PAGE_MARGIN_MM, PAGE_MARGIN_MM, imageWidth, imageHeight);
+  if (shouldFitInvoicePdfOnSingleA4Page(canvas.width, canvas.height)) {
+    addSingleA4CanvasToPdf(pdf, canvas);
     return;
   }
 
@@ -660,7 +936,17 @@ export function addPaginatedCanvasToPdf(pdf: jsPDF, canvas: HTMLCanvasElement): 
       break;
     }
 
-    const sliceHeight = Math.min(pageHeightPx, remaining);
+    const maxSliceHeight = Math.min(pageHeightPx, remaining);
+    const sectionSliceHeight = chooseInvoicePdfSliceHeight(
+      offsetY,
+      maxSliceHeight,
+      canvas.height,
+      ranges,
+    );
+    const sliceHeight =
+      sectionSliceHeight < maxSliceHeight
+        ? sectionSliceHeight
+        : findQuietInvoicePdfSliceHeight(canvas, offsetY, maxSliceHeight);
     const pageCanvas = document.createElement('canvas');
     pageCanvas.width = canvas.width;
     pageCanvas.height = sliceHeight;
@@ -680,12 +966,12 @@ export function addPaginatedCanvasToPdf(pdf: jsPDF, canvas: HTMLCanvasElement): 
       sliceHeight,
     );
 
-    const sliceHeightMm = (sliceHeight * contentWidth) / canvas.width;
+    const sliceHeightMm = (sliceHeight * A4_WIDTH_MM) / canvas.width;
     if (!isFirstPage) {
       pdf.addPage();
     }
     isFirstPage = false;
-    pdf.addImage(pageCanvas, 'PNG', PAGE_MARGIN_MM, PAGE_MARGIN_MM, contentWidth, sliceHeightMm);
+    pdf.addImage(pageCanvas, 'PNG', 0, 0, A4_WIDTH_MM, sliceHeightMm);
     offsetY += sliceHeight;
   }
 }
@@ -843,12 +1129,15 @@ export function flattenPdfClonePaintSources(root: HTMLElement): void {
 
 export async function captureHtmlElementForPdf(element: HTMLElement): Promise<HTMLCanvasElement> {
   const session = await createInvoicePdfCaptureTarget(element);
-  const { captureTarget, width, height, cleanup } = session;
+  const { captureTarget, cleanup } = session;
   let restoreCreatePattern: (() => void) | undefined;
 
   try {
     await waitForCaptureReady(captureTarget);
+    const { width, height } = session.applyMeasuredSize();
     assertInvoicePdfCaptureTarget(captureTarget);
+    const keepTogetherCss = collectInvoicePdfKeepTogetherRanges(captureTarget);
+    const layoutWidth = Math.max(1, captureTarget.offsetWidth || width);
 
     const canvas = await html2canvas(captureTarget, {
       scale: 2,
@@ -881,6 +1170,9 @@ export async function captureHtmlElementForPdf(element: HTMLElement): Promise<HT
       throw new Error('PDF capture target was empty.');
     }
 
+    canvas.dataset.invoicePdfKeepTogether = JSON.stringify(
+      scaleInvoicePdfKeepTogetherRanges(keepTogetherCss, canvas.width / layoutWidth),
+    );
     return canvas;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown PDF capture error.';
@@ -896,11 +1188,11 @@ export async function captureHtmlElementForPdf(element: HTMLElement): Promise<HT
   }
 }
 
-export async function downloadInvoicePdf(
+export async function generateInvoicePdfBlob(
   elementId: string,
   invoiceNumber?: string | null,
   clientName?: string | null,
-): Promise<void> {
+): Promise<{ blob: Blob; filename: string }> {
   const element = document.getElementById(elementId);
   if (!element) {
     throw new Error('Invoice document not found.');
@@ -912,12 +1204,15 @@ export async function downloadInvoicePdf(
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4',
+      compress: true,
     });
 
     addPaginatedCanvasToPdf(pdf, canvas);
 
-    const blob = pdf.output('blob');
-    triggerPdfFileDownload(blob, buildInvoicePdfFilename(invoiceNumber, clientName));
+    return {
+      blob: pdf.output('blob'),
+      filename: buildInvoicePdfFilename(invoiceNumber, clientName),
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to generate the invoice PDF.';
     if (/unsupported color function|could not parse a CSS color/i.test(message)) {
@@ -927,4 +1222,13 @@ export async function downloadInvoicePdf(
     }
     throw error instanceof Error ? error : new Error(message);
   }
+}
+
+export async function downloadInvoicePdf(
+  elementId: string,
+  invoiceNumber?: string | null,
+  clientName?: string | null,
+): Promise<void> {
+  const { blob, filename } = await generateInvoicePdfBlob(elementId, invoiceNumber, clientName);
+  triggerPdfFileDownload(blob, filename);
 }

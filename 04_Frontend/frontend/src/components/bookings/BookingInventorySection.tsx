@@ -6,6 +6,7 @@ import { EquipmentIssue, equipmentService } from '@/services/equipment-service';
 import { staffService } from '@/services/staff-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { formatDate } from '@/utils/booking-form';
+import { groupBookingEquipmentByStaff } from '@/utils/equipment-possession';
 import { printEquipmentChecklist } from '@/utils/equipment-print';
 import { downloadEquipmentChecklistPdf } from '@/utils/equipment-issue-pdf';
 import { getApiErrorMessage } from '@/utils/api-error';
@@ -45,14 +46,7 @@ export function BookingInventorySection({ booking }: BookingInventorySectionProp
   });
 
   const overview = overviewQuery.data;
-  const grouped = (overview?.used ?? []).reduce<Record<string, Array<{ name: string; quantity: number }>>>(
-    (acc, row) => {
-      acc[row.category] = acc[row.category] ?? [];
-      acc[row.category].push({ name: row.name, quantity: row.quantity });
-      return acc;
-    },
-    {},
-  );
+  const staffGroups = groupBookingEquipmentByStaff(overview?.issues ?? []);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['equipment'] });
@@ -80,8 +74,10 @@ export function BookingInventorySection({ booking }: BookingInventorySectionProp
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-display text-lg font-semibold text-gold">Equipment Used</h3>
-          <p className="text-xs text-gray-500">Inventory issue / return for this booking</p>
+          <h3 className="font-display text-lg font-semibold text-gold">Studio Equipment Issue</h3>
+          <p className="text-xs text-gray-500">
+            Track studio stock and which staff member currently has each item.
+          </p>
         </div>
         {canIssue && (
           <button type="button" className="btn-primary" onClick={() => setIssueOpen(true)}>
@@ -107,16 +103,18 @@ export function BookingInventorySection({ booking }: BookingInventorySectionProp
         </div>
       )}
 
-      {Object.keys(grouped).length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          {Object.entries(grouped).map(([category, rows]) => (
-            <div key={category} className="rounded-lg border border-surface-border p-3 text-sm">
-              <p className="font-semibold text-gold">{category}:</p>
-              {rows.map((row) => (
-                <p key={row.name} className="text-gray-300">
-                  {row.name} × {row.quantity}
-                </p>
-              ))}
+      {staffGroups.length > 0 && (
+        <div className="space-y-3">
+          {staffGroups.map((group) => (
+            <div key={group.staffId} className="rounded-lg border border-surface-border p-3 text-sm">
+              <p className="font-semibold text-gold">{group.staffName}</p>
+              <ul className="mt-2 space-y-1">
+                {group.items.map((item) => (
+                  <li key={item.key} className="text-gray-300">
+                    {item.equipmentName} × {item.displayQuantity} — {item.state}
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>

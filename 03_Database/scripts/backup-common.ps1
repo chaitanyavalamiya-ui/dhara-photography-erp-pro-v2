@@ -155,12 +155,168 @@ function ConvertFrom-DatabaseUrl {
     }
 }
 
-function Assert-PostgresTool {
-    param([string]$ToolName)
-    $tool = Get-Command $ToolName -ErrorAction SilentlyContinue
-    if (-not $tool) {
-        throw "ERROR: '$ToolName' was not found on PATH. Install PostgreSQL client tools and ensure $ToolName is available."
+function Get-DharaPostgresContainerName {
+    $configured = [Environment]::GetEnvironmentVariable("DHARA_POSTGRES_CONTAINER")
+    if (-not [string]::IsNullOrWhiteSpace($configured)) {
+        return $configured.Trim()
     }
+    return "dhara-erp-postgres"
+}
+
+function Test-DharaDockerContainerRunning {
+    param([string]$ContainerName)
+    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+        return $false
+    }
+    $running = & docker inspect -f "{{.State.Running}}" $ContainerName 2>$null
+    return $running -eq "true"
+}
+
+function Resolve-PostgresTool {
+    param([string]$ToolName)
+
+    $fromPath = Get-Command $ToolName -ErrorAction SilentlyContinue
+    if ($fromPath) {
+        return @{ Kind = "exe"; Path = $fromPath.Source }
+    }
+
+    $exeName = "$ToolName.exe"
+    $searchRoots = @(
+        ${env:ProgramFiles},
+        ${env:ProgramFiles(x86)}
+    ) | Where-Object { $_ }
+
+    foreach ($root in $searchRoots) {
+        foreach ($version in @("17", "16", "15", "14", "13")) {
+            $candidate = Join-Path $root "PostgreSQL\$version\bin\$exeName"
+            if (Test-Path $candidate) {
+                return @{ Kind = "exe"; Path = $candidate }
+            }
+        }
+    }
+
+    $container = Get-DharaPostgresContainerName
+    if (Test-DharaDockerContainerRunning -ContainerName $container) {
+        return @{ Kind = "docker"; Container = $container; Tool = $ToolName }
+    }
+
+    throw "ERROR: '$ToolName' was not found on PATH. Install PostgreSQL client tools, or run the local Docker Postgres container ($container)."
+}
+
+function Get-PostgresToolHost {
+    param(
+        [hashtable]$Resolved,
+        [string]$DbHost
+    )
+    if ($Resolved.Kind -eq "docker" -and $DbHost -match '^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)$') {
+        return "127.0.0.1"
+    }
+    return $DbHost
+}
+
+function Invoke-ResolvedPostgresDump {
+    param(
+        [hashtable]$Resolved,
+        [hashtable]$Db,
+        [string]$OutputFile
+    )
+
+    $dbHost = Get-PostgresToolHost -Resolved $Resolved -DbHost $Db.Host
+    if ($Resolved.Kind -eq "exe") {
+        $previous = $env:PGPASSWORD
+        try {
+            $env:PGPASSWORD = $Db.Password
+            & $Resolved.Path -h $dbHost -p $Db.Port -U $Db.User -d $Db.Database --no-owner --no-acl --file="$OutputFile"
+            if ($LASTEXITCODE -ne 0) {
+                throw "pg_dump failed with exit code $LASTEXITCODE"
+            }
+        } finally {
+            if ($null -eq $previous) { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+            else { $env:PGPASSWORD = $previous }
+        }
+        return
+    }
+
+    $remote = "/tmp/dhara_pg_dump_$([guid]::NewGuid().ToString('N')).sql"
+    & docker exec -e "PGPASSWORD=$($Db.Password)" $Resolved.Container $Resolved.Tool -h $dbHost -p $Db.Port -U $Db.User -d $Db.Database --no-owner --no-acl --file="$remote"
+    if ($LASTEXITCODE -ne 0) {
+        throw "pg_dump failed with exit code $LASTEXITCODE"
+    }
+    & docker cp "$($Resolved.Container):$remote" $OutputFile
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to copy pg_dump output from Docker."
+    }
+    & docker exec $Resolved.Container rm -f $remote | Out-Null
+}
+
+function Invoke-ResolvedPsqlFile {
+    param(
+        [hashtable]$Resolved,
+        [hashtable]$Db,
+        [string]$DatabaseName,
+        [string]$SqlFile
+    )
+
+    $dbHost = Get-PostgresToolHost -Resolved $Resolved -DbHost $Db.Host
+    if ($Resolved.Kind -eq "exe") {
+        $previous = $env:PGPASSWORD
+        try {
+            $env:PGPASSWORD = $Db.Password
+            & $Resolved.Path -h $dbHost -p $Db.Port -U $Db.User -d $DatabaseName --file="$SqlFile" --single-transaction --set ON_ERROR_STOP=on
+            if ($LASTEXITCODE -ne 0) {
+                throw "psql restore failed with exit code $LASTEXITCODE"
+            }
+        } finally {
+            if ($null -eq $previous) { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+            else { $env:PGPASSWORD = $previous }
+        }
+        return
+    }
+
+    $remote = "/tmp/dhara_psql_$([guid]::NewGuid().ToString('N')).sql"
+    & docker cp $SqlFile "$($Resolved.Container):$remote"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to copy SQL file into Docker."
+    }
+    try {
+        & docker exec -e "PGPASSWORD=$($Db.Password)" $Resolved.Container $Resolved.Tool -h $dbHost -p $Db.Port -U $Db.User -d $DatabaseName --file="$remote" --single-transaction --set ON_ERROR_STOP=on
+        if ($LASTEXITCODE -ne 0) {
+            throw "psql restore failed with exit code $LASTEXITCODE"
+        }
+    } finally {
+        & docker exec $Resolved.Container rm -f $remote | Out-Null
+    }
+}
+
+function Invoke-ResolvedPsqlCommand {
+    param(
+        [hashtable]$Resolved,
+        [hashtable]$Db,
+        [string]$DatabaseName,
+        [string]$Command
+    )
+
+    $dbHost = Get-PostgresToolHost -Resolved $Resolved -DbHost $Db.Host
+    if ($Resolved.Kind -eq "exe") {
+        $previous = $env:PGPASSWORD
+        try {
+            $env:PGPASSWORD = $Db.Password
+            $output = & $Resolved.Path -h $dbHost -p $Db.Port -U $Db.User -d $DatabaseName -v ON_ERROR_STOP=1 -t -A -c $Command
+            if ($LASTEXITCODE -ne 0) {
+                throw "psql command failed with exit code $LASTEXITCODE"
+            }
+            return $output
+        } finally {
+            if ($null -eq $previous) { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
+            else { $env:PGPASSWORD = $previous }
+        }
+    }
+
+    $output = & docker exec -e "PGPASSWORD=$($Db.Password)" $Resolved.Container $Resolved.Tool -h $dbHost -p $Db.Port -U $Db.User -d $DatabaseName -v ON_ERROR_STOP=1 -t -A -c $Command
+    if ($LASTEXITCODE -ne 0) {
+        throw "psql command failed with exit code $LASTEXITCODE"
+    }
+    return $output
 }
 
 function Invoke-PgDumpSafe {
@@ -169,18 +325,8 @@ function Invoke-PgDumpSafe {
         [string]$OutputFile
     )
 
-    Assert-PostgresTool -ToolName "pg_dump"
-    $previous = $env:PGPASSWORD
-    try {
-        $env:PGPASSWORD = $Db.Password
-        & pg_dump -h $Db.Host -p $Db.Port -U $Db.User -d $Db.Database --no-owner --no-acl --file="$OutputFile"
-        if ($LASTEXITCODE -ne 0) {
-            throw "pg_dump failed with exit code $LASTEXITCODE"
-        }
-    } finally {
-        if ($null -eq $previous) { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
-        else { $env:PGPASSWORD = $previous }
-    }
+    $resolved = Resolve-PostgresTool -ToolName "pg_dump"
+    Invoke-ResolvedPostgresDump -Resolved $resolved -Db $Db -OutputFile $OutputFile
 }
 
 function Invoke-PsqlFileSafe {
@@ -190,18 +336,8 @@ function Invoke-PsqlFileSafe {
         [string]$SqlFile
     )
 
-    Assert-PostgresTool -ToolName "psql"
-    $previous = $env:PGPASSWORD
-    try {
-        $env:PGPASSWORD = $Db.Password
-        & psql -h $Db.Host -p $Db.Port -U $Db.User -d $DatabaseName --file="$SqlFile" --single-transaction --set ON_ERROR_STOP=on
-        if ($LASTEXITCODE -ne 0) {
-            throw "psql restore failed with exit code $LASTEXITCODE"
-        }
-    } finally {
-        if ($null -eq $previous) { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
-        else { $env:PGPASSWORD = $previous }
-    }
+    $resolved = Resolve-PostgresTool -ToolName "psql"
+    Invoke-ResolvedPsqlFile -Resolved $resolved -Db $Db -DatabaseName $DatabaseName -SqlFile $SqlFile
 }
 
 function Invoke-PsqlCommandSafe {
@@ -211,19 +347,8 @@ function Invoke-PsqlCommandSafe {
         [string]$Command
     )
 
-    Assert-PostgresTool -ToolName "psql"
-    $previous = $env:PGPASSWORD
-    try {
-        $env:PGPASSWORD = $Db.Password
-        $output = & psql -h $Db.Host -p $Db.Port -U $Db.User -d $DatabaseName -v ON_ERROR_STOP=1 -t -A -c $Command
-        if ($LASTEXITCODE -ne 0) {
-            throw "psql command failed with exit code $LASTEXITCODE"
-        }
-        return $output
-    } finally {
-        if ($null -eq $previous) { Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue }
-        else { $env:PGPASSWORD = $previous }
-    }
+    $resolved = Resolve-PostgresTool -ToolName "psql"
+    return Invoke-ResolvedPsqlCommand -Resolved $resolved -Db $Db -DatabaseName $DatabaseName -Command $Command
 }
 
 function Reset-DharaDatabase {

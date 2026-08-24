@@ -6,10 +6,13 @@ export const INVOICE_PAPER_CSS = `
   color-scheme: light;
 }
 .dhara-inv-paper {
-  width: 100%;
+  width: 210mm;
   max-width: 210mm;
+  min-height: 297mm;
   margin: 0 auto;
   padding: 11mm 11mm 9mm;
+  display: flex;
+  flex-direction: column;
   background: #fbf6ee;
   background-image: linear-gradient(180deg, #fffdf8 0%, #fbf6ee 42%, #f4ead9 100%);
   color: #2c211c;
@@ -17,15 +20,36 @@ export const INVOICE_PAPER_CSS = `
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
+@media print {
+  .dhara-inv-paper {
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+  }
+}
 .dhara-inv-paper-frame {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   border: 1.5px solid #6b1d3a;
   padding: 5px;
   background: #fffcf7;
 }
 .dhara-inv-paper-inner {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   border: 1px solid #c4a35a;
   padding: 7.5mm 8mm 6.5mm;
   background: #fffcf7;
+}
+.dhara-inv-paper-inner > * {
+  flex-shrink: 0;
 }
 .dhara-inv-paper-header {
   display: flex;
@@ -40,8 +64,12 @@ export const INVOICE_PAPER_CSS = `
   flex: 1;
 }
 .dhara-inv-paper-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   margin: 0;
-  line-height: 0.92;
+  line-height: 1.15;
   color: #6b1d3a;
 }
 .dhara-inv-paper-dhara {
@@ -49,16 +77,18 @@ export const INVOICE_PAPER_CSS = `
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: 34px;
   font-weight: 700;
+  line-height: 1.15;
   letter-spacing: 0.04em;
   color: #6b1d3a;
 }
 .dhara-inv-paper-photography {
   display: block;
-  margin-top: 1px;
+  margin: 0;
   font-family: 'Source Sans 3', Georgia, sans-serif;
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.34em;
+  line-height: 1.35;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
   color: #2c211c;
 }
@@ -80,6 +110,9 @@ export const INVOICE_PAPER_CSS = `
   color: #3d342e;
 }
 .dhara-inv-paper-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   flex: 0 0 210px;
   max-width: 46%;
   padding: 10px 12px 12px;
@@ -119,6 +152,7 @@ export const INVOICE_PAPER_CSS = `
 .dhara-inv-paper-status {
   display: inline-block;
   margin-top: 10px;
+  line-height: 1.25;
   padding: 4px 10px;
   border: 1px solid #6b1d3a;
   font-family: 'Source Sans 3', Georgia, sans-serif;
@@ -283,6 +317,8 @@ export const INVOICE_PAPER_CSS = `
   display: flex;
   justify-content: flex-end;
   margin: 0 0 16px;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 .dhara-inv-paper-totals {
   width: 268px;
@@ -331,6 +367,8 @@ export const INVOICE_PAPER_CSS = `
   padding: 12px 14px;
   border: 1px solid #e2d3b6;
   background: #fffaf2;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 .dhara-inv-paper-pay-grid {
   display: grid;
@@ -362,6 +400,8 @@ export const INVOICE_PAPER_CSS = `
   padding: 12px 14px;
   border: 1px solid #e2d3b6;
   background: #fffaf2;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 .dhara-inv-paper-list {
   margin: 8px 0 0;
@@ -386,9 +426,11 @@ export const INVOICE_PAPER_CSS = `
   grid-template-columns: 1fr auto;
   gap: 20px;
   align-items: end;
-  margin-top: 6px;
+  margin-top: auto;
   padding-top: 14px;
   border-top: 1px solid #d7c39a;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
 .dhara-inv-paper-terms ul {
   margin: 8px 0 0;

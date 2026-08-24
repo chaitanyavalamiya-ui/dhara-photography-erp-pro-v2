@@ -27,4 +27,10 @@ export class PreviewRestoreDto {
   backupFile!: string;
 }
 
+export class DownloadBackupQueryDto {
+  @IsString()
+  @IsNotEmpty()
+  backupFile!: string;
+}
+
 export const REQUIRED_RESTORE_PHRASE = RESTORE_CONFIRM_PHRASE;

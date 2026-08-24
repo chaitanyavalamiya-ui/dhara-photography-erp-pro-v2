@@ -8,7 +8,8 @@
   and SHA-256 checksums. Stored outside the git repository by default:
   %LOCALAPPDATA%\DharaPhotographyERP\Backups
 
-  Requires: pg_dump on PATH.
+  Requires: pg_dump on PATH, a local PostgreSQL\bin install, or the Docker
+  container dhara-erp-postgres.
   Never writes .env, JWT secrets, or passwords into the backup.
 #>
 param(

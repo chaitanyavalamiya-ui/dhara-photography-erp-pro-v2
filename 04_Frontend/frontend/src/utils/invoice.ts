@@ -45,11 +45,13 @@ export function formatItemRate(item: { unit: string; rate: number }): string {
   return formatCurrency(item.rate);
 }
 
-export function buildWhatsAppShareUrl(invoice: Invoice): string {
-  const mobile = invoice.client.mobile.replace(/\D/g, '');
-  const normalizedMobile = mobile.length === 10 ? `91${mobile}` : mobile;
+export function normalizeWhatsAppPhone(mobile: string): string {
+  const digits = mobile.replace(/\D/g, '');
+  return digits.length === 10 ? `91${digits}` : digits;
+}
 
-  const message = [
+export function buildWhatsAppShareText(invoice: Invoice): string {
+  return [
     `Dear ${invoice.client.fullName},`,
     '',
     'Greetings from Dhara Photography Patan!',
@@ -61,12 +63,44 @@ export function buildWhatsAppShareUrl(invoice: Invoice): string {
     `Advance Paid: ${formatCurrency(invoice.advanceAmount)}`,
     `Balance Due: ${formatCurrency(invoice.balanceAmount)}`,
     '',
-    'Thank you for choosing Dhara Photography. Please contact us for payment or any queries.',
+    'Please find your invoice PDF. Thank you for choosing Dhara Photography.',
     '',
     '— Dhara Photography Patan',
   ].join('\n');
+}
 
-  return `https://wa.me/${normalizedMobile}?text=${encodeURIComponent(message)}`;
+export function buildWhatsAppShareUrl(invoice: Invoice): string {
+  const phone = normalizeWhatsAppPhone(invoice.client.mobile);
+  return `https://wa.me/${phone}?text=${encodeURIComponent(buildWhatsAppShareText(invoice))}`;
+}
+
+export function canSharePdfFile(file: File): boolean {
+  if (typeof navigator.share !== 'function') {
+    return false;
+  }
+  if (typeof navigator.canShare !== 'function') {
+    return true;
+  }
+  try {
+    return navigator.canShare({ files: [file] });
+  } catch {
+    return true;
+  }
+}
+
+export function isShareAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+export async function shareInvoicePdfFile(file: File, title: string): Promise<void> {
+  if (typeof navigator.share !== 'function') {
+    throw new Error('WHATSAPP_PDF_SHARE_UNSUPPORTED');
+  }
+
+  await navigator.share({
+    files: [file],
+    title,
+  });
 }
 
 export function printInvoice(elementId: string): void {
@@ -95,13 +129,23 @@ export function printInvoice(elementId: string): void {
           rel="stylesheet"
         />
         <style>
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; background: #fff; }
-          @page { size: A4; margin: 12mm; }
+          * { box-sizing: border-box; }
+          html, body { margin: 0; padding: 0; background: #fbf6ee; }
+          body { font-family: Georgia, 'Times New Roman', serif; color: #1a1a1a; }
+          @page { size: A4 portrait; margin: 0; }
+          html, body { width: 210mm; height: 297mm; overflow: hidden; background: #fbf6ee; }
+          .dhara-inv-paper {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            max-height: 297mm !important;
+            height: 297mm !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+          }
           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         </style>
       </head>
-      <body>${element.innerHTML}</body>
+      <body>${element.outerHTML}</body>
     </html>
   `);
 

@@ -681,16 +681,19 @@
 
 .dhara-inv-modal-card.is-wide .dhara-inv-modal-body {
   flex: 1 1 auto;
+  min-width: 0;
   min-height: 0;
-  overflow-y: auto;
+  overflow: auto;
   overflow-anchor: none;
-  padding: 0.7rem 0.85rem 1rem;
+  padding: 0.7rem 0.85rem 1.25rem;
 }
 
 .dhara-inv-preview-stack {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .dhara-inv-modal-card.is-wide .dhara-inv-flash {
@@ -701,6 +704,16 @@
   display: flex;
   justify-content: center;
   width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
+
+.dhara-inv-preview-fit > .dhara-inv-paper {
+  flex: 0 1 auto;
+  min-width: 0;
+  width: min(210mm, 100%);
+  min-height: 297mm;
+  max-width: 100%;
 }
 
 .dhara-inv-form {

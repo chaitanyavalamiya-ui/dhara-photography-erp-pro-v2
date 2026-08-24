@@ -1,41 +1,26 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { spawn } from 'child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
-import { dirname, join, resolve } from 'path';
+import { randomUUID } from 'crypto';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { basename, dirname, join, resolve } from 'path';
 import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   assertBackupDirOutsideApp,
+  BACKUP_FILE_REQUIRED_MESSAGE,
+  confineBackupBrowsePath,
   expandWindowsEnvPath,
   getDefaultBackupDir,
   getPathsConfigFile,
   RESTORE_CONFIRM_PHRASE,
   resolveRepoRoot,
-  confineBackupBrowsePath,
   resolveSafeBackupZip,
 } from './app-paths';
 import { isSuccessfulRestore, restoreFailureUserMessage } from './restore-outcomes';
+import { BackupScriptResult, normalizeBackupScriptResult } from './backup-script-result';
 
-export interface BackupScriptResult {
-  success?: boolean;
-  message?: string;
-  backupFile?: string;
-  sizeBytes?: number;
-  createdAt?: string;
-  uploadFileCount?: number;
-  databaseName?: string;
-  backupFormatVersion?: string;
-  integrity?: string;
-  valid?: boolean;
-  applicationName?: string;
-  warning?: string;
-  confirmPhrase?: string;
-  verified?: boolean;
-  outcome?: string;
-  originalDatabaseRecovered?: boolean;
-  safetySnapshotPath?: string;
-}
+export type { BackupScriptResult } from './backup-script-result';
 
 @Injectable()
 export class BackupService {
@@ -116,8 +101,9 @@ export class BackupService {
       module: 'settings',
       action: 'backup_create',
       recordType: 'backup',
-      recordId: result.backupFile ?? 'backup',
+      recordId: randomUUID(),
       newValue: {
+        backupFile: result.backupFile,
         sizeBytes: result.sizeBytes,
         uploadFileCount: result.uploadFileCount,
       },
@@ -125,6 +111,36 @@ export class BackupService {
     });
 
     return result;
+  }
+
+  getDownloadPath(backupFile: string): string {
+    return this.assertBackupFile(backupFile);
+  }
+
+  saveUploadedBackup(file?: Express.Multer.File): { path: string; fileName: string } {
+    if (!file?.path || !existsSync(file.path)) {
+      throw new BadRequestException(BACKUP_FILE_REQUIRED_MESSAGE);
+    }
+
+    const originalName = basename(file.originalname || '').trim();
+    if (!originalName.toLowerCase().endsWith('.zip')) {
+      throw new BadRequestException(BACKUP_FILE_REQUIRED_MESSAGE);
+    }
+
+    const backupDir = this.resolveBackupDir(resolveRepoRoot());
+    mkdirSync(backupDir, { recursive: true });
+
+    const safeBase = originalName.replace(/[^\w.\-]+/g, '_');
+    const dest = join(backupDir, `uploaded_${Date.now()}_${safeBase}`);
+    try {
+      renameSync(file.path, dest);
+    } catch {
+      copyFileSync(file.path, dest);
+      unlinkSync(file.path);
+    }
+
+    const path = this.assertBackupFile(dest);
+    return { path, fileName: basename(path) };
   }
 
   async previewRestore(backupFile: string): Promise<BackupScriptResult> {
@@ -175,8 +191,9 @@ export class BackupService {
       module: 'settings',
       action: 'backup_restore',
       recordType: 'backup',
-      recordId: safePath,
+      recordId: randomUUID(),
       newValue: {
+        backupFile: safePath,
         verified: result.verified,
         uploadFileCount: result.uploadFileCount,
         outcome: result.outcome,
@@ -271,7 +288,7 @@ export class BackupService {
           return;
         }
         try {
-          const parsed = JSON.parse(jsonText) as BackupScriptResult;
+          const parsed = normalizeBackupScriptResult(JSON.parse(jsonText));
           if (code !== 0 && parsed.success === false) {
             resolvePromise(parsed);
             return;

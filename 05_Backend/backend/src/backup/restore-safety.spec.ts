@@ -11,6 +11,8 @@ describe('restore database safety snapshot', () => {
     expect(common).toContain('function New-DharaDatabaseSafetySnapshot');
     expect(common).toContain('function Restore-DharaDatabaseFromSqlDump');
     expect(common).toContain('Invoke-PgDumpSafe');
+    expect(common).toContain('function Resolve-PostgresTool');
+    expect(common).toContain('dhara-erp-postgres');
 
     const snapshotIndex = restore.indexOf('New-DharaDatabaseSafetySnapshot');
     const resetIndex = restore.indexOf('Reset-DharaDatabase');

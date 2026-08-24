@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Download, MessageCircle, Pencil, Plus, Printer, Share2, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Invoice } from '@/services/invoices-service';
@@ -6,8 +6,8 @@ import { Payment, paymentsService } from '@/services/payments-service';
 import { InvoiceDocument } from '@/components/invoices/InvoiceDocument';
 import { InvoicePaymentHistory } from '@/components/invoices/InvoicePaymentHistory';
 import { AddPaymentModal } from '@/components/accounts/AddPaymentModal';
-import { buildWhatsAppShareUrl, printInvoice } from '@/utils/invoice';
-import { downloadInvoicePdf } from '@/utils/invoice-pdf';
+import { isShareAbortError, printInvoice, shareInvoicePdfFile } from '@/utils/invoice';
+import { downloadInvoicePdf, generateInvoicePdfBlob, triggerPdfFileDownload } from '@/utils/invoice-pdf';
 import { getApiErrorMessage } from '@/utils/api-error';
 
 interface InvoiceViewModalProps {
@@ -37,7 +37,14 @@ export function InvoiceViewModal({
 }: InvoiceViewModalProps) {
   const queryClient = useQueryClient();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfReadyMessage, setPdfReadyMessage] = useState<string | null>(null);
+  const pdfRequestIdRef = useRef(0);
+  const whatsappRequestIdRef = useRef(0);
+  const [isPreparingWhatsAppPdf, setIsPreparingWhatsAppPdf] = useState(false);
+  const pdfCacheRef = useRef<{ invoiceId: string; blob: Blob; filename: string } | null>(null);
+  const prefetchPromiseRef = useRef<Promise<{ blob: Blob; filename: string }> | null>(null);
   const [voidTarget, setVoidTarget] = useState<Payment | null>(null);
   const [voidError, setVoidError] = useState<string | null>(null);
   const [editPayment, setEditPayment] = useState<Payment | null>(null);
@@ -86,6 +93,53 @@ export function InvoiceViewModal({
     },
   });
 
+  useEffect(() => {
+    if (open) {
+      return;
+    }
+    pdfRequestIdRef.current += 1;
+    whatsappRequestIdRef.current += 1;
+    setIsDownloadingPdf(false);
+    setIsSendingWhatsApp(false);
+    setIsPreparingWhatsAppPdf(false);
+    pdfCacheRef.current = null;
+    prefetchPromiseRef.current = null;
+    setPdfError(null);
+    setPdfReadyMessage(null);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !invoice) {
+      pdfCacheRef.current = null;
+      prefetchPromiseRef.current = null;
+      setIsPreparingWhatsAppPdf(false);
+      return;
+    }
+
+    const invoiceId = invoice.id;
+    const invoiceNumber = invoice.invoiceNumber;
+    const clientName = invoice.client.fullName;
+    setIsPreparingWhatsAppPdf(true);
+    const promise = generateInvoicePdfBlob('invoice-document-print', invoiceNumber, clientName).then(
+      (result) => {
+        pdfCacheRef.current = { invoiceId, ...result };
+        return result;
+      },
+    );
+    prefetchPromiseRef.current = promise;
+    void promise.finally(() => {
+      if (prefetchPromiseRef.current === promise) {
+        setIsPreparingWhatsAppPdf(false);
+      }
+    });
+
+    return () => {
+      if (prefetchPromiseRef.current === promise) {
+        prefetchPromiseRef.current = null;
+      }
+    };
+  }, [open, invoice?.id, invoice?.invoiceNumber, invoice?.client.fullName]);
+
   useLayoutEffect(() => {
     if (!open) {
       return;
@@ -103,9 +157,14 @@ export function InvoiceViewModal({
     printInvoice('invoice-document-print');
   };
 
+  const pdfBusy = isDownloadingPdf || isSendingWhatsApp;
+
   const handleDownloadPdf = async () => {
-    if (!invoice) return;
+    if (!invoice || pdfBusy) return;
+    const requestId = pdfRequestIdRef.current + 1;
+    pdfRequestIdRef.current = requestId;
     setPdfError(null);
+    setPdfReadyMessage(null);
     setIsDownloadingPdf(true);
     try {
       await downloadInvoicePdf(
@@ -113,12 +172,19 @@ export function InvoiceViewModal({
         invoice.invoiceNumber,
         invoice.client.fullName,
       );
+      if (requestId !== pdfRequestIdRef.current) return;
+      setPdfReadyMessage(
+        'Invoice PDF generated. Your browser should start the download.',
+      );
     } catch (error) {
+      if (requestId !== pdfRequestIdRef.current) return;
       setPdfError(
         error instanceof Error ? error.message : 'Failed to generate the invoice PDF.',
       );
     } finally {
-      setIsDownloadingPdf(false);
+      if (requestId === pdfRequestIdRef.current) {
+        setIsDownloadingPdf(false);
+      }
     }
   };
 
@@ -144,9 +210,52 @@ export function InvoiceViewModal({
     );
   };
 
-  const handleWhatsApp = () => {
-    if (!invoice) return;
-    window.open(buildWhatsAppShareUrl(invoice), '_blank', 'noopener,noreferrer');
+  const handleWhatsApp = async () => {
+    if (!invoice || pdfBusy || isPreparingWhatsAppPdf) return;
+    const requestId = whatsappRequestIdRef.current + 1;
+    whatsappRequestIdRef.current = requestId;
+    setPdfError(null);
+    setPdfReadyMessage(null);
+    setIsSendingWhatsApp(true);
+    try {
+      const cached = pdfCacheRef.current;
+      const prepared =
+        cached?.invoiceId === invoice.id
+          ? { blob: cached.blob, filename: cached.filename }
+          : await (prefetchPromiseRef.current ??
+              generateInvoicePdfBlob(
+                'invoice-document-print',
+                invoice.invoiceNumber,
+                invoice.client.fullName,
+              ));
+      if (requestId !== whatsappRequestIdRef.current) return;
+
+      pdfCacheRef.current = { invoiceId: invoice.id, ...prepared };
+      const file = new File([prepared.blob], prepared.filename, { type: 'application/pdf' });
+      try {
+        await shareInvoicePdfFile(file, `Invoice ${invoice.invoiceNumber}`);
+        if (requestId !== whatsappRequestIdRef.current) return;
+        setPdfReadyMessage('Invoice PDF ready. Choose WhatsApp to send the file.');
+      } catch (error) {
+        if (isShareAbortError(error)) {
+          return;
+        }
+        triggerPdfFileDownload(prepared.blob, prepared.filename);
+        if (requestId !== whatsappRequestIdRef.current) return;
+        setPdfReadyMessage(
+          'Invoice PDF saved. Open WhatsApp and send this PDF to the client.',
+        );
+      }
+    } catch (error) {
+      if (requestId !== whatsappRequestIdRef.current) return;
+      setPdfError(
+        error instanceof Error ? error.message : 'Failed to prepare the invoice PDF for WhatsApp.',
+      );
+    } finally {
+      if (requestId === whatsappRequestIdRef.current) {
+        setIsSendingWhatsApp(false);
+      }
+    }
   };
 
   return (
@@ -181,28 +290,38 @@ export function InvoiceViewModal({
             <button
               type="button"
               className="dhara-inv-btn"
-              disabled={!invoice || isDownloadingPdf}
+              disabled={!invoice || pdfBusy}
               onClick={() => void handleDownloadPdf()}
             >
               <Download strokeWidth={2.4} absoluteStrokeWidth />
-              {isDownloadingPdf ? 'PDF…' : 'PDF'}
+              {isDownloadingPdf ? 'Preparing PDF…' : 'PDF'}
             </button>
             <button type="button" className="dhara-inv-btn" disabled={!invoice} onClick={() => void handleShare()}>
               <Share2 strokeWidth={2.4} absoluteStrokeWidth />
               Share
             </button>
-            <button type="button" className="dhara-inv-btn" disabled={!invoice} onClick={handleWhatsApp}>
+            <button
+              type="button"
+              className="dhara-inv-btn"
+              disabled={!invoice || pdfBusy || isPreparingWhatsAppPdf}
+              onClick={() => void handleWhatsApp()}
+            >
               <MessageCircle strokeWidth={2.4} absoluteStrokeWidth />
-              WhatsApp
+              {isSendingWhatsApp ? 'Sending…' : 'WhatsApp'}
             </button>
             <button type="button" onClick={onClose} className="dhara-inv-icon-btn" aria-label="Close">
               <X strokeWidth={2.4} absoluteStrokeWidth />
             </button>
           </div>
         </div>
-        {pdfError && (
-          <div className="dhara-inv-flash is-bad" style={{ borderRadius: 0 }}>
-            {pdfError}
+        {(pdfError || pdfReadyMessage) && (
+          <div
+            className={`dhara-inv-flash ${pdfError ? 'is-bad' : 'is-ok'}`}
+            style={{ borderRadius: 0 }}
+            role="status"
+            aria-live="polite"
+          >
+            {pdfError ?? pdfReadyMessage}
           </div>
         )}
 

@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { StaffDetail } from '@/services/staff-service';
 import { equipmentService } from '@/services/equipment-service';
+import { listCurrentlyHoldingEquipment } from '@/utils/equipment-possession';
 import { formatCurrency, formatDate, formatStaffPayment } from '@/utils/staff-form';
 import { useAuthStore } from '@/stores/auth-store';
 import { staffInitials, staffStatusTone } from '@/components/staff/staff-visual';
@@ -23,6 +24,7 @@ export function StaffViewModal({ open, staff, isLoading, onClose, onEdit }: Staf
     queryFn: () => equipmentService.getStaffSummary(staff!.id),
     enabled: open && canEquipment && Boolean(staff?.id),
   });
+  const holdingRows = listCurrentlyHoldingEquipment(equipmentQuery.data?.issues ?? []);
 
   if (!open) return null;
 
@@ -161,6 +163,27 @@ export function StaffViewModal({ open, staff, isLoading, onClose, onEdit }: Staf
 
             {canEquipment && (
               <section>
+                <h3 className="dhara-stf-section-title">Currently Holding Equipment</h3>
+                {equipmentQuery.isLoading ? (
+                  <p className="dhara-stf-note">Loading equipment...</p>
+                ) : holdingRows.length === 0 ? (
+                  <p className="dhara-stf-note">No studio equipment is currently with this staff member.</p>
+                ) : (
+                  <ul className="dhara-stf-assign-list">
+                    {holdingRows.map((row) => (
+                      <li key={row.key} className="dhara-stf-booking-pick">
+                        <p>
+                          {row.equipmentName}
+                          {row.equipmentCode ? ` (${row.equipmentCode})` : ''} × {row.remainingQuantity}
+                        </p>
+                        <span>
+                          {row.bookingNumber} · {formatDate(row.issuedAt)} · {row.issueStatus}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
                 <h3 className="dhara-stf-section-title">Equipment History</h3>
                 {equipmentQuery.data ? (
                   <>

@@ -37,6 +37,7 @@ Invoice preview, document, and action UI:
 Invoice-specific utilities, PDF/print helpers, and API client:
 
 - `04_Frontend/frontend/src/utils/invoice.ts`
+- `04_Frontend/frontend/src/utils/invoice.test.ts`
 - `04_Frontend/frontend/src/utils/invoice-pdf.ts`
 - `04_Frontend/frontend/src/utils/invoice-pdf.test.ts`
 - `04_Frontend/frontend/src/utils/invoice-deliverables.ts`
@@ -48,9 +49,15 @@ Invoice-specific utilities, PDF/print helpers, and API client:
 - Invoice Management layout and visual hierarchy (hero, KPIs, search/filters, table/cards, generate/edit/view flow)
 - Crystal/glass ERP chrome for the Invoice *module screens* (not the printable paper)
 - Invoice Preview modal layout and scroll behavior as last approved: viewport-fit modal, sticky action toolbar (Add Payment, Edit, Print, PDF, Share, WhatsApp, Close), body `scrollTop` reset on open, `overflow-anchor: none`, invoice document first then Payment History below — do not reintroduce the auto-scroll/jump bug
-- Premium royal invoice *paper* design (ivory A4, maroon/gold frame, typography, table, totals, stamp, footer tagline) as last approved
-- Existing Invoice functionality: list/get APIs, totals/calculations, deliverables, Print, PDF generation, Share, WhatsApp, payment history UI wiring, permissions, and routes
+- Premium royal invoice *paper* design as last approved: ivory A4, maroon/gold frame filling the page, flex column so terms/stamp/tagline sit at the bottom, typography, table, totals
+- One A4 PDF page matching preview (`#invoice-document-print` capture); do not reintroduce a short capture with empty space below the frame, or a text-only `wa.me` WhatsApp send
+- WhatsApp sends the invoice **PDF file** (Web Share `files` only; fallback saves the PDF for the user to send). Do not switch WhatsApp back to caption-only chat URLs
+- Existing Invoice functionality: list/get APIs, totals/calculations, deliverables, Print, PDF generation, Share, payment history UI wiring, permissions, and routes
 - Invoice-related tests and their assertions
+
+## Recorded explicit approval (2026-08-23)
+
+User-approved Invoice changes, now frozen: WhatsApp sends the generated invoice PDF; PDF/print paper fills one A4 page like the preview (frame to the bottom, footer at the bottom). Layout of Invoice Management screens, other toolbar actions, and other modules stay locked.
 
 ## Other work must stay independent
 

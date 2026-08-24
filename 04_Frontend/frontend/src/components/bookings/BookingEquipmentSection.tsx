@@ -259,6 +259,12 @@ export function BookingEquipmentSection({ booking }: BookingEquipmentSectionProp
 
   return (
     <div className="space-y-4">
+      <div>
+        <h3 className="font-display text-lg font-semibold text-gold">Packing Checklist</h3>
+        <p className="text-xs text-gray-500">
+          Packing reference only. Does not assign stock to a staff member or reduce inventory.
+        </p>
+      </div>
       <div className="flex flex-wrap gap-2">
         {canUpdate && (
           <>

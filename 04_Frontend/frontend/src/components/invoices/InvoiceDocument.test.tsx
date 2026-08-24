@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { InvoiceDocument } from './InvoiceDocument';
+import { INVOICE_PAPER_CSS } from './invoice-paper-styles';
 import { Invoice } from '@/services/invoices-service';
 import { encodeInvoiceNotes, INVOICE_TAGLINE } from '@/utils/invoice-deliverables';
 
@@ -63,6 +64,31 @@ describe('InvoiceDocument', () => {
     expect(screen.getAllByText('Balance Due')).toHaveLength(2);
     expect(screen.getByText('Authorized Signature')).toBeInTheDocument();
     expect(screen.getByText('Payment due as per agreed schedule.')).toBeInTheDocument();
+  });
+
+  it('stacks the studio name above PHOTOGRAPHY without a collapsed title line-height', () => {
+    render(<InvoiceDocument invoice={invoice} />);
+
+    const title = document.querySelector('.dhara-inv-paper-title') as HTMLElement;
+    const dhara = document.querySelector('.dhara-inv-paper-dhara') as HTMLElement;
+    const photography = document.querySelector('.dhara-inv-paper-photography') as HTMLElement;
+
+    expect(title).toContainElement(dhara);
+    expect(title).toContainElement(photography);
+    expect(dhara.compareDocumentPosition(photography) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper-title \{[^}]*flex-direction:\s*column/);
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper-title \{[^}]*line-height:\s*1\.15/);
+    expect(INVOICE_PAPER_CSS).not.toMatch(/\.dhara-inv-paper-title \{[^}]*line-height:\s*0\.92/);
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper-dhara \{[^}]*line-height:\s*1\.15/);
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper-photography \{[^}]*line-height:\s*1\.35/);
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper-pay \{[^}]*break-inside:\s*avoid/);
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper-summary \{[^}]*break-inside:\s*avoid/);
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper \{[^}]*display:\s*flex/);
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper-frame \{[^}]*flex:\s*1 1 auto/);
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper-bottom \{[^}]*margin-top:\s*auto/);
+    expect(INVOICE_PAPER_CSS).toMatch(/\.dhara-inv-paper-bottom \{[^}]*break-inside:\s*avoid/);
   });
 
   it('keeps long names, due dates, and extra service rows readable', () => {

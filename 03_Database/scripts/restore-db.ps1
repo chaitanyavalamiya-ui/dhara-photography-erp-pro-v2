@@ -9,7 +9,8 @@
   database (drop/create) and swaps uploads via staging folders. If the new
   restore fails after the drop, the safety snapshot is loaded automatically.
 
-  Requires: psql on PATH.
+  Requires: psql on PATH, a local PostgreSQL\bin install, or the Docker
+  container dhara-erp-postgres.
 #>
 param(
     [string]$BackupFile,

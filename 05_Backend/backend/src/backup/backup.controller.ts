@@ -1,11 +1,31 @@
-import { Body, Controller, Get, Patch, Post, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Query,
+  Req,
+  StreamableFile,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
+import { createReadStream } from 'fs';
+import { basename } from 'path';
 import { RequirePermissions } from '../common/decorators/auth.decorators';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 import { BackupService } from './backup.service';
-import { PreviewRestoreDto, RestoreBackupDto, UpdateBackupLocationDto } from './dto/backup.dto';
+import { createBackupUploadMulterOptions } from './backup-upload.multer';
+import {
+  DownloadBackupQueryDto,
+  PreviewRestoreDto,
+  RestoreBackupDto,
+  UpdateBackupLocationDto,
+} from './dto/backup.dto';
 
 @ApiTags('Backup')
 @ApiBearerAuth()
@@ -34,6 +54,18 @@ export class BackupController {
     return { items: this.backupService.listHistory() };
   }
 
+  @Get('download')
+  @RequirePermissions('settings.update')
+  @ApiOperation({ summary: 'Download a backup ZIP from the backup folder' })
+  download(@Query() query: DownloadBackupQueryDto): StreamableFile {
+    const filePath = this.backupService.getDownloadPath(query.backupFile);
+    const safeName = basename(filePath).replace(/[\r\n"]/g, '_');
+    return new StreamableFile(createReadStream(filePath), {
+      type: 'application/zip',
+      disposition: `attachment; filename="${safeName}"`,
+    });
+  }
+
   @Post()
   @RequirePermissions('settings.update')
   @ApiOperation({ summary: 'Create a full local backup now' })
@@ -53,6 +85,15 @@ export class BackupController {
   @ApiOperation({ summary: 'Open a local file picker for a backup ZIP' })
   browseBackupFile() {
     return this.backupService.browseBackupFile();
+  }
+
+  @Post('restore/upload')
+  @RequirePermissions('settings.update', 'roles.manage')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', createBackupUploadMulterOptions()))
+  @ApiOperation({ summary: 'Upload a backup ZIP into the backup folder for restore preview' })
+  uploadRestoreFile(@UploadedFile() file: Express.Multer.File) {
+    return this.backupService.saveUploadedBackup(file);
   }
 
   @Post('restore')

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { HardDrive } from 'lucide-react';
 import { backupService, BackupHistoryItem, BackupRunResult } from '@/services/settings-service';
@@ -29,6 +29,7 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
   const [restorePath, setRestorePath] = useState('');
   const [preview, setPreview] = useState<BackupRunResult | null>(null);
   const [confirmPhrase, setConfirmPhrase] = useState('');
+  const restoreFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const locationQuery = useQuery({
     queryKey: ['settings', 'backup', 'location'],
@@ -41,7 +42,19 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
   });
 
   const createMutation = useMutation({
-    mutationFn: backupService.createBackup,
+    mutationFn: async () => {
+      const result = await backupService.createBackup();
+      const backupFile = result.backupFile?.trim();
+      if (!backupFile) {
+        throw new Error('Backup finished but no backup file path was returned.');
+      }
+      try {
+        await backupService.downloadBackup(backupFile);
+      } catch {
+        // ZIP is already on this PC; browser download is best-effort.
+      }
+      return result;
+    },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['settings', 'backup', 'history'] });
       onFeedback({
@@ -70,7 +83,7 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
   });
 
   const previewMutation = useMutation({
-    mutationFn: backupService.previewRestore,
+    mutationFn: (backupFile: string) => backupService.previewRestore(backupFile),
     onSuccess: (result) => {
       setPreview(result);
       setConfirmPhrase('');
@@ -108,7 +121,7 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
   });
 
   const browseMutation = useMutation({
-    mutationFn: backupService.browseBackup,
+    mutationFn: (file: File) => backupService.uploadBackup(file),
     onSuccess: (result) => {
       if (result.path) {
         setRestorePath(result.path);
@@ -118,10 +131,23 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
     onError: (error: unknown) => {
       onFeedback({
         type: 'error',
-        message: getApiErrorMessage(error, 'Could not open the backup file picker.'),
+        message: getApiErrorMessage(error, 'Could not open the selected backup file.'),
       });
     },
   });
+
+  const openRestorePicker = () => {
+    restoreFileInputRef.current?.click();
+  };
+
+  const handleRestoreFileSelected = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+    browseMutation.mutate(file);
+  };
 
   const currentLocation = locationDraft || locationQuery.data?.backupDir || '';
 
@@ -160,6 +186,11 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
                 ({formatBytes(createMutation.data.sizeBytes)})
               </p>
             )}
+            {createMutation.isError && (
+              <p className="dhara-set-note" role="alert">
+                {getApiErrorMessage(createMutation.error, 'Backup failed.')}
+              </p>
+            )}
           </>
         ) : (
           <p className="dhara-set-note">You need settings update permission to create backups.</p>
@@ -177,6 +208,14 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
           <div className="mt-4 space-y-3">
             <div className="dhara-set-toolbar-row">
               <input
+                ref={restoreFileInputRef}
+                type="file"
+                accept=".zip,application/zip"
+                hidden
+                data-testid="backup-restore-file-input"
+                onChange={handleRestoreFileSelected}
+              />
+              <input
                 className="dhara-set-input"
                 style={{ flex: '1 1 16rem' }}
                 placeholder="Backup ZIP path"
@@ -187,7 +226,7 @@ export function BackupRestorePanel({ onFeedback }: BackupRestorePanelProps) {
                 type="button"
                 className="dhara-set-btn"
                 disabled={browseMutation.isPending}
-                onClick={() => browseMutation.mutate()}
+                onClick={openRestorePicker}
               >
                 Browse PC / Pendrive
               </button>

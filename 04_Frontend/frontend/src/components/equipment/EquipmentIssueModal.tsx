@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import {
@@ -43,7 +43,31 @@ export function EquipmentIssueModal({
     enabled: open,
   });
 
+  const teamQuery = useQuery({
+    queryKey: ['bookings', bookingId, 'staff'],
+    queryFn: () => staffService.listBookingTeam(bookingId),
+    enabled: open && Boolean(bookingId),
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const preferred = defaultStaffId || teamQuery.data?.[0]?.staffId || '';
+    if (preferred) {
+      setStaffId((current) => current || preferred);
+    }
+  }, [open, defaultStaffId, teamQuery.data]);
+
   const items = catalogQuery.data?.items ?? [];
+  const teamMembers = teamQuery.data ?? [];
+  const teamIds = useMemo(() => new Set(teamMembers.map((member) => member.staffId)), [teamMembers]);
+  const allStaff = staffQuery.data?.items ?? [];
+  const assignedStaff = allStaff.filter((member) => teamIds.has(member.id));
+  const otherStaff = allStaff.filter((member) => !teamIds.has(member.id));
+  const assignedMissingFromList = teamMembers.filter(
+    (member) => !allStaff.some((staffMember) => staffMember.id === member.staffId),
+  );
 
   const selectable = useMemo(
     () =>
@@ -110,8 +134,10 @@ export function EquipmentIssueModal({
       <div className="card max-h-[92vh] w-full max-w-4xl overflow-y-auto">
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <h2 className="font-display text-xl font-semibold text-gold">Issue Equipment / Shoot Checklist</h2>
-            <p className="text-sm text-gray-400">Record exactly what is leaving for the shoot.</p>
+            <h2 className="font-display text-xl font-semibold text-gold">Studio Equipment Issue</h2>
+            <p className="text-sm text-gray-400">
+              Track studio stock and which staff member currently has each item.
+            </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-400" aria-label="Close">
             <X className="h-5 w-5" />
@@ -128,11 +154,27 @@ export function EquipmentIssueModal({
               onChange={(e) => setStaffId(e.target.value)}
             >
               <option value="">Select staff</option>
-              {(staffQuery.data?.items ?? []).map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.fullName}
-                </option>
-              ))}
+              {(assignedStaff.length > 0 || assignedMissingFromList.length > 0) && (
+                <optgroup label="Assigned to this booking">
+                  {assignedStaff.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.fullName}
+                    </option>
+                  ))}
+                  {assignedMissingFromList.map((member) => (
+                    <option key={member.staffId} value={member.staffId}>
+                      {member.staffName}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <optgroup label={assignedStaff.length > 0 ? 'Other staff' : 'All staff'}>
+                {(assignedStaff.length > 0 ? otherStaff : allStaff).map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.fullName}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
           <div>

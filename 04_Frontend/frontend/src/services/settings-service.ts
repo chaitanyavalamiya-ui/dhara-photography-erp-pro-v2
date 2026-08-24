@@ -1,4 +1,5 @@
 import { apiClient, ApiResponse } from './api-client';
+import { backupFileNameFromPath, triggerBackupFileDownload } from '@/utils/backup-file';
 
 export type MasterDataCategory = 'expense_category' | 'payment_mode' | 'equipment_category';
 
@@ -203,6 +204,22 @@ export interface BackupRunResult {
 
 const backupRequestConfig = { timeout: 30 * 60 * 1000 };
 
+function normalizeBackupResult(result: BackupRunResult): BackupRunResult {
+  const raw = result as BackupRunResult & {
+    BackupFile?: string;
+    Success?: boolean;
+    SizeBytes?: number;
+    Message?: string;
+  };
+  return {
+    ...result,
+    success: raw.success ?? raw.Success,
+    backupFile: raw.backupFile ?? raw.BackupFile,
+    sizeBytes: raw.sizeBytes ?? raw.SizeBytes,
+    message: raw.message ?? raw.Message,
+  };
+}
+
 export const backupService = {
   async getLocation(): Promise<BackupLocation> {
     const { data } = await apiClient.get<ApiResponse<BackupLocation>>('/settings/backup/location');
@@ -229,6 +246,29 @@ export const backupService = {
       {},
       backupRequestConfig,
     );
+    return normalizeBackupResult(data.data);
+  },
+
+  async downloadBackup(backupFile: string): Promise<void> {
+    const response = await apiClient.get<Blob>('/settings/backup/download', {
+      params: { backupFile },
+      responseType: 'blob',
+      ...backupRequestConfig,
+    });
+    triggerBackupFileDownload(response.data, backupFileNameFromPath(backupFile));
+  },
+
+  async uploadBackup(file: File): Promise<{ path: string; fileName: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await apiClient.post<ApiResponse<{ path: string; fileName: string }>>(
+      '/settings/backup/restore/upload',
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        ...backupRequestConfig,
+      },
+    );
     return data.data;
   },
 
@@ -247,7 +287,7 @@ export const backupService = {
       { backupFile },
       backupRequestConfig,
     );
-    return data.data;
+    return normalizeBackupResult(data.data);
   },
 
   async restoreBackup(backupFile: string, confirmPhrase: string): Promise<BackupRunResult> {

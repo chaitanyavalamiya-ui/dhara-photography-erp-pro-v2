@@ -7,17 +7,23 @@ import {
   assertInvoicePdfCaptureTarget,
   buildInvoicePdfFilename,
   containsUnsupportedCssColorFunction,
+  chooseInvoicePdfSliceHeight,
+  collectInvoicePdfKeepTogetherRanges,
   createInvoicePdfCaptureTarget,
   cssColorToRgb,
   downloadInvoicePdf,
   extractOpaqueCssColor,
+  findQuietInvoicePdfSliceHeight,
   flattenPdfClonePaintSources,
   getInvoicePdfCaptureTargetSize,
+  getInvoicePdfPageHeightPx,
+  INVOICE_PDF_A4_MIN_HEIGHT_PX,
   INVOICE_PDF_A4_WIDTH_PX,
   INVOICE_PDF_SAFE_CSS,
   normalizeInvoiceSubtreeForPdfCapture,
   replaceUnsupportedCssColors,
   sanitizeZeroSizeCanvasesForPdfCapture,
+  shouldFitInvoicePdfOnSingleA4Page,
   triggerPdfFileDownload,
 } from './invoice-pdf';
 
@@ -139,6 +145,7 @@ describe('invoice PDF download', () => {
       createObjectURL: vi.fn(() => 'blob:http://localhost/invoice-pdf'),
       revokeObjectURL: vi.fn(),
     });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
     await downloadInvoicePdf('invoice-document-print', 'INV-000005', 'UAT Test Client');
 
@@ -149,6 +156,7 @@ describe('invoice PDF download', () => {
     expect(click.mock.contexts[0]).toMatchObject({
       download: 'INV-000005-UAT-Test-Client.pdf',
     });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('throws a useful error when the invoice preview is missing', async () => {
@@ -525,6 +533,9 @@ describe('invoice PDF download', () => {
     expect(INVOICE_PDF_SAFE_CSS).toContain('.dhara-inv-paper-table th');
     expect(INVOICE_PDF_SAFE_CSS).toContain('#faf4e8');
     expect(INVOICE_PDF_SAFE_CSS).toContain('#2c211c');
+    expect(INVOICE_PDF_SAFE_CSS).toMatch(/\.dhara-inv-paper \{[^}]*display:\s*flex/);
+    expect(INVOICE_PDF_SAFE_CSS).toMatch(/\.dhara-inv-paper-bottom \{[^}]*margin-top:\s*auto/);
+    expect(INVOICE_PDF_SAFE_CSS).toMatch(/\.dhara-inv-paper-title \{[^}]*flex-direction:\s*column/);
     expect(root.querySelector('style[data-invoice-pdf-safe]')).not.toBeNull();
   });
 
@@ -540,19 +551,139 @@ describe('invoice PDF download', () => {
     expect(addImage).toHaveBeenCalledTimes(1);
   });
 
-  it('still paginates when the invoice capture is genuinely two pages tall', () => {
-    const canvas = createCanvas(1588, 4200);
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
-      drawImage: vi.fn(),
-    } as unknown as CanvasRenderingContext2D);
+  it('places a normal A4 capture on exactly one PDF page', () => {
+    const canvas = createCanvas(1588, getInvoicePdfPageHeightPx(1588));
     const addImage = vi.fn();
     const addPage = vi.fn();
     const pdf = { addImage, addPage } as unknown as InstanceType<typeof jsPDF>;
 
     addPaginatedCanvasToPdf(pdf, canvas);
 
-    expect(addPage).toHaveBeenCalledTimes(1);
-    expect(addImage).toHaveBeenCalledTimes(2);
+    expect(shouldFitInvoicePdfOnSingleA4Page(1588, canvas.height)).toBe(true);
+    expect(addPage).not.toHaveBeenCalled();
+    expect(addImage).toHaveBeenCalledTimes(1);
+    expect(addImage.mock.calls[0]?.[5]).toBeLessThanOrEqual(297);
+  });
+
+  it('keeps near-boundary rounding overflow on one A4 page', () => {
+    const pageHeightPx = getInvoicePdfPageHeightPx(1588);
+    const canvas = createCanvas(1588, pageHeightPx + 24);
+    const addImage = vi.fn();
+    const addPage = vi.fn();
+    const pdf = { addImage, addPage } as unknown as InstanceType<typeof jsPDF>;
+
+    addPaginatedCanvasToPdf(pdf, canvas);
+
+    expect(addPage).not.toHaveBeenCalled();
+    expect(addImage).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the same A4 geometry for capture pixels and PDF page size', () => {
+    expect(INVOICE_PDF_A4_WIDTH_PX).toBe(794);
+    expect(INVOICE_PDF_A4_MIN_HEIGHT_PX).toBe(1123);
+    expect(getInvoicePdfPageHeightPx(INVOICE_PDF_A4_WIDTH_PX)).toBe(INVOICE_PDF_A4_MIN_HEIGHT_PX);
+    expect(getInvoicePdfPageHeightPx(1588) / 1588).toBeCloseTo(297 / 210, 3);
+    expect(shouldFitInvoicePdfOnSingleA4Page(1588, 2246)).toBe(true);
+    expect(shouldFitInvoicePdfOnSingleA4Page(1588, 4200)).toBe(true);
+  });
+
+  it('scales a typical tall invoice capture onto exactly one A4 page', () => {
+    const canvas = createCanvas(1588, 4200);
+    const addImage = vi.fn();
+    const addPage = vi.fn();
+    const pdf = { addImage, addPage } as unknown as InstanceType<typeof jsPDF>;
+
+    addPaginatedCanvasToPdf(pdf, canvas);
+
+    expect(addPage).not.toHaveBeenCalled();
+    expect(addImage).toHaveBeenCalledTimes(1);
+    expect(Number(addImage.mock.calls[0]?.[5])).toBeLessThanOrEqual(296.5);
+  });
+
+  it('pads a short invoice capture onto a full A4 page', () => {
+    const canvas = createCanvas(1588, 1400);
+    const addImage = vi.fn();
+    const addPage = vi.fn();
+    const pdf = { addImage, addPage } as unknown as InstanceType<typeof jsPDF>;
+
+    addPaginatedCanvasToPdf(pdf, canvas);
+
+    expect(addPage).not.toHaveBeenCalled();
+    expect(addImage).toHaveBeenCalledTimes(1);
+    expect(addImage.mock.calls[0]?.[3]).toBe(0);
+    expect(addImage.mock.calls[0]?.[4]).toBe(210);
+    expect(Number(addImage.mock.calls[0]?.[5])).toBe(296.5);
+  });
+
+  it('moves the page break into a quiet gap instead of slicing through a content block', () => {
+    const width = 800;
+    const height = 3200;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const pageHeightPx = Math.floor((width * (297 - 24)) / (210 - 24));
+    const contentTop = pageHeightPx - 48;
+    const contentBottom = contentTop + 140;
+
+    vi.spyOn(canvas, 'getContext').mockImplementation(
+      () =>
+        ({
+          getImageData: (_sx: number, sy: number, sw: number, sh: number) => {
+            const data = new Uint8ClampedArray(Math.max(0, sw) * Math.max(0, sh) * 4);
+            for (let pixel = 0; pixel < data.length / 4; pixel += 1) {
+              const row = sy + Math.floor(pixel / Math.max(1, sw));
+              const offset = pixel * 4;
+              const isInk = row >= contentTop && row < contentBottom;
+              data[offset] = isInk ? 107 : 251;
+              data[offset + 1] = isInk ? 29 : 246;
+              data[offset + 2] = isInk ? 58 : 238;
+              data[offset + 3] = 255;
+            }
+            return { data } as ImageData;
+          },
+          drawImage: vi.fn(),
+        }) as unknown as CanvasRenderingContext2D,
+    );
+
+    const sliceHeight = findQuietInvoicePdfSliceHeight(canvas, 0, pageHeightPx);
+    expect(sliceHeight).toBeLessThanOrEqual(contentTop);
+    expect(sliceHeight).toBeGreaterThan(pageHeightPx * 0.58);
+  });
+
+  it('breaks the PDF page before Payment Information instead of cutting through it', () => {
+    expect(
+      chooseInvoicePdfSliceHeight(0, 2000, 4200, [{ start: 1680, end: 2360 }]),
+    ).toBe(1680);
+  });
+
+  it('collects payment, totals, and table rows as keep-together ranges', () => {
+    const root = document.createElement('div');
+    root.className = 'dhara-inv-paper';
+    root.innerHTML = `
+      <div class="dhara-inv-paper-summary">totals</div>
+      <div class="dhara-inv-paper-pay">payment</div>
+      <table class="dhara-inv-paper-table"><tbody><tr><td>row</td></tr></tbody></table>
+    `;
+    Object.defineProperty(root, 'getBoundingClientRect', {
+      value: () => ({ top: 0, bottom: 400, height: 400, left: 0, right: 100, width: 100 }),
+    });
+    root.querySelectorAll('*').forEach((node, index) => {
+      Object.defineProperty(node, 'getBoundingClientRect', {
+        value: () => ({
+          top: 80 + index * 90,
+          bottom: 150 + index * 90,
+          height: 70,
+          left: 0,
+          right: 100,
+          width: 100,
+        }),
+      });
+    });
+
+    const ranges = collectInvoicePdfKeepTogetherRanges(root);
+    expect(ranges.some((range) => range.start === 80)).toBe(true);
+    expect(ranges.length).toBeGreaterThanOrEqual(3);
   });
 });
 

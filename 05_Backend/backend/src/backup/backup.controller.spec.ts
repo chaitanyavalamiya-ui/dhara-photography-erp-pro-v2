@@ -7,6 +7,8 @@ describe('BackupController authorization', () => {
   it('protects restore with owner-only roles.manage plus settings.update', () => {
     expect(source).toContain("@Controller('settings/backup')");
     expect(source).toContain("@RequirePermissions('settings.update', 'roles.manage')");
+    expect(source).toContain("@Get('download')");
+    expect(source).toContain("@Post('restore/upload')");
     expect(source).toContain("@Post('restore')");
     expect(source).toContain("@Post()");
   });

@@ -1,4 +1,10 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
+import {
+  Injectable,
+  NestInterceptor,
+  ExecutionContext,
+  CallHandler,
+  StreamableFile,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -9,14 +15,19 @@ export interface ApiResponse<T> {
 }
 
 @Injectable()
-export class TransformInterceptor<T> implements NestInterceptor<T, ApiResponse<T>> {
-  intercept(_context: ExecutionContext, next: CallHandler<T>): Observable<ApiResponse<T>> {
+export class TransformInterceptor<T> implements NestInterceptor<T, ApiResponse<T> | T> {
+  intercept(_context: ExecutionContext, next: CallHandler<T>): Observable<ApiResponse<T> | T> {
     return next.handle().pipe(
-      map((data) => ({
-        success: true,
-        message: 'Operation completed successfully.',
-        data,
-      })),
+      map((data) => {
+        if (data instanceof StreamableFile) {
+          return data;
+        }
+        return {
+          success: true,
+          message: 'Operation completed successfully.',
+          data,
+        };
+      }),
     );
   }
 }

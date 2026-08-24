@@ -19,7 +19,7 @@ vi.mock('@/services/equipment-service', async () => {
 });
 
 vi.mock('@/services/staff-service', () => ({
-  staffService: { list: vi.fn() },
+  staffService: { list: vi.fn(), listBookingTeam: vi.fn() },
 }));
 
 function renderModal() {
@@ -46,6 +46,7 @@ describe('EquipmentIssueModal', () => {
       limit: 100,
       totalPages: 1,
     } as never);
+    vi.mocked(staffService.listBookingTeam).mockResolvedValue([]);
     vi.mocked(equipmentService.list).mockResolvedValue({
       items: [
         {
@@ -93,6 +94,32 @@ describe('EquipmentIssueModal', () => {
     renderModal();
     expect(await screen.findByText('256GB Memory Card')).toBeInTheDocument();
     expect(screen.queryByText('Canon 200D Mark II')).not.toBeInTheDocument();
+  });
+
+  it('keeps staff outside the booking selectable', async () => {
+    vi.mocked(staffService.listBookingTeam).mockResolvedValue([
+      {
+        id: 'asg-1',
+        staffId: 'staff-team',
+        staffCode: 'ST-9',
+        staffName: 'Ramesh',
+        role: 'photographer',
+        roleLabel: 'Photographer',
+      },
+    ]);
+    vi.mocked(staffService.list).mockResolvedValue({
+      items: [
+        { id: 'staff-team', fullName: 'Ramesh', staffCode: 'ST-9' },
+        { id: 'staff-1', fullName: 'Rahul', staffCode: 'ST-1' },
+      ],
+      total: 2,
+      page: 1,
+      limit: 100,
+      totalPages: 1,
+    } as never);
+    renderModal();
+    expect(await screen.findByRole('option', { name: 'Rahul' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Ramesh' })).toBeInTheDocument();
   });
 
   it('validates quantity against available stock', async () => {
